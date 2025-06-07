@@ -101,7 +101,7 @@ export default async function CardSetsPage({ searchParams }: { searchParams?: { 
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {sets.map((set) => (
+          {sets.map((set, index) => (
             <Card key={set.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
               <CardHeader className="p-0">
                 <div className="relative w-full h-32 bg-muted flex items-center justify-center overflow-hidden">
@@ -112,6 +112,7 @@ export default async function CardSetsPage({ searchParams }: { searchParams?: { 
                       fill
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                       className="object-contain"
+                      priority={index < 4} // Add priority to the first few images
                     />
                   ) : <div className="text-sm text-muted-foreground">No Logo</div> }
                 </div>
@@ -119,13 +120,14 @@ export default async function CardSetsPage({ searchParams }: { searchParams?: { 
               <CardContent className="p-4 flex-grow">
                 <div className="flex items-center mb-2">
                   {set.symbolUrl && (
-                    <Image 
-                      src={set.symbolUrl} 
-                      alt={`${set.name} symbol`} 
-                      width={24} 
-                      height={24} 
-                      className="mr-2 object-contain" 
-                    />
+                    <div className="relative w-6 h-6 mr-2 shrink-0">
+                      <Image 
+                        src={set.symbolUrl} 
+                        alt={`${set.name} symbol`} 
+                        fill
+                        className="object-contain" 
+                      />
+                    </div>
                   )}
                   <CardTitle className="font-headline text-lg leading-tight">{set.name}</CardTitle>
                 </div>
