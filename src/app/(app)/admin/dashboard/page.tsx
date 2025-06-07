@@ -15,10 +15,9 @@ async function fetchTotalCountFromPaginated(endpoint: string): Promise<number> {
   const fetchUrl = `${APP_URL}/api/${endpoint}?limit=1`;
 
   if (!APP_URL && process.env.NODE_ENV === 'development') {
-    // In dev, if APP_URL is not set, this implies a relative fetch like /api/endpoint?limit=1
     console.warn(`APP_URL is not defined. Attempting relative fetch to ${fetchUrl} from server-side.`);
   } else if (!APP_URL) {
-    console.error(`APP_URL is not defined for dashboard data fetching of ${endpoint}. Critical for non-relative fetches.`);
+    console.error(`APP_URL is not defined for dashboard data fetching of ${endpoint}. Critical for non-relative fetches. Fetch URL was: ${fetchUrl}`);
     return 0;
   }
 
@@ -57,7 +56,7 @@ async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]>
   if (!APP_URL && process.env.NODE_ENV === 'development') {
     console.warn(`APP_URL is not defined. Attempting relative fetch to ${fetchUrl} from server-side.`);
   } else if (!APP_URL) {
-    console.error("APP_URL is not defined for dashboard data fetching of set releases.");
+    console.error(`APP_URL is not defined for dashboard data fetching of set releases. Fetch URL was: ${fetchUrl}`);
     return [];
   }
   
@@ -109,7 +108,7 @@ async function fetchTotalUsersCount(): Promise<number> {
   if (!APP_URL && process.env.NODE_ENV === 'development') {
     console.warn(`APP_URL is not defined. Attempting relative fetch to ${fetchUrl} from server-side.`);
   } else if (!APP_URL) {
-    console.error("APP_URL is not defined for fetching total users count.");
+    console.error(`APP_URL is not defined for fetching total users count. Fetch URL was: ${fetchUrl}`);
     return 0;
   }
 
@@ -130,15 +129,14 @@ async function fetchTotalUsersCount(): Promise<number> {
 }
 
 async function fetchApiRequests24h(): Promise<number> {
-  const APP_URL = process.env.APP_URL || "";
-  const fetchUrl = `${APP_URL}/api/usage`;
+  const EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
 
-  if (!APP_URL && process.env.NODE_ENV === 'development') {
-    console.warn(`APP_URL is not defined. Attempting relative fetch to ${fetchUrl} from server-side.`);
-  } else if (!APP_URL) {
-    console.error("APP_URL is not defined for fetching API requests count.");
+  if (!EXTERNAL_API_BASE_URL) {
+    console.error("EXTERNAL_API_BASE_URL is not defined for fetching API requests count directly.");
     return 0;
   }
+
+  const fetchUrl = `${EXTERNAL_API_BASE_URL}/usage`;
 
   try {
     const response = await fetch(fetchUrl); 
@@ -149,6 +147,8 @@ async function fetchApiRequests24h(): Promise<number> {
       return 0;
     }
     const data = await response.json();
+    // Assuming the /usage endpoint returns { "api_requests_24h": X, "totalUsers": Y }
+    // or { "data": { "api_requests_24h": X, "totalUsers": Y } }
     return data.api_requests_24h || data.data?.api_requests_24h || 0;
   } catch (error) {
     console.error(`Error fetching API requests count from ${fetchUrl}:`, error);
@@ -167,8 +167,8 @@ export default async function AdminDashboardPage() {
     fetchTotalCountFromPaginated("cards"),
     fetchTotalCountFromPaginated("sets"),
     fetchSetReleaseData(),
-    fetchTotalUsersCount(),
-    fetchApiRequests24h(),
+    fetchTotalUsersCount(), // Still fetches via internal proxy /api/users/all
+    fetchApiRequests24h(),  // Now fetches directly from EXTERNAL_API_BASE_URL/usage
   ]);
 
   const setReleaseChartConfig = {
@@ -194,7 +194,8 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalUsers.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">{totalUsers > 0 || (process.env.APP_URL && totalUsers === 0) ? "Live data" : "No data / API error"}</p>
+            {/* This relies on APP_URL for its proxy fetch, so its condition is slightly different */}
+            <p className="text-xs text-muted-foreground">{totalUsers > 0 || (process.env.APP_URL && totalUsers === 0) ? "Live data (via internal API)" : "No data / API error"}</p>
           </CardContent>
         </Card>
         <Card>
@@ -204,7 +205,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalCards.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">{totalCards > 0 ? "Live data" : "No data / API error"}</p>
+            <p className="text-xs text-muted-foreground">{totalCards > 0 ? "Live data (via internal API)" : "No data / API error"}</p>
           </CardContent>
         </Card>
         <Card>
@@ -214,7 +215,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalSets.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">{totalSets > 0 ? "Live data" : "No data / API error"}</p>
+            <p className="text-xs text-muted-foreground">{totalSets > 0 ? "Live data (via internal API)" : "No data / API error"}</p>
           </CardContent>
         </Card>
         <Card>
@@ -224,7 +225,8 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{apiRequests24h.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">{apiRequests24h > 0 || (process.env.APP_URL && apiRequests24h === 0) ? "Live data" : "No data / API error"}</p>
+            {/* Updated condition to check EXTERNAL_API_BASE_URL */}
+            <p className="text-xs text-muted-foreground">{apiRequests24h > 0 || (process.env.EXTERNAL_API_BASE_URL && apiRequests24h === 0) ? "Live data (from external API)" : "No data / API error"}</p>
           </CardContent>
         </Card>
       </div>
