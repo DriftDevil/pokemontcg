@@ -61,11 +61,15 @@ async function getCardSets(searchTerm?: string, page: number = 1): Promise<CardS
   }
   queryParams.set('page', page.toString());
   queryParams.set('limit', REQUESTED_PAGE_SIZE_SETS.toString()); // Use 'limit' for primary API
+  queryParams.set('orderBy', '-releaseDate'); // Request sort by newest release date
 
   const defaultReturn: CardSetListResult = { sets: [], currentPage: page, totalPages: 0, totalCount: 0, pageSize: REQUESTED_PAGE_SIZE_SETS };
 
   try {
-    const response = await fetch(`${APP_URL}/api/sets?${queryParams.toString()}`);
+    const fetchUrl = `${APP_URL}/api/sets?${queryParams.toString()}`;
+    console.log('Fetching sets with URL (getCardSets function):', fetchUrl);
+    const response = await fetch(fetchUrl);
+    
     if (!response.ok) {
       console.error("Failed to fetch sets from internal API:", response.status, await response.text());
       return defaultReturn;
@@ -89,7 +93,7 @@ async function getCardSets(searchTerm?: string, page: number = 1): Promise<CardS
     if (apiTotalPages === undefined) {
       apiTotalPages = apiTotalCount > 0 && apiPageSize > 0 ? Math.ceil(apiTotalCount / apiPageSize) : 0;
     }
-    apiTotalPages = Math.max(1, apiTotalPages); // Ensure at least 1 page if there's content, or 0 if not.
+    apiTotalPages = Math.max(1, apiTotalPages); 
     if (apiTotalCount === 0) apiTotalPages = 0;
 
 
@@ -128,8 +132,6 @@ export default async function CardSetsPage({ searchParams }: { searchParams?: { 
         icon={Layers}
         actions={
           <form className="flex items-center gap-2" method="GET" action="/sets">
-            {/* Hidden input to reset page on new search, or manage this via JS if preferred */}
-            {/* <input type="hidden" name="page" value="1" /> */}
             <Input type="search" name="search" placeholder="Search sets..." className="w-64" defaultValue={searchTerm} />
             <Button type="submit" variant="outline" size="icon">
               <Search className="h-4 w-4" />
