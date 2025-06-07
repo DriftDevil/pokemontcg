@@ -32,43 +32,37 @@ export default function CardFiltersForm({
   const router = useRouter();
   const currentSearchParams = useSearchParams();
 
-  // Initialize state directly from props, which already incorporate searchParams or defaults from parent
   const [searchTerm, setSearchTerm] = useState(initialSearchProp);
   const [selectedSet, setSelectedSet] = useState(initialSetProp);
   const [selectedType, setSelectedType] = useState(initialTypeProp);
   const [selectedRarity, setSelectedRarity] = useState(initialRarityProp);
 
-  // Effect to update state if URL searchParams change externally
   useEffect(() => {
     const searchFromUrl = currentSearchParams.get('search');
     const setFromUrl = currentSearchParams.get('set');
     const typeFromUrl = currentSearchParams.get('type');
     const rarityFromUrl = currentSearchParams.get('rarity');
 
-    if (searchFromUrl !== null && searchFromUrl !== searchTerm) {
-      setSearchTerm(searchFromUrl);
-    } else if (searchFromUrl === null && searchTerm !== initialSearchProp) {
-      setSearchTerm(initialSearchProp);
+    const targetSearch = searchFromUrl !== null ? searchFromUrl : initialSearchProp;
+    if (targetSearch !== searchTerm) {
+      setSearchTerm(targetSearch);
     }
 
-    if (setFromUrl !== null && setFromUrl !== selectedSet) {
-      setSelectedSet(setFromUrl);
-    } else if (setFromUrl === null && selectedSet !== initialSetProp) {
-      setSelectedSet(initialSetProp);
+    const targetSet = setFromUrl !== null ? setFromUrl : initialSetProp;
+    if (targetSet !== selectedSet) {
+      setSelectedSet(targetSet);
     }
 
-    if (typeFromUrl !== null && typeFromUrl !== selectedType) {
-      setSelectedType(typeFromUrl);
-    } else if (typeFromUrl === null && selectedType !== initialTypeProp) {
-      setSelectedType(initialTypeProp);
+    const targetType = typeFromUrl !== null ? typeFromUrl : initialTypeProp;
+    if (targetType !== selectedType) {
+      setSelectedType(targetType);
     }
 
-    if (rarityFromUrl !== null && rarityFromUrl !== selectedRarity) {
-      setSelectedRarity(rarityFromUrl);
-    } else if (rarityFromUrl === null && selectedRarity !== initialRarityProp) {
-      setSelectedRarity(initialRarityProp);
+    const targetRarity = rarityFromUrl !== null ? rarityFromUrl : initialRarityProp;
+    if (targetRarity !== selectedRarity) {
+      setSelectedRarity(targetRarity);
     }
-  }, [currentSearchParams, initialSearchProp, initialSetProp, initialTypeProp, initialRarityProp, searchTerm, selectedSet, selectedType, selectedRarity]);
+  }, [currentSearchParams, initialSearchProp, initialSetProp, initialTypeProp, initialRarityProp]);
 
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -83,12 +77,10 @@ export default function CardFiltersForm({
   };
 
   const handleClear = () => {
-    // Reset local state first
-    setSearchTerm(initialSearchProp); // Reset to initial prop default which is ""
-    setSelectedSet(initialSetProp); // Reset to initial prop default "All Sets"
-    setSelectedType(initialTypeProp); // Reset to initial prop default "All Types"
-    setSelectedRarity(initialRarityProp); // Reset to initial prop default "All Rarities"
-    // Then navigate to clear URL params
+    setSearchTerm(""); 
+    setSelectedSet("All Sets"); 
+    setSelectedType("All Types"); 
+    setSelectedRarity("All Rarities"); 
     router.push('/cards');
   };
 
@@ -151,5 +143,3 @@ export default function CardFiltersForm({
     </form>
   );
 }
-
-    
