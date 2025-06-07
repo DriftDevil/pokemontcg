@@ -49,7 +49,7 @@ paths:
           schema:
             type: integer
             minimum: 1
-            default: 250 
+            default: 250
           description: Number of items per page.
         - name: all # Added for dashboard use
           in: query
@@ -88,7 +88,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  data: 
+                  data:
                     $ref: '#/components/schemas/Set'
         '404':
           $ref: '#/components/responses/404'
@@ -194,7 +194,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  data: 
+                  data:
                     $ref: '#/components/schemas/Card'
         '404':
           $ref: '#/components/responses/404'
@@ -389,7 +389,7 @@ paths:
       - Users
       security:
       - oauth2:
-        - openid 
+        - openid
       parameters:
       - in: path
         name: userID
@@ -418,7 +418,7 @@ paths:
       tags:
       - Users
       security:
-      - oauth2: 
+      - oauth2:
         - openid
       responses:
         '200':
@@ -481,9 +481,12 @@ paths:
           description: Service Unavailable - Not ready.
   /usage:
     get:
-      summary: Get API usage metrics
+      summary: Get API usage metrics (admin only)
       tags:
         - System
+      security: # Added security requirement if this is admin-only info
+        - oauth2:
+            - openid # Assuming 'openid' or a specific admin scope would be needed
       responses:
         '200':
           description: API usage metrics.
@@ -496,6 +499,10 @@ paths:
                     type: integer
                     description: Total number of API requests in the last 24 hours.
                     example: 1205832
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          description: Forbidden - User does not have admin privileges.
         '500':
           $ref: '#/components/responses/500'
 components:
@@ -528,7 +535,7 @@ components:
           type: string
           format: date
           description: The date the set was released (YYYY-MM-DD).
-        total: 
+        total:
           type: integer
           description: The official number of cards in the set (excluding secret rares).
         images:
@@ -561,7 +568,7 @@ components:
         count:
           type: integer
           description: The number of items returned in the current page.
-        totalCount: 
+        totalCount:
           type: integer
           description: The total number of sets matching the query across all pages.
         totalPages:
@@ -591,7 +598,7 @@ components:
           description: A list of subtypes (e.g., Stage 1, VMAX, Item). (Optional)
           nullable: true
         hp:
-          type: string 
+          type: string
           description: The Hit Points of the Pokémon. (Optional)
           nullable: true
         types:
@@ -644,7 +651,7 @@ components:
         count:
           type: integer
           description: The number of items returned in the current page.
-        totalCount: 
+        totalCount:
           type: integer
           description: The total number of cards matching the query across all pages.
         totalPages:
@@ -698,5 +705,5 @@ components:
       description: Internal Server Error - An unexpected error occurred on the server.
     '503':
       description: Service Unavailable - The server is currently unable to handle the request.
-      
-```
+
+    

@@ -10,11 +10,17 @@ export async function GET(request: NextRequest) {
   }
 
   const externalUrl = `${EXTERNAL_API_BASE_URL}/usage`;
-  
+
+  // TODO: Implement proper authentication forwarding if the external API /usage endpoint requires it.
+  // For example, if it needs an admin-level OAuth token or API key.
+  // const token = request.headers.get('Authorization'); // Or some other mechanism to get an admin token
+
   try {
     const response = await fetch(externalUrl, {
       headers: {
-        'Content-Type': 'application/json', 
+        // If authentication is needed:
+        // 'Authorization': `Bearer ${admin_token_goes_here}`,
+        'Content-Type': 'application/json',
       }
     });
 
@@ -31,3 +37,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch or parse data from external usage API' }, { status: 500 });
   }
 }
+
+    
