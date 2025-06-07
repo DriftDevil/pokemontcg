@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import SetReleaseChart from "@/components/admin/dashboard/set-release-chart";
 import { cn } from "@/lib/utils";
+import type { User as ApiUserType } from "@/app/(app)/admin/users/page"; // Using existing User type for mock
 
-// Helper function to fetch total counts from internal API
-async function fetchTotalCount(endpoint: string): Promise<number> {
+// Helper function to fetch total counts from internal API for paginated resources
+async function fetchTotalCountFromPaginated(endpoint: string): Promise<number> {
   const APP_URL = process.env.APP_URL || "";
   if (!APP_URL) {
     console.error(`APP_URL is not defined for dashboard data fetching of ${endpoint}.`);
@@ -26,7 +27,7 @@ async function fetchTotalCount(endpoint: string): Promise<number> {
       return 0;
     }
     const data = await response.json();
-    return data.totalCount || data.total || 0; // Accommodate different naming for total
+    return data.totalCount || data.total || 0; 
   } catch (error) {
     console.error(`Error fetching ${endpoint} count:`, error);
     return 0;
@@ -43,7 +44,6 @@ interface PaginatedApiResponse<T> {
   data: T[];
   totalCount?: number;
   total?: number;
-  // other pagination fields if present
 }
 
 async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]> {
@@ -53,8 +53,7 @@ async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]>
     return [];
   }
   try {
-    // Using all=true as indicated in openapi.yaml to fetch all sets for the chart
-    const response = await fetch(`${APP_URL}/api/sets?all=true&orderBy=-releaseDate`);
+    const response = await fetch(`${APP_URL}/api/sets?all=true&orderBy=-releaseDate`); // Assuming 'all=true' fetches all sets
     if (!response.ok) {
       console.error(`Failed to fetch set release data: ${response.status}`);
       const errorBody = await response.text();
@@ -74,7 +73,7 @@ async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]>
       if (set.releaseDate) {
         try {
           const year = new Date(set.releaseDate).getFullYear().toString();
-          if (!isNaN(parseInt(year))) { // Check if year is a valid number
+          if (!isNaN(parseInt(year))) {
             releasesByYear[year] = (releasesByYear[year] || 0) + 1;
           } else {
             console.warn(`Invalid year parsed from releaseDate: ${set.releaseDate} for set ${set.name}`);
@@ -87,28 +86,52 @@ async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]>
 
     return Object.entries(releasesByYear)
       .map(([year, count]) => ({ year, count }))
-      .sort((a, b) => parseInt(a.year) - parseInt(b.year)); // Sort by year ascending for chart display
+      .sort((a, b) => parseInt(a.year) - parseInt(b.year));
   } catch (error) {
     console.error("Error fetching or processing set release data:", error);
     return [];
   }
 }
 
-const mockUsers = [
+// Helper function to fetch total users count
+async function fetchTotalUsersCount(): Promise<number> {
+  const APP_URL = process.env.APP_URL || "";
+  if (!APP_URL) {
+    console.error("APP_URL is not defined for fetching total users count.");
+    return 0;
+  }
+  try {
+    const response = await fetch(`${APP_URL}/api/users/all`);
+    if (!response.ok) {
+      console.error(`Failed to fetch total users count: ${response.status}`);
+      const errorBody = await response.text();
+      console.error(`Error body: ${errorBody}`);
+      return 0;
+    }
+    const data: { data?: ApiUserType[] } = await response.json();
+    return data.data?.length || 0;
+  } catch (error) {
+    console.error("Error fetching total users count:", error);
+    return 0;
+  }
+}
+
+
+const mockRecentUsers = [
   { id: 'usr_1', name: 'Satoshi Tajiri', email: 'satoshi@poke.jp', role: 'Admin', status: 'Active' },
   { id: 'usr_2', name: 'Ken Sugimori', email: 'ken@poke.jp', role: 'Editor', status: 'Active' },
   { id: 'usr_3', name: 'Junichi Masuda', email: 'junichi@poke.jp', role: 'Viewer', status: 'Inactive' },
 ];
 
 export default async function AdminDashboardPage() {
-  const [totalCards, totalSets, setReleaseTimelineData] = await Promise.all([
-    fetchTotalCount("cards"),
-    fetchTotalCount("sets"),
-    fetchSetReleaseData()
+  const [totalCards, totalSets, setReleaseTimelineData, totalUsers] = await Promise.all([
+    fetchTotalCountFromPaginated("cards"),
+    fetchTotalCountFromPaginated("sets"),
+    fetchSetReleaseData(),
+    fetchTotalUsersCount(),
   ]);
 
-  const totalUsers = 1234; // Mock data
-  const apiRequests24h = 1205832; // Mock data
+  const apiRequests24h = 1205832; // Mock data, as no API endpoint exists for this
 
   const setReleaseChartConfig = {
     count: {
@@ -133,7 +156,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalUsers.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Mock data</p>
+            <p className="text-xs text-muted-foreground">{totalUsers > 0 || (process.env.APP_URL && totalUsers === 0) ? "Live data" : "No data / API error"}</p>
           </CardContent>
         </Card>
         <Card>
@@ -163,7 +186,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{apiRequests24h.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Mock data</p>
+            <p className="text-xs text-muted-foreground">Mock data (endpoint unavailable)</p>
           </CardContent>
         </Card>
       </div>
@@ -198,7 +221,7 @@ export default async function AdminDashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockUsers.slice(0,3).map((user) => (
+                {mockRecentUsers.slice(0,3).map((user) => (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{user.name}</TableCell>
                     <TableCell>{user.email}</TableCell>
