@@ -10,7 +10,6 @@ import SetReleaseChart from "@/components/admin/dashboard/set-release-chart";
 import { cn } from "@/lib/utils";
 import type { User as ApiUserType } from "@/app/(app)/admin/users/page"; 
 
-// Helper function to fetch total counts from internal API for paginated resources
 async function fetchTotalCountFromPaginated(endpoint: string): Promise<number> {
   const APP_URL = process.env.APP_URL || "";
   if (!APP_URL) {
@@ -52,7 +51,6 @@ async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]>
     return [];
   }
   try {
-    // Use 'all=true' as defined in openapi.yaml to fetch all sets
     const response = await fetch(`${APP_URL}/api/sets?all=true&orderBy=-releaseDate`); 
     if (!response.ok) {
       console.error(`Failed to fetch set release data: ${response.status}`);
@@ -122,19 +120,17 @@ async function fetchApiRequests24h(): Promise<number> {
     return 0;
   }
   try {
-    const response = await fetch(`${APP_URL}/api/metrics`);
+    const response = await fetch(`${APP_URL}/api/usage`); 
     if (!response.ok) {
-      console.error(`Failed to fetch API requests count: ${response.status}`);
+      console.error(`Failed to fetch API requests count from /api/usage: ${response.status}`);
       const errorBody = await response.text();
       console.error(`Error body: ${errorBody}`);
       return 0;
     }
-    // Assuming the /metrics endpoint returns JSON like: { "api_requests_24h": 12345 }
-    // Or if nested: { "data": { "api_requests_24h": 12345 } }
     const data = await response.json();
     return data.api_requests_24h || data.data?.api_requests_24h || 0;
   } catch (error) {
-    console.error("Error fetching API requests count:", error);
+    console.error("Error fetching API requests count from /api/usage:", error);
     return 0;
   }
 }
@@ -272,5 +268,3 @@ export default async function AdminDashboardPage() {
     </>
   );
 }
-
-    

@@ -88,7 +88,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  data: # Data is wrapped in a 'data' object
+                  data: 
                     $ref: '#/components/schemas/Set'
         '404':
           $ref: '#/components/responses/404'
@@ -194,7 +194,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  data: # Data is wrapped in a 'data' object
+                  data: 
                     $ref: '#/components/schemas/Card'
         '404':
           $ref: '#/components/responses/404'
@@ -389,7 +389,7 @@ paths:
       - Users
       security:
       - oauth2:
-        - openid # Assuming admin or self can view
+        - openid 
       parameters:
       - in: path
         name: userID
@@ -418,7 +418,7 @@ paths:
       tags:
       - Users
       security:
-      - oauth2: # Define specific admin scope if possible
+      - oauth2: 
         - openid
       responses:
         '200':
@@ -479,9 +479,9 @@ paths:
                 example: OK
         '503':
           description: Service Unavailable - Not ready.
-  /metrics:
+  /usage:
     get:
-      summary: Get API metrics
+      summary: Get API usage metrics
       tags:
         - System
       responses:
@@ -496,7 +496,6 @@ paths:
                     type: integer
                     description: Total number of API requests in the last 24 hours.
                     example: 1205832
-                  # Add other relevant metrics here as needed
         '500':
           $ref: '#/components/responses/500'
 components:
@@ -511,7 +510,6 @@ components:
             openid: Required for OpenID Connect.
             profile: Access to user's basic profile information.
             email: Access to user's email address.
-            # admin: Custom scope for admin-only endpoints (if applicable)
   schemas:
     Set:
       type: object
@@ -563,7 +561,7 @@ components:
         count:
           type: integer
           description: The number of items returned in the current page.
-        totalCount: # Standardized to totalCount
+        totalCount: 
           type: integer
           description: The total number of sets matching the query across all pages.
         totalPages:
@@ -629,8 +627,6 @@ components:
           nullable: true
         set:
           $ref: '#/components/schemas/Set'
-        # Add other detailed fields from pokemontcg.io as optional if needed for completeness, e.g.:
-        # evolvesFrom, abilities, attacks, weaknesses, resistances, retreatCost, flavorText, nationalPokedexNumbers, legalities
     PaginatedCards:
       type: object
       description: A paginated list of Pokémon TCG cards.
@@ -648,13 +644,12 @@ components:
         count:
           type: integer
           description: The number of items returned in the current page.
-        totalCount: # Standardized to totalCount
+        totalCount: 
           type: integer
           description: The total number of cards matching the query across all pages.
         totalPages:
           type: integer
           description: The total number of pages available.
-        # version: # if applicable for card data consistency
     User:
       type: object
       description: A user of the Pokémon TCG API.
@@ -704,39 +699,4 @@ components:
     '503':
       description: Service Unavailable - The server is currently unable to handle the request.
       
-# Potential further additions to schemas for more detail if desired:
-# Ability, Attack, Weakness, Resistance, Legality etc.
-# For example:
-#   Ability:
-#     type: object
-#     properties:
-#       name:
-#         type: string
-#       text:
-#         type: string
-#       type: # Pokémon Power, Poké-Body, etc.
-#         type: string
-#   Attack:
-#     type: object
-#     properties:
-#       name:
-#         type: string
-#       cost:
-#         type: array
-#         items:
-#           type: string # Energy type
-#       convertedEnergyCost:
-#         type: integer
-#       damage:
-#         type: string # Can be numeric, or empty, or e.g. "20+"
-#       text:
-#         type: string
-#   TypedValue: # For Weakness/Resistance
-#     type: object
-#     properties:
-#       type:
-#         type: string # Energy type
-#       value:
-#         type: string # e.g., "x2", "+30"
-
-    
+```
