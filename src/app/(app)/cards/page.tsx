@@ -2,12 +2,12 @@
 import PageHeader from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CreditCard, Search, Eye } from "lucide-react";
+// Input and Select related imports are now handled by CardFiltersForm
+import { CreditCard, Eye } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import CardFiltersForm from '@/components/cards/card-filters-form';
 
 // Matches API structure for a card (used for mapping results from internal API)
 interface ApiPokemonCard {
@@ -176,7 +176,7 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
 }
 
 export default async function CardsPage({ searchParams }: { searchParams?: { search?: string; set?: string; type?: string; rarity?: string } }) {
-  const filters = {
+  const currentFilters = {
     search: searchParams?.search || "",
     set: searchParams?.set || "All Sets",
     type: searchParams?.type || "All Types",
@@ -184,7 +184,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: { sea
   };
 
   const [cards, setOptions, typeOptions, rarityOptions] = await Promise.all([
-    getCards(filters),
+    getCards(currentFilters),
     getSetOptions(),
     getTypeOptions(),
     getRarityOptions()
@@ -202,55 +202,15 @@ export default async function CardsPage({ searchParams }: { searchParams?: { sea
         description="Browse and search for individual Pokémon cards."
         icon={CreditCard}
       />
-      <form className="mb-6 p-4 border rounded-lg bg-card shadow">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-          <div>
-            <label htmlFor="search" className="block text-sm font-medium text-muted-foreground mb-1">Search by Name</label>
-            <Input type="search" id="search" name="search" placeholder="e.g., Charizard" defaultValue={filters.search} />
-          </div>
-          <div>
-            <label htmlFor="set" className="block text-sm font-medium text-muted-foreground mb-1">Filter by Set</label>
-            <Select name="set" defaultValue={filters.set}>
-              <SelectTrigger id="set">
-                <SelectValue placeholder="Select Set" />
-              </SelectTrigger>
-              <SelectContent>
-                {allSetOptions.map(setOpt => <SelectItem key={setOpt.id} value={setOpt.id}>{setOpt.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label htmlFor="type" className="block text-sm font-medium text-muted-foreground mb-1">Filter by Type</label>
-            <Select name="type" defaultValue={filters.type}>
-              <SelectTrigger id="type">
-                <SelectValue placeholder="Select Type" />
-              </SelectTrigger>
-              <SelectContent>
-                {allTypeOptions.map(typeName => <SelectItem key={typeName} value={typeName}>{typeName}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-           <div>
-            <label htmlFor="rarity" className="block text-sm font-medium text-muted-foreground mb-1">Filter by Rarity</label>
-            <Select name="rarity" defaultValue={filters.rarity}>
-              <SelectTrigger id="rarity">
-                <SelectValue placeholder="Select Rarity" />
-              </SelectTrigger>
-              <SelectContent>
-                {allRarityOptions.map(rarityName => <SelectItem key={rarityName} value={rarityName}>{rarityName}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="lg:col-start-4 flex gap-2">
-            <Button type="submit" className="w-full md:w-auto">
-              <Search className="mr-2 h-4 w-4" /> Apply Filters
-            </Button>
-             <Button type="reset" variant="outline" className="w-full md:w-auto" asChild>
-                <Link href="/cards">Clear</Link>
-             </Button>
-          </div>
-        </div>
-      </form>
+      <CardFiltersForm
+        initialSearch={currentFilters.search}
+        initialSet={currentFilters.set}
+        initialType={currentFilters.type}
+        initialRarity={currentFilters.rarity}
+        setOptions={allSetOptions}
+        typeOptions={allTypeOptions}
+        rarityOptions={allRarityOptions}
+      />
 
       {cards.length === 0 ? (
         <div className="text-center py-12">
