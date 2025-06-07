@@ -104,14 +104,14 @@ export default async function CardSetsPage({ searchParams }: { searchParams?: { 
           {sets.map((set) => (
             <Card key={set.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
               <CardHeader className="p-0">
-                <div className="relative w-full h-32 bg-muted flex items-center justify-center">
+                <div className="relative w-full h-32 bg-muted flex items-center justify-center overflow-hidden">
                   {set.logoUrl ? (
                     <Image 
                       src={set.logoUrl} 
                       alt={`${set.name} logo`} 
-                      width={150}
-                      height={50}
-                      className="object-contain p-2"
+                      fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      className="object-contain"
                     />
                   ) : <div className="text-sm text-muted-foreground">No Logo</div> }
                 </div>
@@ -124,7 +124,7 @@ export default async function CardSetsPage({ searchParams }: { searchParams?: { 
                       alt={`${set.name} symbol`} 
                       width={24} 
                       height={24} 
-                      className="mr-2" 
+                      className="mr-2 object-contain" 
                     />
                   )}
                   <CardTitle className="font-headline text-lg leading-tight">{set.name}</CardTitle>
