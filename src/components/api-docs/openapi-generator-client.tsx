@@ -7,58 +7,43 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal, Loader2 } from "lucide-react";
 import SwaggerViewer from "./swagger-viewer";
 import { useToast } from "@/hooks/use-toast";
-// No longer need js-yaml here if SwaggerUI handles parsing
-// import yaml from 'js-yaml';
-
 
 export default function OpenApiViewerClient() {
-  const [spec, setSpec] = useState<string | null>(null); // Store as string
-  const [isLoading, setIsLoading] = useState(true);
+  const [specUrl, setSpecUrl] = useState<string | null>('/openapi.yaml'); 
+  const [isLoading, setIsLoading] = useState(false); // SwaggerUI will handle its own loading internally
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    const fetchSpec = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const response = await fetch('/openapi.yaml');
-        if (!response.ok) {
-          throw new Error(`Failed to fetch OpenAPI spec: ${response.status} ${response.statusText}`);
-        }
-        const yamlText = await response.text();
-        setSpec(yamlText); // Store raw YAML text
-        toast({
-          title: "API Specification Loaded",
-          description: "The OpenAPI specification has been successfully loaded.",
-        });
-      } catch (e) {
-        console.error("Error loading OpenAPI spec:", e);
-        const errorMessage = e instanceof Error ? e.message : "An unknown error occurred.";
-        setError(`Failed to load OpenAPI spec: ${errorMessage}`);
-        toast({
-          variant: "destructive",
-          title: "Loading Failed",
-          description: `Could not load OpenAPI spec: ${errorMessage}`,
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchSpec();
-  }, [toast]);
+    if (!specUrl) {
+      const errorMessage = "OpenAPI specification URL is not configured.";
+      setError(errorMessage);
+      toast({
+        variant: "destructive",
+        title: "Configuration Error",
+        description: errorMessage,
+      });
+    } else {
+       toast({
+        title: "API Specification URL Ready",
+        description: `Swagger UI will load the specification from: ${specUrl}`,
+      });
+    }
+    // Since SwaggerUI handles its own loading from the URL, 
+    // this component's isLoading is minimal.
+    setIsLoading(false); 
+  }, [specUrl, toast]);
 
 
-  if (isLoading) {
+  if (isLoading) { // Minimal loading state for this component
     return (
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="font-headline text-2xl flex items-center">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading API Specification
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Initializing API Viewer
           </CardTitle>
           <CardDescription>
-            Please wait while the API documentation is being loaded.
+            Preparing to load API documentation.
           </CardDescription>
         </CardHeader>
         <CardContent className="h-64 flex items-center justify-center">
@@ -72,23 +57,23 @@ export default function OpenApiViewerClient() {
     return (
       <Alert variant="destructive">
         <Terminal className="h-4 w-4" />
-        <AlertTitle>Error Loading Specification</AlertTitle>
+        <AlertTitle>Error Initializing Viewer</AlertTitle>
         <AlertDescription>{error}</AlertDescription>
       </Alert>
     );
   }
 
-  if (spec) {
+  if (specUrl) {
     return (
       <Card className="shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="font-headline text-2xl">API Specification</CardTitle>
-            <CardDescription>Review the API specification below using Swagger UI or view the raw YAML.</CardDescription>
+            <CardDescription>Review the API specification below using Swagger UI.</CardDescription>
           </div>
         </CardHeader>
         <CardContent>
-          <SwaggerViewer spec={spec} />
+          <SwaggerViewer specUrl={specUrl} />
         </CardContent>
       </Card>
     );
@@ -96,4 +81,3 @@ export default function OpenApiViewerClient() {
 
   return null; 
 }
-

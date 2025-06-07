@@ -2,15 +2,16 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from '@/components/ui/textarea';
+// Tabs and Textarea are not used if we remove the Raw YAML tab for now.
+// import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+// import { Textarea } from '@/components/ui/textarea';
 import "swagger-ui-react/swagger-ui.css"; 
 
 interface SwaggerViewerProps {
-  spec: string | null; // Expecting a YAML/JSON string or null
+  specUrl: string | null; // Expecting a URL string or null
 }
 
-export default function SwaggerViewer({ spec }: SwaggerViewerProps) {
+export default function SwaggerViewer({ specUrl }: SwaggerViewerProps) {
   const [LoadedSwaggerUI, setLoadedSwaggerUI] = useState<React.ComponentType<any> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,57 +26,35 @@ export default function SwaggerViewer({ spec }: SwaggerViewerProps) {
       });
   }, []);
 
-  const specString = spec || "";
 
   if (error) {
      return (
       <div className="p-4 border rounded-md bg-destructive/10 text-destructive">
         <p>{error}</p>
-         <Textarea
-          value={specString}
-          readOnly
-          className="mt-4 min-h-[400px] w-full font-code text-sm bg-background"
-          aria-label="Raw OpenAPI Specification (Error State)"
-        />
       </div>
     );
   }
 
-  if (!LoadedSwaggerUI || !spec) { // Also check if spec is loaded
+  if (!LoadedSwaggerUI) {
     return (
       <div className="p-4 border rounded-md bg-muted">
-        <p className="text-muted-foreground">Loading Swagger Viewer or Specification...</p>
-        <Textarea
-          value={specString}
-          readOnly
-          className="mt-4 min-h-[400px] w-full font-code text-sm bg-background"
-          aria-label="Raw OpenAPI Specification (Loading State)"
-        />
+        <p className="text-muted-foreground">Loading Swagger Viewer...</p>
       </div>
     );
   }
   
+  if (!specUrl) {
+    return (
+      <div className="p-4 border rounded-md bg-muted">
+        <p className="text-muted-foreground">API Specification URL not provided.</p>
+      </div>
+    );
+  }
+  
+  // Simplified to only show Swagger UI directly
   return (
-    <Tabs defaultValue="swagger-ui" className="w-full">
-      <TabsList className="grid w-full grid-cols-2">
-        <TabsTrigger value="swagger-ui">Swagger UI</TabsTrigger>
-        <TabsTrigger value="raw-yaml">Raw YAML</TabsTrigger>
-      </TabsList>
-      <TabsContent value="swagger-ui">
-        <div className="swagger-container bg-card p-1 rounded-md shadow">
-          {/* Pass the spec string directly */}
-          <LoadedSwaggerUI spec={specString} /> 
-        </div>
-      </TabsContent>
-      <TabsContent value="raw-yaml">
-        <Textarea
-          value={specString}
-          readOnly
-          className="min-h-[600px] w-full font-code text-sm bg-background"
-          aria-label="Raw OpenAPI Specification"
-        />
-      </TabsContent>
-    </Tabs>
+    <div className="swagger-container bg-card p-1 rounded-md shadow">
+      <LoadedSwaggerUI url={specUrl} /> 
+    </div>
   );
 }
-
