@@ -2,7 +2,7 @@
 import PageHeader from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CreditCard, Eye } from "lucide-react";
+import { CreditCard, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -31,12 +31,12 @@ interface ApiPokemonCardSource {
   resistances?: { type: string; value: string }[];
   retreatCost?: string[];
   convertedRetreatCost?: number;
-  set: { // Set structure can also vary
+  set?: { // Set structure can also vary
     id: string;
     name: string;
     series?: string;
     printedTotal?: number;
-    total?: number;
+    total?: number; // Matches openapi.yaml 'total' and also in pokemontcg.io (different meaning)
     legalities?: { [key: string]: string };
     ptcgoCode?: string;
     releaseDate?: string;
@@ -66,6 +66,15 @@ export interface PokemonCard {
   artist: string;
 }
 
+interface PokemonCardListResult {
+  cards: PokemonCard[];
+  currentPage: number;
+  totalPages: number;
+  totalCount: number;
+  pageSize: number;
+}
+
+
 interface SetOption {
   id: string;
   name: string;
@@ -74,6 +83,7 @@ interface SetOption {
 const APP_URL = process.env.APP_URL || "";
 const PRIMARY_EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
 const BACKUP_EXTERNAL_API_BASE_URL = 'https://api.pokemontcg.io/v2';
+const REQUESTED_PAGE_SIZE = 24;
 
 
 async function getSetOptions(): Promise<SetOption[]> {
@@ -124,7 +134,7 @@ async function getRarityOptions(): Promise<string[]> {
   }
 }
 
-async function getCards(filters: { search?: string; set?: string; type?: string; rarity?: string }): Promise<PokemonCard[]> {
+async function getCards(filters: { search?: string; set?: string; type?: string; rarity?: string; page?: number }): Promise<PokemonCardListResult> {
   const queryParams = new URLSearchParams();
   const queryParts: string[] = [];
 
@@ -145,12 +155,19 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
   if (queryParts.length > 0) {
     queryParams.set('q', queryParts.join(' '));
   }
-  queryParams.set('pageSize', '24');
-  queryParams.set('orderBy', 'name'); // Sorting by name can be helpful
+
+  const currentPage = filters.page || 1;
+  queryParams.set('page', currentPage.toString());
+  
+  const usePrimaryApi = !!PRIMARY_EXTERNAL_API_BASE_URL;
+  const pageSizeParamName = usePrimaryApi ? 'limit' : 'pageSize';
+  queryParams.set(pageSizeParamName, REQUESTED_PAGE_SIZE.toString());
+  
+  queryParams.set('orderBy', 'name'); 
   const queryString = queryParams.toString();
 
   let apiResponse;
-  let fetchUrl = ""; // To log the actual URL being fetched
+  let fetchUrl = ""; 
 
   const mapApiCardToPokemonCard = (apiCard: ApiPokemonCardSource): PokemonCard => ({
     id: apiCard.id,
@@ -158,53 +175,82 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     setName: apiCard.set?.name || "Unknown Set",
     rarity: apiCard.rarity || "Unknown",
     type: apiCard.types?.[0] || "Colorless",
-    imageUrl: apiCard.images?.small || apiCard.images?.large || "https://placehold.co/245x342.png", // Prefer small, fallback to large, then placeholder
+    imageUrl: apiCard.images?.small || apiCard.images?.large || `https://placehold.co/245x342.png`,
     number: apiCard.number || "??",
     artist: apiCard.artist || "N/A",
   });
+  
+  const defaultReturn: PokemonCardListResult = { cards: [], currentPage: 1, totalPages: 1, totalCount: 0, pageSize: REQUESTED_PAGE_SIZE };
 
-  // Try Primary API
+  const processResponse = async (response: Response, source: 'Primary' | 'Backup'): Promise<PokemonCardListResult> => {
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.warn(`${source} API (${fetchUrl}) failed: ${response.status}`, errorData);
+      if (source === 'Primary' && PRIMARY_EXTERNAL_API_BASE_URL) return defaultReturn; // Indicate primary failure to trigger backup
+      throw new Error(`${source} API error: ${response.status}`);
+    }
+    const responseData = await response.json();
+    const cards = (responseData.data || []).map(mapApiCardToPokemonCard);
+
+    const apiCurrentPage = responseData.page || 1;
+    const apiPageSize = responseData.limit || responseData.pageSize || REQUESTED_PAGE_SIZE;
+    const apiCountOnPage = responseData.count || cards.length;
+    const apiTotalCount = responseData.totalCount || responseData.total || 0;
+
+    let apiTotalPages = responseData.totalPages;
+    if (apiTotalPages === undefined) {
+      if (apiTotalCount > 0 && apiPageSize > 0) {
+        apiTotalPages = Math.ceil(apiTotalCount / apiPageSize);
+      } else if (apiCountOnPage > 0 && apiPageSize > 0 && apiCurrentPage === 1 && apiCountOnPage < apiPageSize) {
+        apiTotalPages = 1;
+      } else if (apiCountOnPage === 0 && apiCurrentPage === 1) {
+        apiTotalPages = 0; // if no cards, 0 total pages, or 1 if you prefer to show an empty page
+      } else {
+        apiTotalPages = apiCurrentPage; 
+      }
+    }
+    apiTotalPages = Math.max(1, apiTotalPages); // Ensure at least 1 page, even if empty
+
+    return { cards, currentPage: apiCurrentPage, totalPages: apiTotalPages, totalCount: apiTotalCount, pageSize: apiPageSize };
+  };
+
+
   if (PRIMARY_EXTERNAL_API_BASE_URL) {
     fetchUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/cards${queryString ? `?${queryString}` : ''}`;
     console.log('Fetching cards with URL (getCards function - Primary Attempt):', fetchUrl);
     try {
       apiResponse = await fetch(fetchUrl);
-      if (apiResponse.ok) {
-        const data = await apiResponse.json();
-        return (data.data || []).map(mapApiCardToPokemonCard);
-      }
-      const errorData = await apiResponse.text();
-      console.warn(`Primary API (${fetchUrl}) failed: ${apiResponse.status}`, errorData);
+      const result = await processResponse(apiResponse, 'Primary');
+      // If primary API returns empty data but indicates an error (e.g. by not being ok, handled by processResponse),
+      // or if we specifically want to try backup on empty results from primary:
+      if (apiResponse.ok) return result; 
+      // If not ok, processResponse would have thrown or returned defaultReturn to signal backup
     } catch (error) {
-      console.warn(`Failed to fetch from Primary API (${fetchUrl}):`, error);
+      console.warn(`Failed to fetch or process from Primary API (${fetchUrl}):`, error);
     }
   } else {
      console.warn("Primary External API base URL not configured. Proceeding to backup.");
   }
 
-  // Try Backup API if Primary failed or was not configured
   fetchUrl = `${BACKUP_EXTERNAL_API_BASE_URL}/cards${queryString ? `?${queryString}` : ''}`;
   console.log('Attempting to fetch cards from Backup API (getCards function):', fetchUrl);
   try {
     apiResponse = await fetch(fetchUrl);
-    if (!apiResponse.ok) {
-      const errorData = await apiResponse.text();
-      console.error(`Backup API (${fetchUrl}) also failed: ${apiResponse.status}`, errorData);
-      return [];
-    }
-    const data = await apiResponse.json();
-    return (data.data || []).map(mapApiCardToPokemonCard);
+    return await processResponse(apiResponse, 'Backup');
   } catch (error) {
-    console.error(`Failed to fetch from Backup API (${fetchUrl}):`, error);
-    return [];
+    console.error(`Failed to fetch or process from Backup API (${fetchUrl}):`, error);
+    return defaultReturn;
   }
 }
 
-export default async function CardsPage({ searchParams }: { searchParams?: { search?: string; set?: string; type?: string; rarity?: string } }) {
+export default async function CardsPage({ searchParams }: { searchParams?: { search?: string; set?: string; type?: string; rarity?: string; page?: string } }) {
   const currentSearch = searchParams?.search ?? "";
   const currentSet = searchParams?.set ?? "All Sets";
   const currentType = searchParams?.type ?? "All Types";
   const currentRarity = searchParams?.rarity ?? "All Rarities";
+  const currentPageParam = searchParams?.page ?? "1";
+  const currentPage = parseInt(currentPageParam, 10) || 1;
+
 
   const currentFilters = {
     search: currentSearch,
@@ -213,8 +259,13 @@ export default async function CardsPage({ searchParams }: { searchParams?: { sea
     rarity: currentRarity,
   };
 
-  const [cards, setOptions, typeOptions, rarityOptions] = await Promise.all([
-    getCards(currentFilters),
+  const [
+    { cards, currentPage: apiCurrentPage, totalPages: apiTotalPages, totalCount: apiTotalCount }, 
+    setOptions, 
+    typeOptions, 
+    rarityOptions
+  ] = await Promise.all([
+    getCards({ ...currentFilters, page: currentPage }),
     getSetOptions(),
     getTypeOptions(),
     getRarityOptions()
@@ -223,6 +274,16 @@ export default async function CardsPage({ searchParams }: { searchParams?: { sea
   const allSetOptions: SetOption[] = [{ id: "All Sets", name: "All Sets" }, ...setOptions];
   const allTypeOptions: string[] = ["All Types", ...typeOptions];
   const allRarityOptions: string[] = ["All Rarities", ...rarityOptions];
+
+  const createPageLink = (newPage: number) => {
+    const params = new URLSearchParams();
+    if (currentFilters.search) params.set('search', currentFilters.search);
+    if (currentFilters.set && currentFilters.set !== "All Sets") params.set('set', currentFilters.set);
+    if (currentFilters.type && currentFilters.type !== "All Types") params.set('type', currentFilters.type);
+    if (currentFilters.rarity && currentFilters.rarity !== "All Rarities") params.set('rarity', currentFilters.rarity);
+    params.set('page', newPage.toString());
+    return `/cards?${params.toString()}`;
+  };
 
 
   return (
@@ -254,40 +315,65 @@ export default async function CardsPage({ searchParams }: { searchParams?: { sea
            </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          {cards.map((card) => (
-            <Card key={card.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 group">
-              <CardHeader className="p-0 relative aspect-[245/342] bg-muted flex items-center justify-center">
-                <Image
-                    src={card.imageUrl} // This now has a robust fallback
-                    alt={card.name}
-                    width={245}
-                    height={342}
-                    className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
-                    data-ai-hint={card.imageUrl.includes('placehold.co') ? "pokemon card" : undefined}
-                  />
-              </CardHeader>
-              <CardContent className="p-3 flex-grow">
-                <CardTitle className="font-headline text-md leading-tight mb-1 truncate" title={card.name}>{card.name}</CardTitle>
-                <CardDescription className="text-xs text-muted-foreground mb-1">Set: {card.setName}</CardDescription>
-                <div className="flex flex-wrap gap-1 text-xs mt-1">
-                    <Badge variant="secondary">{card.type} Type</Badge>
-                    <Badge variant="outline">{card.rarity}</Badge>
-                </div>
-                 <p className="text-xs text-muted-foreground mt-1">No. {card.number}</p>
-              </CardContent>
-              <CardFooter className="p-3 bg-muted/50 border-t">
-                <Button asChild variant="outline" size="sm" className="w-full">
-                  <Link href={`/cards/${card.id}`}>
-                    <Eye className="mr-2 h-4 w-4" />
-                    View Details
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            {cards.map((card) => (
+              <Card key={card.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 group">
+                <CardHeader className="p-0 relative aspect-[245/342] bg-muted flex items-center justify-center">
+                  <Image
+                      src={card.imageUrl} 
+                      alt={card.name}
+                      width={245}
+                      height={342}
+                      className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                      data-ai-hint={card.imageUrl.includes('placehold.co') ? "pokemon card" : undefined}
+                    />
+                </CardHeader>
+                <CardContent className="p-3 flex-grow">
+                  <CardTitle className="font-headline text-md leading-tight mb-1 truncate" title={card.name}>{card.name}</CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground mb-1">Set: {card.setName}</CardDescription>
+                  <div className="flex flex-wrap gap-1 text-xs mt-1">
+                      <Badge variant="secondary">{card.type} Type</Badge>
+                      <Badge variant="outline">{card.rarity}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">No. {card.number}</p>
+                </CardContent>
+                <CardFooter className="p-3 bg-muted/50 border-t">
+                  <Button asChild variant="outline" size="sm" className="w-full">
+                    <Link href={`/cards/${card.id}`}>
+                      <Eye className="mr-2 h-4 w-4" />
+                      View Details
+                    </Link>
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+
+          {apiTotalPages > 1 && (
+            <div className="mt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+              <div className="text-sm text-muted-foreground">
+                Page {apiCurrentPage} of {apiTotalPages} ({apiTotalCount} cards)
+              </div>
+              <div className="flex gap-2">
+                <Button asChild variant="outline" disabled={apiCurrentPage <= 1}>
+                  <Link href={createPageLink(apiCurrentPage - 1)}>
+                    <ChevronLeft className="mr-2 h-4 w-4" />
+                    Previous
                   </Link>
                 </Button>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
+                <Button asChild variant="outline" disabled={apiCurrentPage >= apiTotalPages}>
+                  <Link href={createPageLink(apiCurrentPage + 1)}>
+                    Next
+                    <ChevronRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </>
   );
 }
+
