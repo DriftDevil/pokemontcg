@@ -1,0 +1,716 @@
+openapi: 3.1.0
+info:
+  title: Pokémon TCG API
+  version: '1.0'
+  description: REST API to view, sync, and manage Pokémon TCG sets and user card collections.
+servers:
+  - url: https://pokeapi.huangtechhub.dev
+security:
+  - oauth2:
+      - openid
+tags:
+  - name: Sets
+    description: Pokémon TCG sets (v2)
+  - name: Cards
+    description: Pokémon TCG cards (v2)
+  - name: Users
+    description: User management and collections
+  - name: Auth
+    description: Authentication endpoints
+  - name: System
+    description: System health and version information
+paths:
+  /v2/sets:
+    get:
+      summary: List all Pokémon TCG sets
+      tags:
+        - Sets
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: 'Filter sets using a query string. Examples: `name:base`, `series:Sun & Moon`, `ptcgoCode:SM1`'
+        - name: orderBy
+          in: query
+          schema:
+            type: string
+          example: -releaseDate,name
+          description: "Sort the results by one or more fields. Prefix with `-` for descending order. Valid fields: `releaseDate`, `name`, `id`"
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for pagination.
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 250 # A common default, adjust as needed
+          description: Number of items per page.
+      responses:
+        '200':
+          description: A paginated list of Pokémon TCG sets.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSets'
+        '400':
+          $ref: '#/components/responses/400'
+        '500':
+          $ref: '#/components/responses/500'
+  /v2/sets/{setID}:
+    get:
+      summary: Get a set by ID
+      tags:
+        - Sets
+      parameters:
+        - name: setID
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the set to retrieve.
+      responses:
+        '200':
+          description: A single Pokémon TCG set.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Set'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+  /v2/sets/{setID}/cards:
+    get:
+      summary: List cards in a specific set
+      description: Retrieves all cards belonging to a particular set. Effectively a shortcut for /v2/cards?q=set.id:{setID}.
+      tags:
+        - Cards
+      parameters:
+        - name: setID
+          in: path
+          required: true
+          description: The ID of the set.
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: Page number for pagination.
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of cards per page.
+          schema:
+            type: integer
+            minimum: 1
+            default: 250
+      responses:
+        '200':
+          description: A paginated list of cards belonging to the specified set.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCards'
+        '404':
+          description: Set not found.
+        '500':
+          $ref: '#/components/responses/500'
+  /v2/cards:
+    get:
+      summary: List all Pokémon TCG cards
+      tags:
+        - Cards
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: 'Filter cards using a query string. Examples: `name:charizard`, `types:fire`, `rarity:"Amazing Rare"`, `set.id:base1`'
+        - name: orderBy
+          in: query
+          schema:
+            type: string
+          example: -number,rarity
+          description: "Sort the results by one or more fields. Prefix with `-` for descending order. Valid fields: `name`, `number`, `rarity`, `supertype`, `set.id` (possibly `updated`, `created` if supported by backend)."
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for pagination.
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 250
+          description: Number of items per page.
+      responses:
+        '200':
+          description: A paginated list of Pokémon TCG cards.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCards'
+        '400':
+          $ref: '#/components/responses/400'
+        '500':
+          $ref: '#/components/responses/500'
+  /v2/cards/{cardID}:
+    get:
+      summary: Get a specific card by ID
+      tags:
+        - Cards
+      parameters:
+        - name: cardID
+          in: path
+          required: true
+          description: The ID of the card to retrieve.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A single Pokémon TCG card.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Card'
+        '404':
+          $ref: '#/components/responses/404'
+        '500':
+          $ref: '#/components/responses/500'
+  /v2/types:
+    get:
+      summary: List all Pokémon types
+      tags:
+        - Cards
+      responses:
+        '200':
+          description: A list of Pokémon types.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StringListWithVersion'
+        '500':
+          $ref: '#/components/responses/500'
+  /v2/supertypes:
+    get:
+      summary: List all Pokémon supertypes
+      tags:
+        - Cards
+      responses:
+        '200':
+          description: A list of Pokémon supertypes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StringListWithVersion'
+        '500':
+          $ref: '#/components/responses/500'
+  /v2/rarities:
+    get:
+      summary: List all Pokémon rarities
+      tags:
+        - Cards
+      responses:
+        '200':
+          description: A list of Pokémon rarities.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StringListWithVersion'
+        '500':
+          $ref: '#/components/responses/500'
+  /login/password:
+    post:
+      summary: Login with email and password
+      tags:
+      - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - email
+              - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Token response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+  /user/me:
+    get:
+      summary: Get current user
+      tags:
+      - Users
+      security:
+      - oauth2:
+        - openid
+      responses:
+        '200':
+          description: The current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/401'
+  /user/sync:
+    post:
+      summary: Sync user with OIDC identity
+      tags:
+      - Users
+      security:
+      - oauth2:
+        - openid
+      responses:
+        '200':
+          description: Synced user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/401'
+  /user/cards/add:
+    post:
+      summary: Add card to user collection
+      tags:
+      - Users
+      security:
+      - oauth2:
+        - openid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - cardId
+              properties:
+                cardId:
+                  type: string
+      responses:
+        '201':
+          description: Card added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+  /user/cards/remove:
+    post:
+      summary: Remove card from user collection
+      tags:
+      - Users
+      security:
+      - oauth2:
+        - openid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - cardId
+              properties:
+                cardId:
+                  type: string
+      responses:
+        '200':
+          description: Card removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+  /user/{userID}/cards:
+    get:
+      summary: Get user’s cards
+      tags:
+      - Users
+      security:
+      - oauth2:
+        - openid # Assuming admin or self can view
+      parameters:
+      - in: path
+        name: userID
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: List of cards
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Card'
+        '401':
+          $ref: '#/components/responses/401'
+        '404':
+          $ref: '#/components/responses/404'
+  /user/all:
+    get:
+      summary: Get all users (admin only)
+      tags:
+      - Users
+      security:
+      - oauth2: # Define specific admin scope if possible
+        - openid
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          description: Forbidden - User does not have admin privileges.
+  /version:
+    get:
+      summary: Show API version
+      tags:
+      - System
+      responses:
+        '200':
+          description: Version
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: string
+  /livez:
+    get:
+      summary: Liveness check
+      tags:
+      - System
+      responses:
+        '200':
+          description: Liveness status (e.g., "OK")
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: OK
+  /readyz:
+    get:
+      summary: Readiness check
+      tags:
+      - System
+      responses:
+        '200':
+          description: Readiness status (e.g., "OK")
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: OK
+        '503':
+          description: Service Unavailable - Not ready.
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://auth.huangtechhub.dev/application/o/authorize/
+          tokenUrl: https://auth.huangtechhub.dev/application/o/token/
+          scopes:
+            openid: Required for OpenID Connect.
+            profile: Access to user's basic profile information.
+            email: Access to user's email address.
+            # admin: Custom scope for admin-only endpoints (if applicable)
+  schemas:
+    Set:
+      type: object
+      description: A Pokémon TCG set.
+      properties:
+        id:
+          type: string
+          description: The unique identifier for the set (e.g., "base1").
+        name:
+          type: string
+          description: The name of the set (e.g., "Base Set").
+        series:
+          type: string
+          description: The series the set belongs to (e.g., "Base", "Sword & Shield").
+        releaseDate:
+          type: string
+          format: date
+          description: The date the set was released (YYYY-MM-DD).
+        total: # This 'total' is specific to the set itself
+          type: integer
+          description: The official number of cards in the set (excluding secret rares).
+        images:
+          type: object
+          description: URLs for set images. This field may not always be present.
+          properties:
+            symbol:
+              type: string
+              format: url
+              description: URL to the set's symbol image.
+            logo:
+              type: string
+              format: url
+              description: URL to the set's logo image.
+          nullable: true
+    PaginatedSets:
+      type: object
+      description: A paginated list of Pokémon TCG sets.
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Set'
+        page:
+          type: integer
+          description: The current page number.
+        limit:
+          type: integer
+          description: The number of items requested per page.
+        count:
+          type: integer
+          description: The number of items returned in the current page.
+        totalCount:
+          type: integer
+          description: The total number of sets matching the query across all pages.
+        totalPages:
+          type: integer
+          description: The total number of pages available.
+        version:
+          type: string
+          description: The API/data version for this response.
+          nullable: true
+    Card:
+      type: object
+      description: A Pokémon TCG card. Fields marked as (Optional) may not be present in all API responses.
+      properties:
+        id:
+          type: string
+          description: The unique identifier for the card (e.g., "base1-4").
+        name:
+          type: string
+          description: The name of the Pokémon or card.
+        supertype:
+          type: string
+          description: The supertype of the card (e.g., Pokémon, Trainer, Energy).
+        subtypes:
+          type: array
+          items:
+            type: string
+          description: A list of subtypes (e.g., Stage 1, VMAX, Item). (Optional)
+          nullable: true
+        hp:
+          type: string # Often a string, e.g., "120"
+          description: The Hit Points of the Pokémon. (Optional)
+          nullable: true
+        types:
+          type: array
+          items:
+            type: string
+          description: The energy types of the Pokémon (e.g., Fire, Water). (Optional)
+          nullable: true
+        number:
+          type: string
+          description: The card's number within its set (e.g., "4"). (Optional)
+          nullable: true
+        artist:
+          type: string
+          description: The artist who illustrated the card. (Optional)
+          nullable: true
+        rarity:
+          type: string
+          description: The rarity of the card (e.g., Common, Rare Holo). (Optional)
+          nullable: true
+        images:
+          type: object
+          description: URLs for card images. (Optional)
+          properties:
+            small:
+              type: string
+              format: url
+              description: URL to the small-sized image of the card.
+            large:
+              type: string
+              format: url
+              description: URL to the large-sized image of the card.
+          nullable: true
+        set:
+          $ref: '#/components/schemas/Set'
+        # Add other detailed fields from pokemontcg.io as optional if needed for completeness, e.g.:
+        # evolvesFrom, abilities, attacks, weaknesses, resistances, retreatCost, flavorText, nationalPokedexNumbers, legalities
+    PaginatedCards:
+      type: object
+      description: A paginated list of Pokémon TCG cards.
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Card'
+        page:
+          type: integer
+          description: The current page number.
+        limit:
+          type: integer
+          description: The number of items requested per page.
+        count:
+          type: integer
+          description: The number of items returned in the current page.
+        totalCount:
+          type: integer
+          description: The total number of cards matching the query across all pages.
+        totalPages:
+          type: integer
+          description: The total number of pages available.
+        # version: # if applicable for card data consistency
+    User:
+      type: object
+      description: A user of the Pokémon TCG API.
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the user.
+        email:
+          type: string
+          format: email
+          description: User's email address.
+        username:
+          type: string
+          description: User's chosen username.
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp of user creation.
+    StringListWithVersion:
+      type: object
+      description: A list of strings with version information (e.g., for types, rarities).
+      properties:
+        data:
+          type: array
+          items:
+            type: string
+        count:
+          type: integer
+          description: The number of strings in the list.
+        version:
+          type: string
+          description: The API/data version for this list.
+          nullable: true
+  responses:
+    '200':
+      description: Successful operation.
+    '400':
+      description: Bad Request - The request was improperly formatted or contained invalid parameters.
+    '401':
+      description: Unauthorized - Authentication is required and has failed or has not yet been provided.
+    '403':
+      description: Forbidden - The authenticated user does not have permission to access this resource.
+    '404':
+      description: Not Found - The requested resource could not be found.
+    '500':
+      description: Internal Server Error - An unexpected error occurred on the server.
+    '503':
+      description: Service Unavailable - The server is currently unable to handle the request.
+      
+# Potential further additions to schemas for more detail if desired:
+# Ability, Attack, Weakness, Resistance, Legality etc.
+# For example:
+#   Ability:
+#     type: object
+#     properties:
+#       name:
+#         type: string
+#       text:
+#         type: string
+#       type: # Pokémon Power, Poké-Body, etc.
+#         type: string
+#   Attack:
+#     type: object
+#     properties:
+#       name:
+#         type: string
+#       cost:
+#         type: array
+#         items:
+#           type: string # Energy type
+#       convertedEnergyCost:
+#         type: integer
+#       damage:
+#         type: string # Can be numeric, or empty, or e.g. "20+"
+#       text:
+#         type: string
+#   TypedValue: # For Weakness/Resistance
+#     type: object
+#     properties:
+#       type:
+#         type: string # Energy type
+#       value:
+#         type: string # e.g., "x2", "+30"
+
+```
