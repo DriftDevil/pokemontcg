@@ -1,65 +1,25 @@
 
 "use client";
 
-import { useEffect, useState } from "react"; // Keep useState for isLoading and error
+import { useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Terminal, Loader2 } from "lucide-react";
 import SwaggerViewer from "./swagger-viewer";
 import { useToast } from "@/hooks/use-toast";
 
 export default function OpenApiViewerClient() {
-  // Generate a cache-busting URL every time this component renders
+  // Generate a cache-busting URL every time this component might re-render to ensure freshness
   const dynamicSpecUrl = `/openapi.yaml?t=${new Date().getTime()}`;
-  
-  const [isLoading, setIsLoading] = useState(true); // Set to true initially
-  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    // This effect can be simplified or used for initial setup messages.
-    // The actual loading of the spec is handled by SwaggerViewer via the URL.
+    // This toast provides an initial user feedback.
+    // SwaggerUI component itself will show its own loading indicators for the spec.
     toast({
-      title: "API Specification Viewer",
-      description: `Loading API specification...`, 
+      title: "API Documentation Viewer",
+      description: "Initializing Swagger UI to load the API specification.",
     });
-    // SwaggerUI has its own loading. We can set isLoading to false after a short delay
-    // or rely on SwaggerUI's internal loading indicators.
-    // For simplicity, let's assume initial setup is quick.
-    const timer = setTimeout(() => setIsLoading(false), 500); // Simulate initial setup
-    return () => clearTimeout(timer);
-  }, [toast]);
+  }, [toast]); // Runs once on mount as toast function is stable
 
-
-  if (isLoading) {
-    return (
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="font-headline text-2xl flex items-center">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Initializing API Viewer
-          </CardTitle>
-          <CardDescription>
-            Preparing to load API documentation.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="h-64 flex items-center justify-center">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (error) { // This error state is for issues within OpenApiViewerClient itself
-    return (
-      <Alert variant="destructive">
-        <Terminal className="h-4 w-4" />
-        <AlertTitle>Error Initializing Viewer</AlertTitle>
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
-    );
-  }
-
-  // SwaggerViewer will handle errors related to fetching/parsing the specUrl
   return (
     <Card className="shadow-lg">
       <CardHeader className="flex flex-row items-center justify-between">
@@ -69,6 +29,7 @@ export default function OpenApiViewerClient() {
         </div>
       </CardHeader>
       <CardContent>
+        {/* SwaggerViewer will handle errors related to fetching/parsing specUrl via swagger-ui-react */}
         <SwaggerViewer specUrl={dynamicSpecUrl} />
       </CardContent>
     </Card>
