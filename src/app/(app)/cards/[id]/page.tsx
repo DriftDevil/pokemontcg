@@ -2,7 +2,7 @@ import PageHeader from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Zap, Fire, Droplet, Leaf, EyeIcon, Brain, ShieldHalf, Palette, Star, Dna } from "lucide-react"; // Added more icons
+import { ArrowLeft, Zap, Flame, Droplet, Leaf, EyeIcon, Brain, ShieldHalf, Palette, Star, Dna } from "lucide-react"; // Added more icons
 import Image from "next/image";
 import Link from "next/link";
 import { PokemonCard } from "../page"; // Assuming type is exported from parent
@@ -22,7 +22,7 @@ async function getCardDetails(id: string): Promise<PokemonCard | null> {
 }
 
 const typeIcons: { [key: string]: React.ElementType } = {
-  Fire: Fire,
+  Fire: Flame,
   Lightning: Zap,
   Water: Droplet,
   Grass: Leaf,
