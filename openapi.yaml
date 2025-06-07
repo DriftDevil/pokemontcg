@@ -49,8 +49,14 @@ paths:
           schema:
             type: integer
             minimum: 1
-            default: 250 # A common default, adjust as needed
+            default: 250 
           description: Number of items per page.
+        - name: all # Added for dashboard use
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: If true, attempts to fetch all items, bypassing pagination limits if supported by the backend.
       responses:
         '200':
           description: A paginated list of Pokémon TCG sets.
@@ -82,7 +88,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  data:
+                  data: # Data is wrapped in a 'data' object
                     $ref: '#/components/schemas/Set'
         '404':
           $ref: '#/components/responses/404'
@@ -188,7 +194,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  data:
+                  data: # Data is wrapped in a 'data' object
                     $ref: '#/components/schemas/Card'
         '404':
           $ref: '#/components/responses/404'
@@ -473,6 +479,26 @@ paths:
                 example: OK
         '503':
           description: Service Unavailable - Not ready.
+  /metrics:
+    get:
+      summary: Get API metrics
+      tags:
+        - System
+      responses:
+        '200':
+          description: API usage metrics.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  api_requests_24h:
+                    type: integer
+                    description: Total number of API requests in the last 24 hours.
+                    example: 1205832
+                  # Add other relevant metrics here as needed
+        '500':
+          $ref: '#/components/responses/500'
 components:
   securitySchemes:
     oauth2:
@@ -504,7 +530,7 @@ components:
           type: string
           format: date
           description: The date the set was released (YYYY-MM-DD).
-        total: # This 'total' is specific to the set itself
+        total: 
           type: integer
           description: The official number of cards in the set (excluding secret rares).
         images:
@@ -537,7 +563,7 @@ components:
         count:
           type: integer
           description: The number of items returned in the current page.
-        totalCount:
+        totalCount: # Standardized to totalCount
           type: integer
           description: The total number of sets matching the query across all pages.
         totalPages:
@@ -567,7 +593,7 @@ components:
           description: A list of subtypes (e.g., Stage 1, VMAX, Item). (Optional)
           nullable: true
         hp:
-          type: string # Often a string, e.g., "120"
+          type: string 
           description: The Hit Points of the Pokémon. (Optional)
           nullable: true
         types:
@@ -622,7 +648,7 @@ components:
         count:
           type: integer
           description: The number of items returned in the current page.
-        totalCount:
+        totalCount: # Standardized to totalCount
           type: integer
           description: The total number of cards matching the query across all pages.
         totalPages:
@@ -713,4 +739,4 @@ components:
 #       value:
 #         type: string # e.g., "x2", "+30"
 
-```
+    

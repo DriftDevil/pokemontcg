@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import SetReleaseChart from "@/components/admin/dashboard/set-release-chart";
 import { cn } from "@/lib/utils";
-import type { User as ApiUserType } from "@/app/(app)/admin/users/page"; // Using existing User type for mock
+import type { User as ApiUserType } from "@/app/(app)/admin/users/page"; 
 
 // Helper function to fetch total counts from internal API for paginated resources
 async function fetchTotalCountFromPaginated(endpoint: string): Promise<number> {
@@ -18,7 +18,6 @@ async function fetchTotalCountFromPaginated(endpoint: string): Promise<number> {
     return 0;
   }
   try {
-    // Fetch only 1 item to get the totalCount efficiently
     const response = await fetch(`${APP_URL}/api/${endpoint}?limit=1`);
     if (!response.ok) {
       console.error(`Failed to fetch ${endpoint} count: ${response.status}`);
@@ -53,7 +52,8 @@ async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]>
     return [];
   }
   try {
-    const response = await fetch(`${APP_URL}/api/sets?all=true&orderBy=-releaseDate`); // Assuming 'all=true' fetches all sets
+    // Use 'all=true' as defined in openapi.yaml to fetch all sets
+    const response = await fetch(`${APP_URL}/api/sets?all=true&orderBy=-releaseDate`); 
     if (!response.ok) {
       console.error(`Failed to fetch set release data: ${response.status}`);
       const errorBody = await response.text();
@@ -93,7 +93,6 @@ async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]>
   }
 }
 
-// Helper function to fetch total users count
 async function fetchTotalUsersCount(): Promise<number> {
   const APP_URL = process.env.APP_URL || "";
   if (!APP_URL) {
@@ -116,6 +115,29 @@ async function fetchTotalUsersCount(): Promise<number> {
   }
 }
 
+async function fetchApiRequests24h(): Promise<number> {
+  const APP_URL = process.env.APP_URL || "";
+  if (!APP_URL) {
+    console.error("APP_URL is not defined for fetching API requests count.");
+    return 0;
+  }
+  try {
+    const response = await fetch(`${APP_URL}/api/metrics`);
+    if (!response.ok) {
+      console.error(`Failed to fetch API requests count: ${response.status}`);
+      const errorBody = await response.text();
+      console.error(`Error body: ${errorBody}`);
+      return 0;
+    }
+    // Assuming the /metrics endpoint returns JSON like: { "api_requests_24h": 12345 }
+    // Or if nested: { "data": { "api_requests_24h": 12345 } }
+    const data = await response.json();
+    return data.api_requests_24h || data.data?.api_requests_24h || 0;
+  } catch (error) {
+    console.error("Error fetching API requests count:", error);
+    return 0;
+  }
+}
 
 const mockRecentUsers = [
   { id: 'usr_1', name: 'Satoshi Tajiri', email: 'satoshi@poke.jp', role: 'Admin', status: 'Active' },
@@ -124,14 +146,13 @@ const mockRecentUsers = [
 ];
 
 export default async function AdminDashboardPage() {
-  const [totalCards, totalSets, setReleaseTimelineData, totalUsers] = await Promise.all([
+  const [totalCards, totalSets, setReleaseTimelineData, totalUsers, apiRequests24h] = await Promise.all([
     fetchTotalCountFromPaginated("cards"),
     fetchTotalCountFromPaginated("sets"),
     fetchSetReleaseData(),
     fetchTotalUsersCount(),
+    fetchApiRequests24h(),
   ]);
-
-  const apiRequests24h = 1205832; // Mock data, as no API endpoint exists for this
 
   const setReleaseChartConfig = {
     count: {
@@ -186,7 +207,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{apiRequests24h.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Mock data (endpoint unavailable)</p>
+            <p className="text-xs text-muted-foreground">{apiRequests24h > 0 || (process.env.APP_URL && apiRequests24h === 0) ? "Live data" : "No data / API error"}</p>
           </CardContent>
         </Card>
       </div>
@@ -251,3 +272,5 @@ export default async function AdminDashboardPage() {
     </>
   );
 }
+
+    
