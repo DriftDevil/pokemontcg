@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react"; // Keep useState for isLoading and error
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal, Loader2 } from "lucide-react";
@@ -9,33 +9,29 @@ import SwaggerViewer from "./swagger-viewer";
 import { useToast } from "@/hooks/use-toast";
 
 export default function OpenApiViewerClient() {
-  const [specUrl, setSpecUrl] = useState<string | null>('/openapi.yaml'); 
-  const [isLoading, setIsLoading] = useState(false); // SwaggerUI will handle its own loading internally
+  // Generate a cache-busting URL every time this component renders
+  const dynamicSpecUrl = `/openapi.yaml?t=${new Date().getTime()}`;
+  
+  const [isLoading, setIsLoading] = useState(true); // Set to true initially
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!specUrl) {
-      const errorMessage = "OpenAPI specification URL is not configured.";
-      setError(errorMessage);
-      toast({
-        variant: "destructive",
-        title: "Configuration Error",
-        description: errorMessage,
-      });
-    } else {
-       toast({
-        title: "API Specification URL Ready",
-        description: `Swagger UI will load the specification from: ${specUrl}`,
-      });
-    }
-    // Since SwaggerUI handles its own loading from the URL, 
-    // this component's isLoading is minimal.
-    setIsLoading(false); 
-  }, [specUrl, toast]);
+    // This effect can be simplified or used for initial setup messages.
+    // The actual loading of the spec is handled by SwaggerViewer via the URL.
+    toast({
+      title: "API Specification Viewer",
+      description: `Loading API specification...`, 
+    });
+    // SwaggerUI has its own loading. We can set isLoading to false after a short delay
+    // or rely on SwaggerUI's internal loading indicators.
+    // For simplicity, let's assume initial setup is quick.
+    const timer = setTimeout(() => setIsLoading(false), 500); // Simulate initial setup
+    return () => clearTimeout(timer);
+  }, [toast]);
 
 
-  if (isLoading) { // Minimal loading state for this component
+  if (isLoading) {
     return (
       <Card className="shadow-lg">
         <CardHeader>
@@ -53,7 +49,7 @@ export default function OpenApiViewerClient() {
     );
   }
 
-  if (error) {
+  if (error) { // This error state is for issues within OpenApiViewerClient itself
     return (
       <Alert variant="destructive">
         <Terminal className="h-4 w-4" />
@@ -63,21 +59,18 @@ export default function OpenApiViewerClient() {
     );
   }
 
-  if (specUrl) {
-    return (
-      <Card className="shadow-lg">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="font-headline text-2xl">API Specification</CardTitle>
-            <CardDescription>Review the API specification below using Swagger UI.</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <SwaggerViewer specUrl={specUrl} />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return null; 
+  // SwaggerViewer will handle errors related to fetching/parsing the specUrl
+  return (
+    <Card className="shadow-lg">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="font-headline text-2xl">API Specification</CardTitle>
+          <CardDescription>Review the API specification below using Swagger UI.</CardDescription>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <SwaggerViewer specUrl={dynamicSpecUrl} />
+      </CardContent>
+    </Card>
+  );
 }
