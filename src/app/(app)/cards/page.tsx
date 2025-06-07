@@ -10,48 +10,49 @@ import { Badge } from "@/components/ui/badge";
 import CardFiltersForm from '@/components/cards/card-filters-form';
 
 // Matches API structure for a card (used for mapping results from internal API)
+// Adjusted to make fields optional based on the sparse openapi.yaml Card schema for pokeapi.huangtechhub.dev
 interface ApiPokemonCard {
   id: string;
   name: string;
-  supertype: string;
-  subtypes: string[];
-  level?: string;
-  hp?: string;
-  types?: string[];
-  evolvesFrom?: string;
-  abilities?: { name: string; text: string; type: string }[];
-  attacks?: {
+  supertype?: string; // Optional as per openapi.yaml (though usually present)
+  subtypes?: string[]; // Optional as per openapi.yaml
+  level?: string; // Not in openapi.yaml Card schema
+  hp?: string; // Not in openapi.yaml Card schema
+  types?: string[]; // Not in openapi.yaml Card schema
+  evolvesFrom?: string; // Not in openapi.yaml Card schema
+  abilities?: { name: string; text: string; type: string }[]; // Not in openapi.yaml Card schema
+  attacks?: { // Not in openapi.yaml Card schema
     name: string;
     cost: string[];
     convertedEnergyCost: number;
     damage: string;
     text: string;
   }[];
-  weaknesses?: { type: string; value: string }[];
-  resistances?: { type: string; value: string }[];
-  retreatCost?: string[];
-  convertedRetreatCost?: number;
-  set: {
+  weaknesses?: { type: string; value: string }[]; // Not in openapi.yaml Card schema
+  resistances?: { type: string; value: string }[]; // Not in openapi.yaml Card schema
+  retreatCost?: string[]; // Not in openapi.yaml Card schema
+  convertedRetreatCost?: number; // Not in openapi.yaml Card schema
+  set: { // This structure IS in openapi.yaml via $ref
     id: string;
     name: string;
     series: string;
-    printedTotal: number;
-    total: number;
-    legalities: { [key: string]: string };
-    ptcgoCode?: string;
-    releaseDate: string;
-    updatedAt: string;
-    images: { symbol: string; logo: string };
+    printedTotal: number; // 'total' in openapi.yaml Set schema
+    total: number; // 'total' in openapi.yaml Set schema
+    legalities: { [key: string]: string }; // Not in openapi.yaml Set schema
+    ptcgoCode?: string; // Not in openapi.yaml Set schema
+    releaseDate: string; // 'releaseDate' in openapi.yaml Set schema
+    updatedAt: string; // Not in openapi.yaml Set schema
+    images: { symbol: string; logo: string }; // Not in openapi.yaml Set schema
   };
-  number: string;
-  artist?: string;
-  rarity?: string;
-  flavorText?: string;
-  nationalPokedexNumbers?: number[];
-  legalities: { [key: string]: string };
-  images: { small: string; large: string };
-  tcgplayer?: any;
-  cardmarket?: any;
+  number?: string; // Not in openapi.yaml Card schema
+  artist?: string; // Not in openapi.yaml Card schema
+  rarity?: string; // Not in openapi.yaml Card schema
+  flavorText?: string; // Not in openapi.yaml Card schema
+  nationalPokedexNumbers?: number[]; // Not in openapi.yaml Card schema
+  legalities?: { [key: string]: string }; // Not in openapi.yaml Card schema
+  images?: { small: string; large: string }; // Not in openapi.yaml Card schema
+  tcgplayer?: any; // Not in openapi.yaml Card schema
+  cardmarket?: any; // Not in openapi.yaml Card schema
 }
 
 export interface PokemonCard {
@@ -82,6 +83,8 @@ async function getSetOptions(): Promise<SetOption[]> {
     const response = await fetch(`${APP_URL}/api/sets?select=id,name&orderBy=name`);
     if (!response.ok) throw new Error('Failed to fetch sets from internal API');
     const data = await response.json();
+    // Assuming data.data is an array of set objects {id: string, name: string}
+    // If pokeapi.huangtechhub.dev returns a different structure for sets, this map might need adjustment
     return (data.data || []).map((set: any) => ({ id: set.id, name: set.name }));
   } catch (error) {
     console.error("Error fetching set options from internal API:", error);
@@ -165,11 +168,11 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     return (data.data || []).map((apiCard: ApiPokemonCard) => ({
       id: apiCard.id,
       name: apiCard.name,
-      setName: apiCard.set.name,
+      setName: apiCard.set?.name || "Unknown Set", // Safely access set name
       rarity: apiCard.rarity || "Unknown",
-      type: apiCard.types?.[0] || "Colorless",
-      imageUrl: apiCard.images.small,
-      number: apiCard.number,
+      type: apiCard.types?.[0] || "Colorless", // Use optional chaining for types
+      imageUrl: apiCard.images?.small || "https://placehold.co/245x342.png", // Use optional chaining and provide a placeholder
+      number: apiCard.number || "??", // Provide fallback for number
       artist: apiCard.artist || "N/A",
     }));
   } catch (error) {
@@ -236,7 +239,16 @@ export default async function CardsPage({ searchParams }: { searchParams?: { sea
           {cards.map((card) => (
             <Card key={card.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 group">
               <CardHeader className="p-0 relative aspect-[245/342] bg-muted flex items-center justify-center">
-                {card.imageUrl ? (
+                {card.imageUrl === "https://placehold.co/245x342.png" ? (
+                     <Image
+                        src={card.imageUrl}
+                        alt={card.name}
+                        width={245}
+                        height={342}
+                        className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                        data-ai-hint="pokemon card"
+                      />
+                ) : card.imageUrl ? (
                   <Image
                     src={card.imageUrl}
                     alt={card.name}
@@ -270,3 +282,5 @@ export default async function CardsPage({ searchParams }: { searchParams?: { sea
     </>
   );
 }
+
+    
