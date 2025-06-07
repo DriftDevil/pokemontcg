@@ -85,6 +85,10 @@ async function getCardSets(searchTerm?: string, page: number = 1): Promise<CardS
       logoUrl: apiSet.images?.logo,
     }));
 
+    // Sort the current page of sets by releaseDate descending, as primary API might ignore orderBy
+    sets.sort((a, b) => new Date(b.releaseDate).getTime() - new Date(a.releaseDate).getTime());
+
+
     const apiCurrentPage = responseData.page || 1;
     const apiPageSize = responseData.limit || responseData.pageSize || REQUESTED_PAGE_SIZE_SETS;
     const apiTotalCount = responseData.total || responseData.totalCount || 0;
