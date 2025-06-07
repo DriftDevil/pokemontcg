@@ -1,49 +1,127 @@
-"use client";
 
 import PageHeader from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BarChart as BarChartIcon, LineChart as LineChartIcon, PieChart as PieChartIcon, LayoutDashboard } from 'lucide-react'; // Aliased to avoid conflict with Recharts components
-import { Users, CreditCard, Layers, Activity } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, Layers, Activity } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
-import { Bar, Line, Pie, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend, BarChart, LineChart, PieChart } from 'recharts'; // Keep Recharts imports as they are
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
-const chartData = [
-  { month: "January", desktop: 186, mobile: 80 },
-  { month: "February", desktop: 305, mobile: 200 },
-  { month: "March", desktop: 237, mobile: 120 },
-  { month: "April", desktop: 73, mobile: 190 },
-  { month: "May", desktop: 209, mobile: 130 },
-  { month: "June", desktop: 214, mobile: 140 },
-];
+// Helper function to fetch total counts from internal API
+async function fetchTotalCount(endpoint: string): Promise<number> {
+  const APP_URL = process.env.APP_URL || "";
+  if (!APP_URL) {
+    console.error(`APP_URL is not defined for dashboard data fetching of ${endpoint}.`);
+    return 0;
+  }
+  try {
+    // Fetch only 1 item to get the totalCount efficiently
+    const response = await fetch(`${APP_URL}/api/${endpoint}?limit=1`);
+    if (!response.ok) {
+      console.error(`Failed to fetch ${endpoint} count: ${response.status}`);
+      const errorBody = await response.text();
+      console.error(`Error body: ${errorBody}`);
+      return 0;
+    }
+    const data = await response.json();
+    return data.totalCount || data.total || 0; // Accommodate different naming for total
+  } catch (error) {
+    console.error(`Error fetching ${endpoint} count:`, error);
+    return 0;
+  }
+}
 
-const chartConfig = {
-  desktop: {
-    label: "Desktop",
-    color: "hsl(var(--chart-1))",
-  },
-  mobile: {
-    label: "Mobile",
-    color: "hsl(var(--chart-2))",
-  },
-} as const;
+interface ApiSet {
+  id: string;
+  name: string;
+  releaseDate: string; 
+}
+
+interface PaginatedApiResponse<T> {
+  data: T[];
+  totalCount?: number;
+  total?: number;
+  // other pagination fields if present
+}
+
+async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]> {
+  const APP_URL = process.env.APP_URL || "";
+  if (!APP_URL) {
+    console.error("APP_URL is not defined for dashboard data fetching of set releases.");
+    return [];
+  }
+  try {
+    // Using all=true as indicated in openapi.yaml to fetch all sets for the chart
+    const response = await fetch(`${APP_URL}/api/sets?all=true&orderBy=-releaseDate`);
+    if (!response.ok) {
+      console.error(`Failed to fetch set release data: ${response.status}`);
+      const errorBody = await response.text();
+      console.error(`Error body: ${errorBody}`);
+      return [];
+    }
+    const responseData: PaginatedApiResponse<ApiSet> = await response.json();
+    const sets = responseData.data || [];
+
+    if (!Array.isArray(sets)) {
+        console.error('Set data received is not an array:', sets);
+        return [];
+    }
+
+    const releasesByYear: { [year: string]: number } = {};
+    sets.forEach(set => {
+      if (set.releaseDate) {
+        try {
+          const year = new Date(set.releaseDate).getFullYear().toString();
+          if (!isNaN(parseInt(year))) { // Check if year is a valid number
+            releasesByYear[year] = (releasesByYear[year] || 0) + 1;
+          } else {
+            console.warn(`Invalid year parsed from releaseDate: ${set.releaseDate} for set ${set.name}`);
+          }
+        } catch (e) {
+            console.warn(`Error parsing releaseDate: ${set.releaseDate} for set ${set.name}`, e);
+        }
+      }
+    });
+
+    return Object.entries(releasesByYear)
+      .map(([year, count]) => ({ year, count }))
+      .sort((a, b) => parseInt(a.year) - parseInt(b.year)); // Sort by year ascending for chart display
+  } catch (error) {
+    console.error("Error fetching or processing set release data:", error);
+    return [];
+  }
+}
 
 const mockUsers = [
-  { id: 'usr_1', name: 'Alice Wonderland', email: 'alice@example.com', role: 'Admin', status: 'Active' },
-  { id: 'usr_2', name: 'Bob The Builder', email: 'bob@example.com', role: 'Editor', status: 'Active' },
-  { id: 'usr_3', name: 'Charlie Brown', email: 'charlie@example.com', role: 'Viewer', status: 'Inactive' },
+  { id: 'usr_1', name: 'Satoshi Tajiri', email: 'satoshi@poke.jp', role: 'Admin', status: 'Active' },
+  { id: 'usr_2', name: 'Ken Sugimori', email: 'ken@poke.jp', role: 'Editor', status: 'Active' },
+  { id: 'usr_3', name: 'Junichi Masuda', email: 'junichi@poke.jp', role: 'Viewer', status: 'Inactive' },
 ];
 
+export default async function AdminDashboardPage() {
+  const [totalCards, totalSets, setReleaseTimelineData] = await Promise.all([
+    fetchTotalCount("cards"),
+    fetchTotalCount("sets"),
+    fetchSetReleaseData()
+  ]);
 
-export default function AdminDashboardPage() {
+  const totalUsers = 1234; // Mock data
+  const apiRequests24h = 1205832; // Mock data
+
+  const setReleaseChartConfig = {
+    count: {
+      label: "Sets Released",
+      color: "hsl(var(--chart-1))",
+    },
+  } as const;
+
   return (
     <>
       <PageHeader
         title="Admin Dashboard"
-        description="Overview of API metrics, user activity, and system health."
+        description="Overview of Pokémon TCG data, user activity, and system health."
         icon={LayoutDashboard}
       />
 
@@ -54,8 +132,8 @@ export default function AdminDashboardPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1,234</div>
-            <p className="text-xs text-muted-foreground">+10.2% from last month</p>
+            <div className="text-2xl font-bold">{totalUsers.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">Mock data</p>
           </CardContent>
         </Card>
         <Card>
@@ -64,8 +142,8 @@ export default function AdminDashboardPage() {
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">56,789</div>
-            <p className="text-xs text-muted-foreground">+500 this week</p>
+            <div className="text-2xl font-bold">{totalCards.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">{totalCards > 0 ? "Live data" : "No data / API error"}</p>
           </CardContent>
         </Card>
         <Card>
@@ -74,8 +152,8 @@ export default function AdminDashboardPage() {
             <Layers className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">150</div>
-            <p className="text-xs text-muted-foreground">+2 new sets</p>
+            <div className="text-2xl font-bold">{totalSets.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">{totalSets > 0 ? "Live data" : "No data / API error"}</p>
           </CardContent>
         </Card>
         <Card>
@@ -84,8 +162,8 @@ export default function AdminDashboardPage() {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1,205,832</div>
-            <p className="text-xs text-muted-foreground">99.9% success rate</p>
+            <div className="text-2xl font-bold">{apiRequests24h.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">Mock data</p>
           </CardContent>
         </Card>
       </div>
@@ -93,39 +171,43 @@ export default function AdminDashboardPage() {
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="font-headline">API Traffic Overview</CardTitle>
-            <CardDescription>Monthly API requests (Desktop vs Mobile simulated)</CardDescription>
+            <CardTitle className="font-headline">Set Releases Over Time</CardTitle>
+            <CardDescription>Number of Pokémon TCG sets released per year.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={chartConfig} className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} accessibilityLayer>
-                  <CartesianGrid vertical={false} />
-                  <XAxis
-                    dataKey="month"
-                    tickLine={false}
-                    tickMargin={10}
-                    axisLine={false}
-                    tickFormatter={(value) => value.slice(0, 3)}
-                  />
-                  <YAxis />
-                  <RechartsTooltip
-                    cursor={false}
-                    content={<ChartTooltipContent hideLabel />} 
-                  />
-                  <RechartsLegend content={<ChartLegendContent />} />
-                  <Bar dataKey="desktop" fill="var(--color-desktop)" radius={4} />
-                  <Bar dataKey="mobile" fill="var(--color-mobile)" radius={4} />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartContainer>
+            {setReleaseTimelineData.length > 0 ? (
+              <ChartContainer config={setReleaseChartConfig} className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={setReleaseTimelineData} accessibilityLayer margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="year"
+                      tickLine={false}
+                      tickMargin={10}
+                      axisLine={false}
+                    />
+                    <YAxis allowDecimals={false} tickMargin={10} axisLine={false} />
+                    <RechartsTooltip
+                      cursor={{ fill: 'hsl(var(--muted))' }}
+                      content={<ChartTooltipContent indicator="dot" />} 
+                    />
+                    <RechartsLegend content={<ChartLegendContent />} />
+                    <Bar dataKey="count" fill="var(--color-count)" radius={4} nameKey="Sets Released" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                No set release data available to display chart.
+              </div>
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
             <CardTitle className="font-headline">Recent Users</CardTitle>
-            <CardDescription>A quick glance at recently active or added users.</CardDescription>
+            <CardDescription>A quick glance at recently active or added users (mock data).</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -145,7 +227,11 @@ export default function AdminDashboardPage() {
                     <TableCell>{user.role}</TableCell>
                     <TableCell>
                       <Badge variant={user.status === 'Active' ? 'default' : 'secondary'} 
-                             className={user.status === 'Active' ? 'bg-green-500/20 text-green-700 border-green-500/30' : 'bg-slate-500/20 text-slate-700 border-slate-500/30'}>
+                             className={cn(
+                                'border', 
+                                user.status === 'Active' ? 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700' 
+                                                        : 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-700/30 dark:text-slate-300 dark:border-slate-500'
+                              )}>
                         {user.status}
                       </Badge>
                     </TableCell>
