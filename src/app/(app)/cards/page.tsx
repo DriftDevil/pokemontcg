@@ -1,46 +1,159 @@
+
 import PageHeader from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CreditCard, Search, Eye, Filter } from "lucide-react";
+import { CreditCard, Search, Eye } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 
-// Mock data for cards
-const mockCards = [
-  { id: "base1-4", name: "Charizard", setName: "Base Set", rarity: "Holo Rare", type: "Fire", imageUrl: "https://placehold.co/245x342.png?text=Charizard", number: "4/102", artist: "Mitsuhiro Arita" },
-  { id: "base1-58", name: "Pikachu", setName: "Base Set", rarity: "Common", type: "Lightning", imageUrl: "https://placehold.co/245x342.png?text=Pikachu", number: "58/102", artist: "Mitsuhiro Arita" },
-  { id: "neo1-1", name: "Ampharos", setName: "Neo Genesis", rarity: "Holo Rare", type: "Lightning", imageUrl: "https://placehold.co/245x342.png?text=Ampharos", number: "1/111", artist: "Kimiya Masago" },
-  { id: "swsh1-50", name: "Zacian V", setName: "Sword & Shield", rarity: "Ultra Rare", type: "Metal", imageUrl: "https://placehold.co/245x342.png?text=ZacianV", number: "138/202", artist: "5ban Graphics" },
-  { id: "sv1-198", name: "Miraidon ex", setName: "Scarlet & Violet", rarity: "Double Rare", type: "Lightning", imageUrl: "https://placehold.co/245x342.png?text=MiraidonEx", number: "079/198", artist: "5ban Graphics" },
-  { id: "gym1-1", name: "Blaine's Arcanine", setName: "Gym Heroes", rarity: "Holo Rare", type: "Fire", imageUrl: "https://placehold.co/245x342.png?text=Arcanine", number: "1/132", artist: "Ken Sugimori" },
-];
+const API_BASE_URL = 'https://api.pokemontcg.io/v2';
 
-const mockSetNames = ["All Sets", "Base Set", "Neo Genesis", "Sword & Shield", "Scarlet & Violet", "Gym Heroes"];
-const mockTypes = ["All Types", "Fire", "Water", "Grass", "Lightning", "Psychic", "Fighting", "Darkness", "Metal", "Fairy", "Dragon", "Colorless"];
-const mockRarities = ["All Rarities", "Common", "Uncommon", "Rare", "Holo Rare", "Ultra Rare", "Secret Rare", "Double Rare"];
+// Matches API structure for a card
+interface ApiPokemonCard {
+  id: string;
+  name: string;
+  supertype: string;
+  subtypes: string[];
+  level?: string;
+  hp?: string;
+  types?: string[];
+  evolvesFrom?: string;
+  abilities?: { name: string; text: string; type: string }[];
+  attacks?: {
+    name: string;
+    cost: string[];
+    convertedEnergyCost: number;
+    damage: string;
+    text: string;
+  }[];
+  weaknesses?: { type: string; value: string }[];
+  resistances?: { type: string; value: string }[];
+  retreatCost?: string[];
+  convertedRetreatCost?: number;
+  set: {
+    id: string;
+    name: string;
+    series: string;
+    printedTotal: number;
+    total: number;
+    legalities: { [key: string]: string };
+    ptcgoCode?: string;
+    releaseDate: string;
+    updatedAt: string;
+    images: { symbol: string; logo: string };
+  };
+  number: string;
+  artist?: string;
+  rarity?: string;
+  flavorText?: string;
+  nationalPokedexNumbers?: number[];
+  legalities: { [key: string]: string };
+  images: { small: string; large: string };
+  tcgplayer?: any;
+  cardmarket?: any;
+}
 
+export interface PokemonCard {
+  id: string;
+  name: string;
+  setName: string;
+  rarity: string;
+  type: string; // Primary type
+  imageUrl: string;
+  number: string;
+  artist: string;
+}
 
-export type PokemonCard = typeof mockCards[0];
+interface SetOption {
+  id: string;
+  name: string;
+}
+
+async function getSetOptions(): Promise<SetOption[]> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/sets?select=id,name&orderBy=name`);
+    if (!response.ok) throw new Error('Failed to fetch sets');
+    const data = await response.json();
+    return (data.data || []).map((set: any) => ({ id: set.id, name: set.name }));
+  } catch (error) {
+    console.error("Error fetching set options:", error);
+    return [];
+  }
+}
+
+async function getTypeOptions(): Promise<string[]> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/types`);
+    if (!response.ok) throw new Error('Failed to fetch types');
+    const data = await response.json();
+    return data.data || [];
+  } catch (error) {
+    console.error("Error fetching type options:", error);
+    return [];
+  }
+}
+
+async function getRarityOptions(): Promise<string[]> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/rarities`);
+    if (!response.ok) throw new Error('Failed to fetch rarities');
+    const data = await response.json();
+    // Filter out potential null or empty rarities if any
+    return (data.data || []).filter((r: string | null) => r && r.trim() !== "");
+  } catch (error) {
+    console.error("Error fetching rarity options:", error);
+    return [];
+  }
+}
+
 
 async function getCards(filters: { search?: string; set?: string; type?: string; rarity?: string }): Promise<PokemonCard[]> {
-  await new Promise(resolve => setTimeout(resolve, 300));
-  let filteredCards = mockCards;
+  const queryParams = new URLSearchParams();
+  const queryParts: string[] = [];
+
   if (filters.search) {
-    filteredCards = filteredCards.filter(card => card.name.toLowerCase().includes(filters.search!.toLowerCase()));
+    queryParts.push(`name:${filters.search}*`);
   }
   if (filters.set && filters.set !== "All Sets") {
-    filteredCards = filteredCards.filter(card => card.setName === filters.set);
+    queryParts.push(`set.id:${filters.set}`);
   }
   if (filters.type && filters.type !== "All Types") {
-    filteredCards = filteredCards.filter(card => card.type === filters.type);
+    queryParts.push(`types:${filters.type}`);
   }
   if (filters.rarity && filters.rarity !== "All Rarities") {
-    filteredCards = filteredCards.filter(card => card.rarity === filters.rarity);
+    queryParts.push(`rarity:"${filters.rarity}"`);
   }
-  return filteredCards;
+
+  if (queryParts.length > 0) {
+    queryParams.set('q', queryParts.join(' '));
+  }
+  queryParams.set('pageSize', '24'); // Fetch 24 cards for the list view
+  queryParams.set('orderBy', 'name'); // Sort by name
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/cards?${queryParams.toString()}`);
+    if (!response.ok) {
+      console.error("Failed to fetch cards:", response.status, await response.text());
+      return [];
+    }
+    const data = await response.json();
+    return (data.data || []).map((apiCard: ApiPokemonCard) => ({
+      id: apiCard.id,
+      name: apiCard.name,
+      setName: apiCard.set.name,
+      rarity: apiCard.rarity || "Unknown",
+      type: apiCard.types?.[0] || "Colorless",
+      imageUrl: apiCard.images.small,
+      number: apiCard.number,
+      artist: apiCard.artist || "N/A",
+    }));
+  } catch (error) {
+    console.error("Error fetching cards:", error);
+    return [];
+  }
 }
 
 export default async function CardsPage({ searchParams }: { searchParams?: { search?: string; set?: string; type?: string; rarity?: string } }) {
@@ -50,7 +163,18 @@ export default async function CardsPage({ searchParams }: { searchParams?: { sea
     type: searchParams?.type || "All Types",
     rarity: searchParams?.rarity || "All Rarities",
   };
-  const cards = await getCards(filters);
+
+  const [cards, setOptions, typeOptions, rarityOptions] = await Promise.all([
+    getCards(filters),
+    getSetOptions(),
+    getTypeOptions(),
+    getRarityOptions()
+  ]);
+  
+  const allSetOptions: SetOption[] = [{ id: "All Sets", name: "All Sets" }, ...setOptions];
+  const allTypeOptions: string[] = ["All Types", ...typeOptions];
+  const allRarityOptions: string[] = ["All Rarities", ...rarityOptions];
+
 
   return (
     <>
@@ -72,7 +196,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: { sea
                 <SelectValue placeholder="Select Set" />
               </SelectTrigger>
               <SelectContent>
-                {mockSetNames.map(setName => <SelectItem key={setName} value={setName}>{setName}</SelectItem>)}
+                {allSetOptions.map(setOpt => <SelectItem key={setOpt.id} value={setOpt.id}>{setOpt.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -83,11 +207,22 @@ export default async function CardsPage({ searchParams }: { searchParams?: { sea
                 <SelectValue placeholder="Select Type" />
               </SelectTrigger>
               <SelectContent>
-                {mockTypes.map(typeName => <SelectItem key={typeName} value={typeName}>{typeName}</SelectItem>)}
+                {allTypeOptions.map(typeName => <SelectItem key={typeName} value={typeName}>{typeName}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
-          <div className="flex gap-2">
+           <div>
+            <label htmlFor="rarity" className="block text-sm font-medium text-muted-foreground mb-1">Filter by Rarity</label>
+            <Select name="rarity" defaultValue={filters.rarity}>
+              <SelectTrigger id="rarity">
+                <SelectValue placeholder="Select Rarity" />
+              </SelectTrigger>
+              <SelectContent>
+                {allRarityOptions.map(rarityName => <SelectItem key={rarityName} value={rarityName}>{rarityName}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="lg:col-start-4 flex gap-2">
             <Button type="submit" className="w-full md:w-auto">
               <Search className="mr-2 h-4 w-4" /> Apply Filters
             </Button>
@@ -113,15 +248,16 @@ export default async function CardsPage({ searchParams }: { searchParams?: { sea
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
           {cards.map((card) => (
             <Card key={card.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 group">
-              <CardHeader className="p-0 relative">
-                <Image
-                  src={card.imageUrl}
-                  alt={card.name}
-                  width={245}
-                  height={342}
-                  className="w-full h-auto transition-transform duration-300 group-hover:scale-105"
-                  data-ai-hint="pokemon card art"
-                />
+              <CardHeader className="p-0 relative aspect-[245/342] bg-muted flex items-center justify-center">
+                {card.imageUrl ? (
+                  <Image
+                    src={card.imageUrl}
+                    alt={card.name}
+                    width={245}
+                    height={342}
+                    className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                  />
+                ) : <div className="text-sm text-muted-foreground">No Image</div> }
               </CardHeader>
               <CardContent className="p-3 flex-grow">
                 <CardTitle className="font-headline text-md leading-tight mb-1 truncate" title={card.name}>{card.name}</CardTitle>

@@ -3,23 +3,118 @@ import PageHeader from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Zap, Flame, Droplet, Leaf, EyeIcon, Brain, ShieldHalf, Palette, Star, Dna } from "lucide-react"; // Added more icons
+import { ArrowLeft, Zap, Flame, Droplet, Leaf, EyeIcon, Brain, ShieldHalf, Palette, Star, Dna, HelpCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { PokemonCard } from "../page"; // Assuming type is exported from parent
+import type { PokemonCard as PokemonCardSummary } from "../page"; // Use existing summary type
 
-// Mock function to get card details
-async function getCardDetails(id: string): Promise<PokemonCard | null> {
-  await new Promise(resolve => setTimeout(resolve, 200));
-  const mockCardsDb: PokemonCard[] = [ // Extended mock data for detail view
-    { id: "base1-4", name: "Charizard", setName: "Base Set", rarity: "Holo Rare", type: "Fire", imageUrl: "https://placehold.co/300x418.png?text=Charizard", number: "4/102", artist: "Mitsuhiro Arita" },
-    { id: "base1-58", name: "Pikachu", setName: "Base Set", rarity: "Common", type: "Lightning", imageUrl: "https://placehold.co/300x418.png?text=Pikachu", number: "58/102", artist: "Mitsuhiro Arita" },
-    { id: "neo1-1", name: "Ampharos", setName: "Neo Genesis", rarity: "Holo Rare", type: "Lightning", imageUrl: "https://placehold.co/300x418.png?text=Ampharos", number: "1/111", artist: "Kimiya Masago" },
-    { id: "swsh1-50", name: "Zacian V", setName: "Sword & Shield", rarity: "Ultra Rare", type: "Metal", imageUrl: "https://placehold.co/300x418.png?text=ZacianV", number: "138/202", artist: "5ban Graphics" },
-    { id: "sv1-198", name: "Miraidon ex", setName: "Scarlet & Violet", rarity: "Double Rare", type: "Lightning", imageUrl: "https://placehold.co/300x418.png?text=MiraidonEx", number: "079/198", artist: "5ban Graphics" },
-    { id: "gym1-1", name: "Blaine's Arcanine", setName: "Gym Heroes", rarity: "Holo Rare", type: "Fire", imageUrl: "https://placehold.co/300x418.png?text=Arcanine", number: "1/132", artist: "Ken Sugimori" },
-  ];
-  return mockCardsDb.find(card => card.id === id) || null;
+const API_BASE_URL = 'https://api.pokemontcg.io/v2';
+
+// More detailed type for the card detail page, extending summary or defining new one based on API
+interface PokemonCardDetail extends PokemonCardSummary {
+  supertype?: string;
+  subtypes?: string[];
+  hp?: string;
+  evolvesFrom?: string;
+  abilities?: { name: string; text: string; type: string }[];
+  attacks?: {
+    name: string;
+    cost: string[];
+    convertedEnergyCost: number;
+    damage: string;
+    text: string;
+  }[];
+  weaknesses?: { type: string; value: string }[];
+  resistances?: { type: string; value: string }[];
+  retreatCost?: string[];
+  flavorText?: string;
+  nationalPokedexNumbers?: number[];
+  // using large image for detail view
+  largeImageUrl?: string; 
+}
+
+interface ApiPokemonCardDetail {
+  id: string;
+  name: string;
+  supertype: string;
+  subtypes: string[];
+  level?: string;
+  hp?: string;
+  types?: string[];
+  evolvesFrom?: string;
+  abilities?: { name: string; text: string; type: string }[];
+  attacks?: {
+    name: string;
+    cost: string[];
+    convertedEnergyCost: number;
+    damage: string;
+    text: string;
+  }[];
+  weaknesses?: { type: string; value: string }[];
+  resistances?: { type: string; value: string }[];
+  retreatCost?: string[];
+  convertedRetreatCost?: number;
+  set: {
+    id: string;
+    name: string;
+    series: string;
+    printedTotal: number;
+    total: number;
+    releaseDate: string;
+    updatedAt: string;
+    images: { symbol: string; logo: string };
+  };
+  number: string;
+  artist?: string;
+  rarity?: string;
+  flavorText?: string;
+  nationalPokedexNumbers?: number[];
+  legalities: { [key: string]: string };
+  images: { small: string; large: string };
+  tcgplayer?: any; // Can be expanded if needed
+  cardmarket?: any; // Can be expanded if needed
+}
+
+
+async function getCardDetails(id: string): Promise<PokemonCardDetail | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/cards/${id}`);
+    if (!response.ok) {
+      if (response.status === 404) return null;
+      console.error("Failed to fetch card details:", response.status, await response.text());
+      return null;
+    }
+    const data = await response.json();
+    const apiCard: ApiPokemonCardDetail = data.data;
+
+    if (!apiCard) return null;
+
+    return {
+      id: apiCard.id,
+      name: apiCard.name,
+      setName: apiCard.set.name,
+      rarity: apiCard.rarity || "Unknown",
+      type: apiCard.types?.[0] || "Colorless",
+      imageUrl: apiCard.images.large, // Use large image for detail view
+      largeImageUrl: apiCard.images.large,
+      number: apiCard.number,
+      artist: apiCard.artist || "N/A",
+      supertype: apiCard.supertype,
+      subtypes: apiCard.subtypes,
+      hp: apiCard.hp,
+      evolvesFrom: apiCard.evolvesFrom,
+      abilities: apiCard.abilities,
+      attacks: apiCard.attacks,
+      weaknesses: apiCard.weaknesses,
+      resistances: apiCard.resistances,
+      retreatCost: apiCard.retreatCost,
+      flavorText: apiCard.flavorText,
+      nationalPokedexNumbers: apiCard.nationalPokedexNumbers,
+    };
+  } catch (error) {
+    console.error("Error fetching card details:", error);
+    return null;
+  }
 }
 
 const typeIcons: { [key: string]: React.ElementType } = {
@@ -28,12 +123,13 @@ const typeIcons: { [key: string]: React.ElementType } = {
   Water: Droplet,
   Grass: Leaf,
   Psychic: Brain,
-  Fighting: EyeIcon, // Representing focus/fighting spirit
-  Darkness: ShieldHalf, // Representing resilience or dark type
-  Metal: ShieldHalf,
+  Fighting: EyeIcon, 
+  Darkness: ShieldHalf, 
+  Metal: ShieldHalf, // Using ShieldHalf for Metal too
   Fairy: Star,
-  Dragon: Dna, // Representing draconic/mythical
-  Colorless: Palette, // Representing general/versatile
+  Dragon: Dna,
+  Colorless: Palette,
+  Unknown: HelpCircle, // Icon for unknown type
 };
 
 export default async function CardDetailPage({ params }: { params: { id: string } }) {
@@ -42,7 +138,7 @@ export default async function CardDetailPage({ params }: { params: { id: string 
   if (!card) {
     return (
       <div className="text-center py-12">
-        <PageHeader title="Card Not Found" description="The requested Pokémon card could not be found." />
+        <PageHeader title="Card Not Found" description="The requested Pokémon card could not be found or an error occurred." />
         <Button asChild variant="outline">
           <Link href="/cards">
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Cards
@@ -52,8 +148,7 @@ export default async function CardDetailPage({ params }: { params: { id: string 
     );
   }
 
-  const TypeIcon = typeIcons[card.type] || Palette;
-
+  const TypeIcon = typeIcons[card.type] || typeIcons.Unknown;
 
   return (
     <>
@@ -72,66 +167,127 @@ export default async function CardDetailPage({ params }: { params: { id: string 
       <div className="grid md:grid-cols-3 gap-8">
         <div className="md:col-span-1">
           <Card className="overflow-hidden shadow-xl">
-            <Image
-              src={card.imageUrl}
-              alt={card.name}
-              width={400}
-              height={557}
-              className="w-full h-auto object-contain"
-              data-ai-hint="pokemon card image"
-            />
+            {card.largeImageUrl ? (
+              <Image
+                src={card.largeImageUrl}
+                alt={card.name}
+                width={400}
+                height={557}
+                className="w-full h-auto object-contain"
+                priority // Prioritize loading hero image
+              />
+            ) : <div className="w-full aspect-[400/557] bg-muted flex items-center justify-center text-muted-foreground">No Image Available</div>}
           </Card>
         </div>
         <div className="md:col-span-2">
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="font-headline text-3xl">{card.name}</CardTitle>
-              <CardDescription>Card Number: {card.number}</CardDescription>
+              <CardDescription>Card Number: {card.number} &bull; Set: {card.setName}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="font-semibold text-muted-foreground">Set</p>
-                  <p className="text-foreground">{card.setName}</p>
-                </div>
                 <div>
                   <p className="font-semibold text-muted-foreground">Rarity</p>
                   <Badge variant="secondary">{card.rarity}</Badge>
                 </div>
                 <div>
                   <p className="font-semibold text-muted-foreground">Type</p>
-                   <Badge style={{backgroundColor: `hsl(var(--${card.type.toLowerCase()}-type-bg, var(--muted)))`, color: `hsl(var(--${card.type.toLowerCase()}-type-fg, var(--muted-foreground)))`}} className="border">
-                    <TypeIcon className="mr-1 h-3 w-3" /> {card.type}
+                   <Badge variant="outline">
+                    <TypeIcon className="mr-1 h-3.5 w-3.5" /> {card.type}
                    </Badge>
                 </div>
                 <div>
                   <p className="font-semibold text-muted-foreground">Artist</p>
                   <p className="text-foreground">{card.artist}</p>
                 </div>
+                {card.hp && (
+                  <div>
+                    <p className="font-semibold text-muted-foreground">HP</p>
+                    <p className="text-foreground">{card.hp}</p>
+                  </div>
+                )}
+                 {card.supertype && (
+                  <div>
+                    <p className="font-semibold text-muted-foreground">Supertype</p>
+                    <p className="text-foreground">{card.supertype}</p>
+                  </div>
+                )}
+                {card.evolvesFrom && (
+                  <div>
+                    <p className="font-semibold text-muted-foreground">Evolves From</p>
+                    <p className="text-foreground">{card.evolvesFrom}</p>
+                  </div>
+                )}
               </div>
               
-              <div>
-                <h3 className="font-headline text-lg mb-2 text-foreground">Description</h3>
-                <p className="text-muted-foreground text-sm">
-                  This is a placeholder description for {card.name}. In a real application, this would contain flavor text,
-                  attacks, abilities, HP, weakness, resistance, and retreat cost. For example, Charizard is a Fire-type Pokémon
-                  known for its powerful flames and iconic status.
-                </p>
+              {card.flavorText && (
+                <div>
+                  <h3 className="font-headline text-lg mb-1 mt-3 text-foreground">Flavor Text</h3>
+                  <p className="text-muted-foreground text-sm italic">
+                    {card.flavorText}
+                  </p>
+                </div>
+              )}
+
+              {card.abilities && card.abilities.length > 0 && (
+                <div className="border-t pt-4 mt-4">
+                  <h4 className="font-headline text-md mb-2 text-foreground">Abilities</h4>
+                  <ul className="space-y-3 text-sm">
+                    {card.abilities.map(ability => (
+                      <li key={ability.name}>
+                        <strong className="text-foreground">{ability.name} ({ability.type})</strong>
+                        <p className="text-muted-foreground text-xs">{ability.text}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {card.attacks && card.attacks.length > 0 && (
+                 <div className="border-t pt-4 mt-4">
+                  <h4 className="font-headline text-md mb-2 text-foreground">Attacks</h4>
+                  <ul className="space-y-3 text-sm">
+                    {card.attacks.map(attack => (
+                      <li key={attack.name}>
+                        <div className="flex justify-between items-baseline">
+                           <strong className="text-foreground">{attack.name}</strong>
+                           {attack.damage && <span className="font-semibold text-primary">{attack.damage}</span>}
+                        </div>
+                        {attack.cost && attack.cost.length > 0 && <p className="text-xs text-muted-foreground">Cost: {attack.cost.join(', ')}</p>}
+                        <p className="text-muted-foreground text-xs">{attack.text}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t pt-4 mt-4 text-sm">
+                {card.weaknesses && card.weaknesses.length > 0 && (
+                  <div>
+                    <p className="font-semibold text-muted-foreground">Weaknesses</p>
+                    {card.weaknesses.map(w => <Badge key={w.type} variant="destructive" className="mr-1">{w.type} {w.value}</Badge>)}
+                  </div>
+                )}
+                {card.resistances && card.resistances.length > 0 && (
+                   <div>
+                    <p className="font-semibold text-muted-foreground">Resistances</p>
+                    {card.resistances.map(r => <Badge key={r.type} variant="secondary" className="mr-1">{r.type} {r.value}</Badge>)}
+                  </div>
+                )}
+                 {card.retreatCost && card.retreatCost.length > 0 && (
+                   <div>
+                    <p className="font-semibold text-muted-foreground">Retreat Cost</p>
+                    <p className="text-foreground">{card.retreatCost.join(', ')}</p>
+                  </div>
+                )}
               </div>
 
-              {/* Placeholder for attacks/abilities */}
-              <div className="border-t pt-4">
-                <h4 className="font-headline text-md mb-2 text-foreground">Abilities & Attacks (Placeholder)</h4>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li><strong>Ability: Battle Sense</strong> - Once during your turn, you may look at the top 3 cards of your deck and put 1 of them into your hand. Discard the other cards.</li>
-                  <li><strong>Flamethrower (120 Fire Energy)</strong> - Discard an Energy from this Pokémon.</li>
-                </ul>
-              </div>
 
             </CardContent>
             <CardFooter>
                 <p className="text-xs text-muted-foreground">
-                    Pokémon and Pokémon character names are trademarks of Nintendo. Card data is illustrative.
+                    Pokémon and Pokémon character names are trademarks of Nintendo. Card data provided by pokemontcg.io.
                 </p>
             </CardFooter>
           </Card>
@@ -140,3 +296,4 @@ export default async function CardDetailPage({ params }: { params: { id: string 
     </>
   );
 }
+
