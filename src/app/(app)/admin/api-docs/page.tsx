@@ -1,16 +1,16 @@
 import PageHeader from "@/components/page-header";
-import OpenApiGeneratorClient from "@/components/api-docs/openapi-generator-client";
-import { FileText } from "lucide-react";
+import OpenApiViewerClient from "@/components/api-docs/openapi-generator-client"; // Renaming this component might be good later
+import { BookOpen } from "lucide-react";
 
 export default function ApiDocsPage() {
   return (
     <>
       <PageHeader
-        title="API Documentation Generator"
-        description="Use AI to generate OpenAPI 3.0 specifications for your API endpoints."
-        icon={FileText}
+        title="API Documentation Viewer"
+        description="Explore the Pokémon TCG API specification."
+        icon={BookOpen}
       />
-      <OpenApiGeneratorClient />
+      <OpenApiViewerClient />
     </>
   );
 }

@@ -1,4 +1,5 @@
 import { config } from 'dotenv';
 config();
 
-import '@/ai/flows/generate-openapi-spec.ts';
+// The generate-openapi-spec.ts flow is no longer used.
+// import '@/ai/flows/generate-openapi-spec.ts';
