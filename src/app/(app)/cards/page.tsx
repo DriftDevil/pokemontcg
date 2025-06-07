@@ -2,7 +2,6 @@
 import PageHeader from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-// Input and Select related imports are now handled by CardFiltersForm
 import { CreditCard, Eye } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -14,45 +13,45 @@ import CardFiltersForm from '@/components/cards/card-filters-form';
 interface ApiPokemonCard {
   id: string;
   name: string;
-  supertype?: string; // Optional as per openapi.yaml (though usually present)
-  subtypes?: string[]; // Optional as per openapi.yaml
-  level?: string; // Not in openapi.yaml Card schema
-  hp?: string; // Not in openapi.yaml Card schema
-  types?: string[]; // Not in openapi.yaml Card schema
-  evolvesFrom?: string; // Not in openapi.yaml Card schema
-  abilities?: { name: string; text: string; type: string }[]; // Not in openapi.yaml Card schema
-  attacks?: { // Not in openapi.yaml Card schema
+  supertype?: string;
+  subtypes?: string[];
+  level?: string;
+  hp?: string;
+  types?: string[];
+  evolvesFrom?: string;
+  abilities?: { name: string; text: string; type: string }[];
+  attacks?: {
     name: string;
     cost: string[];
     convertedEnergyCost: number;
     damage: string;
     text: string;
   }[];
-  weaknesses?: { type: string; value: string }[]; // Not in openapi.yaml Card schema
-  resistances?: { type: string; value: string }[]; // Not in openapi.yaml Card schema
-  retreatCost?: string[]; // Not in openapi.yaml Card schema
-  convertedRetreatCost?: number; // Not in openapi.yaml Card schema
-  set: { // This structure IS in openapi.yaml via $ref
+  weaknesses?: { type: string; value: string }[];
+  resistances?: { type: string; value: string }[];
+  retreatCost?: string[];
+  convertedRetreatCost?: number;
+  set: {
     id: string;
     name: string;
     series: string;
-    printedTotal: number; // 'total' in openapi.yaml Set schema
-    total: number; // 'total' in openapi.yaml Set schema
-    legalities: { [key: string]: string }; // Not in openapi.yaml Set schema
-    ptcgoCode?: string; // Not in openapi.yaml Set schema
-    releaseDate: string; // 'releaseDate' in openapi.yaml Set schema
-    updatedAt: string; // Not in openapi.yaml Set schema
-    images: { symbol: string; logo: string }; // Not in openapi.yaml Set schema
+    printedTotal: number;
+    total: number;
+    legalities: { [key: string]: string };
+    ptcgoCode?: string;
+    releaseDate: string;
+    updatedAt: string;
+    images: { symbol: string; logo: string };
   };
-  number?: string; // Not in openapi.yaml Card schema
-  artist?: string; // Not in openapi.yaml Card schema
-  rarity?: string; // Not in openapi.yaml Card schema
-  flavorText?: string; // Not in openapi.yaml Card schema
-  nationalPokedexNumbers?: number[]; // Not in openapi.yaml Card schema
-  legalities?: { [key: string]: string }; // Not in openapi.yaml Card schema
-  images?: { small: string; large: string }; // Not in openapi.yaml Card schema
-  tcgplayer?: any; // Not in openapi.yaml Card schema
-  cardmarket?: any; // Not in openapi.yaml Card schema
+  number?: string;
+  artist?: string;
+  rarity?: string;
+  flavorText?: string;
+  nationalPokedexNumbers?: number[];
+  legalities?: { [key: string]: string };
+  images?: { small: string; large: string };
+  tcgplayer?: any;
+  cardmarket?: any;
 }
 
 export interface PokemonCard {
@@ -71,7 +70,10 @@ interface SetOption {
   name: string;
 }
 
-const APP_URL = process.env.APP_URL || "";
+const APP_URL = process.env.APP_URL || ""; // For internal API calls like sets, types, rarities
+const PRIMARY_EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
+const BACKUP_EXTERNAL_API_BASE_URL = 'https://api.pokemontcg.io/v2';
+
 
 async function getSetOptions(): Promise<SetOption[]> {
   if (!APP_URL) {
@@ -79,12 +81,9 @@ async function getSetOptions(): Promise<SetOption[]> {
     return [];
   }
   try {
-    // Fetch from internal API, selecting necessary fields if supported by proxy or processing client-side
     const response = await fetch(`${APP_URL}/api/sets?select=id,name&orderBy=name`);
     if (!response.ok) throw new Error('Failed to fetch sets from internal API');
     const data = await response.json();
-    // Assuming data.data is an array of set objects {id: string, name: string}
-    // If pokeapi.huangtechhub.dev returns a different structure for sets, this map might need adjustment
     return (data.data || []).map((set: any) => ({ id: set.id, name: set.name }));
   } catch (error) {
     console.error("Error fetching set options from internal API:", error);
@@ -126,10 +125,6 @@ async function getRarityOptions(): Promise<string[]> {
 
 
 async function getCards(filters: { search?: string; set?: string; type?: string; rarity?: string }): Promise<PokemonCard[]> {
-  if (!APP_URL) {
-    console.error("APP_URL is not defined. Cannot fetch cards.");
-    return [];
-  }
   const queryParams = new URLSearchParams();
   const queryParts: string[] = [];
 
@@ -143,40 +138,73 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     queryParts.push(`types:${filters.type}`);
   }
   if (filters.rarity && filters.rarity !== "All Rarities") {
-    // Ensure rarity value is quoted if it contains spaces
     const rarityValue = filters.rarity.includes(" ") ? `"${filters.rarity}"` : filters.rarity;
     queryParts.push(`rarity:${rarityValue}`);
   }
-  
 
   if (queryParts.length > 0) {
     queryParams.set('q', queryParts.join(' '));
   }
-  queryParams.set('pageSize', '24'); 
+  queryParams.set('pageSize', '24');
   queryParams.set('orderBy', 'name');
+  const queryString = queryParams.toString();
 
-  const fetchUrl = `${APP_URL}/api/cards?${queryParams.toString()}`;
-  console.log('Fetching cards with URL (getCards function):', fetchUrl);
+  let apiResponse;
+  let externalUrlToLog = "";
 
+  // Try Primary API
+  if (PRIMARY_EXTERNAL_API_BASE_URL) {
+    const primaryFetchUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/cards${queryString ? `?${queryString}` : ''}`;
+    externalUrlToLog = primaryFetchUrl;
+    console.log('Attempting to fetch cards from Primary API (getCards function):', primaryFetchUrl);
+    try {
+      apiResponse = await fetch(primaryFetchUrl);
+      if (apiResponse.ok) {
+        const data = await apiResponse.json();
+        return (data.data || []).map((apiCard: ApiPokemonCard) => ({
+          id: apiCard.id,
+          name: apiCard.name,
+          setName: apiCard.set?.name || "Unknown Set",
+          rarity: apiCard.rarity || "Unknown",
+          type: apiCard.types?.[0] || "Colorless",
+          imageUrl: apiCard.images?.small || "https://placehold.co/245x342.png",
+          number: apiCard.number || "??",
+          artist: apiCard.artist || "N/A",
+        }));
+      }
+      const errorData = await apiResponse.text();
+      console.warn(`Primary API (${primaryFetchUrl}) failed: ${apiResponse.status}`, errorData);
+    } catch (error) {
+      console.warn(`Failed to fetch from Primary API (${primaryFetchUrl}):`, error);
+    }
+  } else {
+     console.warn("Primary External API base URL not configured. Proceeding to backup.");
+  }
+
+  // Try Backup API if Primary failed or was not configured
+  const backupFetchUrl = `${BACKUP_EXTERNAL_API_BASE_URL}/cards${queryString ? `?${queryString}` : ''}`;
+  externalUrlToLog = backupFetchUrl; // Update log URL if we reach here
+  console.log('Attempting to fetch cards from Backup API (getCards function):', backupFetchUrl);
   try {
-    const response = await fetch(fetchUrl);
-    if (!response.ok) {
-      console.error("Failed to fetch cards from internal API:", response.status, await response.text());
+    apiResponse = await fetch(backupFetchUrl);
+    if (!apiResponse.ok) {
+      const errorData = await apiResponse.text();
+      console.error(`Backup API (${backupFetchUrl}) also failed: ${apiResponse.status}`, errorData);
       return [];
     }
-    const data = await response.json();
+    const data = await apiResponse.json();
     return (data.data || []).map((apiCard: ApiPokemonCard) => ({
       id: apiCard.id,
       name: apiCard.name,
-      setName: apiCard.set?.name || "Unknown Set", // Safely access set name
+      setName: apiCard.set?.name || "Unknown Set",
       rarity: apiCard.rarity || "Unknown",
-      type: apiCard.types?.[0] || "Colorless", // Use optional chaining for types
-      imageUrl: apiCard.images?.small || "https://placehold.co/245x342.png", // Use optional chaining and provide a placeholder
-      number: apiCard.number || "??", // Provide fallback for number
+      type: apiCard.types?.[0] || "Colorless",
+      imageUrl: apiCard.images?.small || "https://placehold.co/245x342.png",
+      number: apiCard.number || "??",
       artist: apiCard.artist || "N/A",
     }));
   } catch (error) {
-    console.error("Error fetching cards from internal API:", error);
+    console.error(`Failed to fetch from Backup API (${backupFetchUrl}):`, error);
     return [];
   }
 }
@@ -200,7 +228,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: { sea
     getTypeOptions(),
     getRarityOptions()
   ]);
-  
+
   const allSetOptions: SetOption[] = [{ id: "All Sets", name: "All Sets" }, ...setOptions];
   const allTypeOptions: string[] = ["All Types", ...typeOptions];
   const allRarityOptions: string[] = ["All Rarities", ...rarityOptions];
@@ -282,5 +310,4 @@ export default async function CardsPage({ searchParams }: { searchParams?: { sea
     </>
   );
 }
-
     
