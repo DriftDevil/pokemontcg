@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
 
-interface SetOption { id: string; name: string; } // Define SetOption if not globally available
+interface SetOption { id: string; name: string; }
 
 interface CardFiltersFormProps {
   initialSearch?: string;
@@ -21,28 +21,55 @@ interface CardFiltersFormProps {
 }
 
 export default function CardFiltersForm({
-  initialSearch = "",
-  initialSet = "All Sets",
-  initialType = "All Types",
-  initialRarity = "All Rarities",
+  initialSearch: initialSearchProp = "",
+  initialSet: initialSetProp = "All Sets",
+  initialType: initialTypeProp = "All Types",
+  initialRarity: initialRarityProp = "All Rarities",
   setOptions,
   typeOptions,
   rarityOptions,
 }: CardFiltersFormProps) {
   const router = useRouter();
-  const currentSearchParams = useSearchParams(); // Renamed to avoid conflict
+  const currentSearchParams = useSearchParams();
 
-  const [searchTerm, setSearchTerm] = useState(initialSearch);
-  const [selectedSet, setSelectedSet] = useState(initialSet);
-  const [selectedType, setSelectedType] = useState(initialType);
-  const [selectedRarity, setSelectedRarity] = useState(initialRarity);
+  // Initialize state directly from props, which already incorporate searchParams or defaults from parent
+  const [searchTerm, setSearchTerm] = useState(initialSearchProp);
+  const [selectedSet, setSelectedSet] = useState(initialSetProp);
+  const [selectedType, setSelectedType] = useState(initialTypeProp);
+  const [selectedRarity, setSelectedRarity] = useState(initialRarityProp);
 
+  // Effect to update state if URL searchParams change externally
   useEffect(() => {
-    setSearchTerm(currentSearchParams.get('search') || initialSearch);
-    setSelectedSet(currentSearchParams.get('set') || initialSet);
-    setSelectedType(currentSearchParams.get('type') || initialType);
-    setSelectedRarity(currentSearchParams.get('rarity') || initialRarity);
-  }, [currentSearchParams, initialSearch, initialSet, initialType, initialRarity]);
+    const searchFromUrl = currentSearchParams.get('search');
+    const setFromUrl = currentSearchParams.get('set');
+    const typeFromUrl = currentSearchParams.get('type');
+    const rarityFromUrl = currentSearchParams.get('rarity');
+
+    if (searchFromUrl !== null && searchFromUrl !== searchTerm) {
+      setSearchTerm(searchFromUrl);
+    } else if (searchFromUrl === null && searchTerm !== initialSearchProp) {
+      setSearchTerm(initialSearchProp);
+    }
+
+    if (setFromUrl !== null && setFromUrl !== selectedSet) {
+      setSelectedSet(setFromUrl);
+    } else if (setFromUrl === null && selectedSet !== initialSetProp) {
+      setSelectedSet(initialSetProp);
+    }
+
+    if (typeFromUrl !== null && typeFromUrl !== selectedType) {
+      setSelectedType(typeFromUrl);
+    } else if (typeFromUrl === null && selectedType !== initialTypeProp) {
+      setSelectedType(initialTypeProp);
+    }
+
+    if (rarityFromUrl !== null && rarityFromUrl !== selectedRarity) {
+      setSelectedRarity(rarityFromUrl);
+    } else if (rarityFromUrl === null && selectedRarity !== initialRarityProp) {
+      setSelectedRarity(initialRarityProp);
+    }
+  }, [currentSearchParams, initialSearchProp, initialSetProp, initialTypeProp, initialRarityProp, searchTerm, selectedSet, selectedType, selectedRarity]);
+
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -56,12 +83,13 @@ export default function CardFiltersForm({
   };
 
   const handleClear = () => {
+    // Reset local state first
+    setSearchTerm(initialSearchProp); // Reset to initial prop default which is ""
+    setSelectedSet(initialSetProp); // Reset to initial prop default "All Sets"
+    setSelectedType(initialTypeProp); // Reset to initial prop default "All Types"
+    setSelectedRarity(initialRarityProp); // Reset to initial prop default "All Rarities"
+    // Then navigate to clear URL params
     router.push('/cards');
-    // Reset local state as well, though useEffect will also catch it
-    setSearchTerm("");
-    setSelectedSet("All Sets");
-    setSelectedType("All Types");
-    setSelectedRarity("All Rarities");
   };
 
   return (
@@ -123,3 +151,5 @@ export default function CardFiltersForm({
     </form>
   );
 }
+
+    
