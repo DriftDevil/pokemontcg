@@ -499,6 +499,10 @@ paths:
                     type: integer
                     description: Total number of API requests in the last 24 hours.
                     example: 1205832
+                  totalUsers:
+                    type: integer
+                    description: Total number of registered users.
+                    example: 15
         '401':
           $ref: '#/components/responses/401'
         '403':
