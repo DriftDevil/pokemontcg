@@ -4,10 +4,10 @@
 import React, { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from '@/components/ui/textarea';
-import "swagger-ui-react/swagger-ui.css"; // Import CSS from the package
+import "swagger-ui-react/swagger-ui.css"; 
 
 interface SwaggerViewerProps {
-  spec: string | object; // Can be YAML string or JSON object
+  spec: string | null; // Expecting a YAML/JSON string or null
 }
 
 export default function SwaggerViewer({ spec }: SwaggerViewerProps) {
@@ -17,7 +17,7 @@ export default function SwaggerViewer({ spec }: SwaggerViewerProps) {
   useEffect(() => {
     import('swagger-ui-react')
       .then(module => {
-        setLoadedSwaggerUI(() => module.default); // Use a functional update for safety if needed
+        setLoadedSwaggerUI(() => module.default); 
       })
       .catch(err => {
         console.error("Failed to load Swagger UI:", err);
@@ -25,7 +25,7 @@ export default function SwaggerViewer({ spec }: SwaggerViewerProps) {
       });
   }, []);
 
-  const specString = typeof spec === 'object' ? JSON.stringify(spec, null, 2) : spec;
+  const specString = spec || "";
 
   if (error) {
      return (
@@ -41,10 +41,10 @@ export default function SwaggerViewer({ spec }: SwaggerViewerProps) {
     );
   }
 
-  if (!LoadedSwaggerUI) {
+  if (!LoadedSwaggerUI || !spec) { // Also check if spec is loaded
     return (
       <div className="p-4 border rounded-md bg-muted">
-        <p className="text-muted-foreground">Loading Swagger Viewer...</p>
+        <p className="text-muted-foreground">Loading Swagger Viewer or Specification...</p>
         <Textarea
           value={specString}
           readOnly
@@ -63,7 +63,8 @@ export default function SwaggerViewer({ spec }: SwaggerViewerProps) {
       </TabsList>
       <TabsContent value="swagger-ui">
         <div className="swagger-container bg-card p-1 rounded-md shadow">
-          <LoadedSwaggerUI spec={spec} />
+          {/* Pass the spec string directly */}
+          <LoadedSwaggerUI spec={specString} /> 
         </div>
       </TabsContent>
       <TabsContent value="raw-yaml">
@@ -77,3 +78,4 @@ export default function SwaggerViewer({ spec }: SwaggerViewerProps) {
     </Tabs>
   );
 }
+

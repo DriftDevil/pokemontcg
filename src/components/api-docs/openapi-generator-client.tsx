@@ -4,14 +4,15 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Terminal, FileText, Loader2 } from "lucide-react";
+import { Terminal, Loader2 } from "lucide-react";
 import SwaggerViewer from "./swagger-viewer";
 import { useToast } from "@/hooks/use-toast";
-import yaml from 'js-yaml';
+// No longer need js-yaml here if SwaggerUI handles parsing
+// import yaml from 'js-yaml';
 
 
 export default function OpenApiViewerClient() {
-  const [spec, setSpec] = useState<object | string | null>(null);
+  const [spec, setSpec] = useState<string | null>(null); // Store as string
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -26,8 +27,7 @@ export default function OpenApiViewerClient() {
           throw new Error(`Failed to fetch OpenAPI spec: ${response.status} ${response.statusText}`);
         }
         const yamlText = await response.text();
-        const parsedSpec = yaml.load(yamlText);
-        setSpec(parsedSpec as object); // SwaggerUI prefers JS object
+        setSpec(yamlText); // Store raw YAML text
         toast({
           title: "API Specification Loaded",
           description: "The OpenAPI specification has been successfully loaded.",
@@ -94,5 +94,6 @@ export default function OpenApiViewerClient() {
     );
   }
 
-  return null; // Should not reach here if loading, error, or spec states are handled
+  return null; 
 }
+
