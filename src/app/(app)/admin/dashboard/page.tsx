@@ -2,12 +2,12 @@
 import PageHeader from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { LayoutDashboard, Users, CreditCard, Layers, Activity } from 'lucide-react';
-import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import SetReleaseChart from "@/components/admin/dashboard/set-release-chart";
+import { cn } from "@/lib/utils";
 
 // Helper function to fetch total counts from internal API
 async function fetchTotalCount(endpoint: string): Promise<number> {
@@ -175,32 +175,10 @@ export default async function AdminDashboardPage() {
             <CardDescription>Number of Pokémon TCG sets released per year.</CardDescription>
           </CardHeader>
           <CardContent>
-            {setReleaseTimelineData.length > 0 ? (
-              <ChartContainer config={setReleaseChartConfig} className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={setReleaseTimelineData} accessibilityLayer margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey="year"
-                      tickLine={false}
-                      tickMargin={10}
-                      axisLine={false}
-                    />
-                    <YAxis allowDecimals={false} tickMargin={10} axisLine={false} />
-                    <RechartsTooltip
-                      cursor={{ fill: 'hsl(var(--muted))' }}
-                      content={<ChartTooltipContent indicator="dot" />} 
-                    />
-                    <RechartsLegend content={<ChartLegendContent />} />
-                    <Bar dataKey="count" fill="var(--color-count)" radius={4} nameKey="Sets Released" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                No set release data available to display chart.
-              </div>
-            )}
+            <SetReleaseChart 
+              data={setReleaseTimelineData} 
+              config={setReleaseChartConfig} 
+            />
           </CardContent>
         </Card>
 
