@@ -70,10 +70,16 @@ interface SetOption {
   name: string;
 }
 
+const APP_URL = process.env.APP_URL || "";
+
 async function getSetOptions(): Promise<SetOption[]> {
+  if (!APP_URL) {
+    console.error("APP_URL is not defined. Cannot fetch set options.");
+    return [];
+  }
   try {
     // Fetch from internal API, selecting necessary fields if supported by proxy or processing client-side
-    const response = await fetch(`/api/sets?select=id,name&orderBy=name`);
+    const response = await fetch(`${APP_URL}/api/sets?select=id,name&orderBy=name`);
     if (!response.ok) throw new Error('Failed to fetch sets from internal API');
     const data = await response.json();
     return (data.data || []).map((set: any) => ({ id: set.id, name: set.name }));
@@ -84,8 +90,12 @@ async function getSetOptions(): Promise<SetOption[]> {
 }
 
 async function getTypeOptions(): Promise<string[]> {
+  if (!APP_URL) {
+    console.error("APP_URL is not defined. Cannot fetch type options.");
+    return [];
+  }
   try {
-    const response = await fetch(`/api/types`);
+    const response = await fetch(`${APP_URL}/api/types`);
     if (!response.ok) throw new Error('Failed to fetch types from internal API');
     const data = await response.json();
     return data.data || [];
@@ -96,8 +106,12 @@ async function getTypeOptions(): Promise<string[]> {
 }
 
 async function getRarityOptions(): Promise<string[]> {
+  if (!APP_URL) {
+    console.error("APP_URL is not defined. Cannot fetch rarity options.");
+    return [];
+  }
   try {
-    const response = await fetch(`/api/rarities`);
+    const response = await fetch(`${APP_URL}/api/rarities`);
     if (!response.ok) throw new Error('Failed to fetch rarities from internal API');
     const data = await response.json();
     return (data.data || []).filter((r: string | null) => r && r.trim() !== "");
@@ -109,6 +123,10 @@ async function getRarityOptions(): Promise<string[]> {
 
 
 async function getCards(filters: { search?: string; set?: string; type?: string; rarity?: string }): Promise<PokemonCard[]> {
+  if (!APP_URL) {
+    console.error("APP_URL is not defined. Cannot fetch cards.");
+    return [];
+  }
   const queryParams = new URLSearchParams();
   const queryParts: string[] = [];
 
@@ -135,7 +153,7 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
   queryParams.set('orderBy', 'name');
 
   try {
-    const response = await fetch(`/api/cards?${queryParams.toString()}`);
+    const response = await fetch(`${APP_URL}/api/cards?${queryParams.toString()}`);
     if (!response.ok) {
       console.error("Failed to fetch cards from internal API:", response.status, await response.text());
       return [];

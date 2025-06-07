@@ -7,8 +7,6 @@ import { Layers, Search, Eye } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
-// No longer need API_BASE_URL here as we use internal /api routes
-
 interface ApiSet {
   id: string;
   name: string;
@@ -38,7 +36,13 @@ export interface CardSet {
   logoUrl: string;
 }
 
+const APP_URL = process.env.APP_URL || "";
+
 async function getCardSets(searchTerm?: string): Promise<CardSet[]> {
+  if (!APP_URL) {
+    console.error("APP_URL is not defined. Cannot fetch card sets.");
+    return [];
+  }
   const queryParams = new URLSearchParams();
   if (searchTerm) {
     queryParams.set('q', `name:${searchTerm}*`);
@@ -48,7 +52,7 @@ async function getCardSets(searchTerm?: string): Promise<CardSet[]> {
   
   try {
     // Fetch from internal API route
-    const response = await fetch(`/api/sets?${queryParams.toString()}`);
+    const response = await fetch(`${APP_URL}/api/sets?${queryParams.toString()}`);
     if (!response.ok) {
       console.error("Failed to fetch sets from internal API:", response.status, await response.text());
       return [];
@@ -105,14 +109,14 @@ export default async function CardSetsPage({ searchParams }: { searchParams?: { 
           {sets.map((set, index) => (
             <Card key={set.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
               <CardHeader className="p-0">
-                <div className="relative w-full h-32 bg-muted flex items-center justify-center overflow-hidden">
+                 <div className="relative w-full h-32 bg-muted flex items-center justify-center overflow-hidden">
                   {set.logoUrl ? (
                     <Image 
                       src={set.logoUrl} 
                       alt={`${set.name} logo`} 
                       fill
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                      className="object-contain"
+                      className="object-contain p-2"
                       priority={index < 4} 
                     />
                   ) : <div className="text-sm text-muted-foreground">No Logo</div> }

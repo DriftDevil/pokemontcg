@@ -72,10 +72,15 @@ interface ApiPokemonCardDetail {
   cardmarket?: any;
 }
 
+const APP_URL = process.env.APP_URL || "";
 
 async function getCardDetails(id: string): Promise<PokemonCardDetail | null> {
+  if (!APP_URL) {
+    console.error("APP_URL is not defined. Cannot fetch card details.");
+    return null;
+  }
   try {
-    const response = await fetch(`/api/cards/${id}`); // Fetch from internal API
+    const response = await fetch(`${APP_URL}/api/cards/${id}`); // Fetch from internal API
     if (!response.ok) {
       if (response.status === 404) return null;
       console.error("Failed to fetch card details from internal API:", response.status, await response.text());
