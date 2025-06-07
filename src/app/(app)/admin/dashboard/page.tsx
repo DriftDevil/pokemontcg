@@ -130,7 +130,12 @@ async function fetchTotalUsersCount(): Promise<number> {
 }
 
 async function fetchApiRequests24h(): Promise<number> {
-  const fetchUrl = `https://pokeapi.huangtechhub.dev/usage`;
+  const EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
+  if (!EXTERNAL_API_BASE_URL) {
+    console.error(`EXTERNAL_API_BASE_URL is not defined. Cannot fetch API requests count from /usage.`);
+    return 0;
+  }
+  const fetchUrl = `${EXTERNAL_API_BASE_URL}/usage`;
 
   try {
     const response = await fetch(fetchUrl); 
@@ -141,8 +146,6 @@ async function fetchApiRequests24h(): Promise<number> {
       return 0;
     }
     const data = await response.json();
-    // Assuming the /usage endpoint returns { "api_requests_24h": X, "totalUsers": Y }
-    // or { "data": { "api_requests_24h": X, "totalUsers": Y } }
     return data.api_requests_24h || data.data?.api_requests_24h || 0;
   } catch (error) {
     console.error(`Error fetching API requests count from ${fetchUrl}:`, error);
@@ -218,7 +221,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{apiRequests24h.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">{(apiRequests24h > 0 || apiRequests24h === 0) ? "Live data (from external API)" : "No data / API error"}</p>
+            <p className="text-xs text-muted-foreground">{(apiRequests24h > 0 || apiRequests24h === 0) ? "Live data (from external API via EXTERNAL_API_BASE_URL)" : "No data / API error"}</p>
           </CardContent>
         </Card>
       </div>
