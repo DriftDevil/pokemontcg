@@ -176,11 +176,16 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
 }
 
 export default async function CardsPage({ searchParams }: { searchParams?: { search?: string; set?: string; type?: string; rarity?: string } }) {
+  const currentSearch = searchParams?.search ?? "";
+  const currentSet = searchParams?.set ?? "All Sets";
+  const currentType = searchParams?.type ?? "All Types";
+  const currentRarity = searchParams?.rarity ?? "All Rarities";
+
   const currentFilters = {
-    search: searchParams?.search || "",
-    set: searchParams?.set || "All Sets",
-    type: searchParams?.type || "All Types",
-    rarity: searchParams?.rarity || "All Rarities",
+    search: currentSearch,
+    set: currentSet,
+    type: currentType,
+    rarity: currentRarity,
   };
 
   const [cards, setOptions, typeOptions, rarityOptions] = await Promise.all([
