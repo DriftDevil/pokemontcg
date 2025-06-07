@@ -163,7 +163,12 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
   const pageSizeParamName = usePrimaryApi ? 'limit' : 'pageSize';
   queryParams.set(pageSizeParamName, REQUESTED_PAGE_SIZE.toString());
   
-  queryParams.set('orderBy', 'name'); 
+  // Dynamically set orderBy
+  if (filters.set && filters.set !== "All Sets") {
+    queryParams.set('orderBy', 'number'); 
+  } else {
+    queryParams.set('orderBy', 'name'); 
+  }
   const queryString = queryParams.toString();
 
   let apiResponse;
