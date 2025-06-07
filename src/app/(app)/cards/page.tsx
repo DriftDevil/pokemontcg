@@ -152,8 +152,11 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
   queryParams.set('pageSize', '24'); 
   queryParams.set('orderBy', 'name');
 
+  const fetchUrl = `${APP_URL}/api/cards?${queryParams.toString()}`;
+  console.log('Fetching cards with URL (getCards function):', fetchUrl);
+
   try {
-    const response = await fetch(`${APP_URL}/api/cards?${queryParams.toString()}`);
+    const response = await fetch(fetchUrl);
     if (!response.ok) {
       console.error("Failed to fetch cards from internal API:", response.status, await response.text());
       return [];
@@ -208,10 +211,10 @@ export default async function CardsPage({ searchParams }: { searchParams?: { sea
         icon={CreditCard}
       />
       <CardFiltersForm
-        initialSearch={currentFilters.search}
-        initialSet={currentFilters.set}
-        initialType={currentFilters.type}
-        initialRarity={currentFilters.rarity}
+        initialSearch={currentSearch}
+        initialSet={currentSet}
+        initialType={currentType}
+        initialRarity={currentRarity}
         setOptions={allSetOptions}
         typeOptions={allTypeOptions}
         rarityOptions={allRarityOptions}
