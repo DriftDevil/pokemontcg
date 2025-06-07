@@ -1,8 +1,10 @@
+
 "use client";
 
 import React, { useState, useMemo } from 'react';
 import type { User } from '@/app/(app)/admin/users/page'; // Adjust if path changes
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card } from "@/components/ui/card"; // Added import
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowUpDown, MoreHorizontal, Trash2, Edit3, Eye } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import { cn } from '@/lib/utils'; // Import cn utility
 
 interface UsersTableClientProps {
   initialUsers: User[];
@@ -248,3 +251,6 @@ export default function UsersTableClient({ initialUsers }: UsersTableClientProps
     </div>
   );
 }
+
+
+    
