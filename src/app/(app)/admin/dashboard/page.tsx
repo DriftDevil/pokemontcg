@@ -1,4 +1,5 @@
 
+
 import PageHeader from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { LayoutDashboard, Users, CreditCard, Layers, Activity } from 'lucide-react';
@@ -129,14 +130,7 @@ async function fetchTotalUsersCount(): Promise<number> {
 }
 
 async function fetchApiRequests24h(): Promise<number> {
-  const EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
-
-  if (!EXTERNAL_API_BASE_URL) {
-    console.error("EXTERNAL_API_BASE_URL is not defined for fetching API requests count directly.");
-    return 0;
-  }
-
-  const fetchUrl = `${EXTERNAL_API_BASE_URL}/usage`;
+  const fetchUrl = `https://pokeapi.huangtechhub.dev/usage`;
 
   try {
     const response = await fetch(fetchUrl); 
@@ -167,8 +161,8 @@ export default async function AdminDashboardPage() {
     fetchTotalCountFromPaginated("cards"),
     fetchTotalCountFromPaginated("sets"),
     fetchSetReleaseData(),
-    fetchTotalUsersCount(), // Still fetches via internal proxy /api/users/all
-    fetchApiRequests24h(),  // Now fetches directly from EXTERNAL_API_BASE_URL/usage
+    fetchTotalUsersCount(), 
+    fetchApiRequests24h(),
   ]);
 
   const setReleaseChartConfig = {
@@ -194,7 +188,6 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalUsers.toLocaleString()}</div>
-            {/* This relies on APP_URL for its proxy fetch, so its condition is slightly different */}
             <p className="text-xs text-muted-foreground">{totalUsers > 0 || (process.env.APP_URL && totalUsers === 0) ? "Live data (via internal API)" : "No data / API error"}</p>
           </CardContent>
         </Card>
@@ -225,8 +218,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{apiRequests24h.toLocaleString()}</div>
-            {/* Updated condition to check EXTERNAL_API_BASE_URL */}
-            <p className="text-xs text-muted-foreground">{apiRequests24h > 0 || (process.env.EXTERNAL_API_BASE_URL && apiRequests24h === 0) ? "Live data (from external API)" : "No data / API error"}</p>
+            <p className="text-xs text-muted-foreground">{(apiRequests24h > 0 || apiRequests24h === 0) ? "Live data (from external API)" : "No data / API error"}</p>
           </CardContent>
         </Card>
       </div>
@@ -291,3 +283,4 @@ export default async function AdminDashboardPage() {
     </>
   );
 }
+
