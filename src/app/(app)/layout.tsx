@@ -7,7 +7,7 @@ import { LayoutDashboard, Users, FileText, BookOpen, Layers, CreditCard } from "
 
 const navItems: NavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard, segment: "dashboard", isAdmin: true },
-  { href: "/admin/api-docs", label: "API Docs Gen", icon: FileText, segment: "api-docs", isAdmin: true },
+  { href: "/admin/api-docs", label: "Swagger Docs", icon: FileText, segment: "api-docs", isAdmin: true },
   { href: "/admin/users", label: "User Management", icon: Users, segment: "users", isAdmin: true },
   { href: "/sets", label: "Card Sets", icon: Layers, segment: "sets", isUser: true },
   { href: "/cards", label: "Cards", icon: CreditCard, segment: "cards", isUser: true },
