@@ -12,22 +12,28 @@ import type { User as ApiUserType } from "@/app/(app)/admin/users/page";
 
 async function fetchTotalCountFromPaginated(endpoint: string): Promise<number> {
   const APP_URL = process.env.APP_URL || "";
-  if (!APP_URL) {
-    console.error(`APP_URL is not defined for dashboard data fetching of ${endpoint}.`);
+  const fetchUrl = `${APP_URL}/api/${endpoint}?limit=1`;
+
+  if (!APP_URL && process.env.NODE_ENV === 'development') {
+    // In dev, if APP_URL is not set, this implies a relative fetch like /api/endpoint?limit=1
+    console.warn(`APP_URL is not defined. Attempting relative fetch to ${fetchUrl} from server-side.`);
+  } else if (!APP_URL) {
+    console.error(`APP_URL is not defined for dashboard data fetching of ${endpoint}. Critical for non-relative fetches.`);
     return 0;
   }
+
   try {
-    const response = await fetch(`${APP_URL}/api/${endpoint}?limit=1`);
+    const response = await fetch(fetchUrl);
     if (!response.ok) {
-      console.error(`Failed to fetch ${endpoint} count: ${response.status}`);
+      console.error(`Failed to fetch ${endpoint} count from ${fetchUrl}: ${response.status}`);
       const errorBody = await response.text();
-      console.error(`Error body: ${errorBody}`);
+      console.error(`Error body for ${fetchUrl}: ${errorBody}`);
       return 0;
     }
     const data = await response.json();
     return data.totalCount || data.total || 0; 
   } catch (error) {
-    console.error(`Error fetching ${endpoint} count:`, error);
+    console.error(`Error fetching ${endpoint} count from ${fetchUrl}:`, error);
     return 0;
   }
 }
@@ -46,16 +52,21 @@ interface PaginatedApiResponse<T> {
 
 async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]> {
   const APP_URL = process.env.APP_URL || "";
-  if (!APP_URL) {
+  const fetchUrl = `${APP_URL}/api/sets?all=true&orderBy=-releaseDate`;
+
+  if (!APP_URL && process.env.NODE_ENV === 'development') {
+    console.warn(`APP_URL is not defined. Attempting relative fetch to ${fetchUrl} from server-side.`);
+  } else if (!APP_URL) {
     console.error("APP_URL is not defined for dashboard data fetching of set releases.");
     return [];
   }
+  
   try {
-    const response = await fetch(`${APP_URL}/api/sets?all=true&orderBy=-releaseDate`); 
+    const response = await fetch(fetchUrl); 
     if (!response.ok) {
-      console.error(`Failed to fetch set release data: ${response.status}`);
+      console.error(`Failed to fetch set release data from ${fetchUrl}: ${response.status}`);
       const errorBody = await response.text();
-      console.error(`Error body: ${errorBody}`);
+      console.error(`Error body for ${fetchUrl}: ${errorBody}`);
       return [];
     }
     const responseData: PaginatedApiResponse<ApiSet> = await response.json();
@@ -86,51 +97,61 @@ async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]>
       .map(([year, count]) => ({ year, count }))
       .sort((a, b) => parseInt(a.year) - parseInt(b.year));
   } catch (error) {
-    console.error("Error fetching or processing set release data:", error);
+    console.error(`Error fetching or processing set release data from ${fetchUrl}:`, error);
     return [];
   }
 }
 
 async function fetchTotalUsersCount(): Promise<number> {
   const APP_URL = process.env.APP_URL || "";
-  if (!APP_URL) {
+  const fetchUrl = `${APP_URL}/api/users/all`;
+
+  if (!APP_URL && process.env.NODE_ENV === 'development') {
+    console.warn(`APP_URL is not defined. Attempting relative fetch to ${fetchUrl} from server-side.`);
+  } else if (!APP_URL) {
     console.error("APP_URL is not defined for fetching total users count.");
     return 0;
   }
+
   try {
-    const response = await fetch(`${APP_URL}/api/users/all`);
+    const response = await fetch(fetchUrl);
     if (!response.ok) {
-      console.error(`Failed to fetch total users count: ${response.status}`);
+      console.error(`Failed to fetch total users count from ${fetchUrl}: ${response.status}`);
       const errorBody = await response.text();
-      console.error(`Error body: ${errorBody}`);
+      console.error(`Error body for ${fetchUrl}: ${errorBody}`);
       return 0;
     }
     const data: { data?: ApiUserType[] } = await response.json();
     return data.data?.length || 0;
   } catch (error) {
-    console.error("Error fetching total users count:", error);
+    console.error(`Error fetching total users count from ${fetchUrl}:`, error);
     return 0;
   }
 }
 
 async function fetchApiRequests24h(): Promise<number> {
   const APP_URL = process.env.APP_URL || "";
-  if (!APP_URL) {
+  const fetchUrl = `${APP_URL}/api/usage`;
+
+  if (!APP_URL && process.env.NODE_ENV === 'development') {
+    console.warn(`APP_URL is not defined. Attempting relative fetch to ${fetchUrl} from server-side.`);
+  } else if (!APP_URL) {
     console.error("APP_URL is not defined for fetching API requests count.");
     return 0;
   }
+
   try {
-    const response = await fetch(`${APP_URL}/api/usage`); 
+    const response = await fetch(fetchUrl); 
     if (!response.ok) {
-      console.error(`Failed to fetch API requests count from /api/usage: ${response.status}`);
+      console.error(`Failed to fetch API requests count from ${fetchUrl}: ${response.status}`);
       const errorBody = await response.text();
-      console.error(`Error body: ${errorBody}`);
+      console.error(`Error body for ${fetchUrl}: ${errorBody}`);
       return 0;
     }
     const data = await response.json();
     return data.api_requests_24h || data.data?.api_requests_24h || 0;
   } catch (error) {
-    console.error("Error fetching API requests count from /api/usage:", error);
+    console.error(`Error fetching API requests count from ${fetchUrl}:`, error);
     return 0;
   }
 }
