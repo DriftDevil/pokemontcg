@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Zap, Flame, Droplet, Leaf, EyeIcon, Brain, ShieldHalf, Palette, Star, Dna, HelpCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import type { PokemonCard as PokemonCardSummary } from "../page";
+import type { PokemonCard as PokemonCardSummary } from "../page"; // Represents the summary card structure
 
-// Detailed type for the card detail page, extending summary or defining new one based on API
+// Detailed type for the card detail page, extending summary
+// Fields not in openapi.yaml for the primary API should be optional.
 interface PokemonCardDetail extends PokemonCardSummary {
   supertype?: string;
   subtypes?: string[];
@@ -27,14 +28,16 @@ interface PokemonCardDetail extends PokemonCardSummary {
   retreatCost?: string[];
   flavorText?: string;
   nationalPokedexNumbers?: number[];
-  largeImageUrl?: string; 
+  largeImageUrl?: string; // Dedicated large image URL for detail view
 }
 
-interface ApiPokemonCardDetail {
+// Interface for the raw API response, accommodating differences
+// between primary (sparse, based on openapi.yaml) and backup (rich) APIs.
+interface ApiPokemonCardDetailSource {
   id: string;
   name: string;
-  supertype: string;
-  subtypes: string[];
+  supertype?: string;
+  subtypes?: string[];
   level?: string;
   hp?: string;
   types?: string[];
@@ -51,24 +54,26 @@ interface ApiPokemonCardDetail {
   resistances?: { type: string; value: string }[];
   retreatCost?: string[];
   convertedRetreatCost?: number;
-  set: {
+  set: { // Set structure can also vary.
     id: string;
     name: string;
-    series: string;
-    printedTotal: number;
-    total: number;
-    releaseDate: string;
-    updatedAt: string;
-    images: { symbol: string; logo: string };
+    series?: string;
+    printedTotal?: number; // More common in pokemontcg.io
+    total?: number; // Matches openapi.yaml 'total' and also in pokemontcg.io (different meaning)
+    releaseDate?: string;
+    updatedAt?: string;
+    images?: { symbol: string; logo: string };
+    legalities?: { [key: string]: string }; // Not in openapi.yaml Set schema
+    ptcgoCode?: string; // Not in openapi.yaml Set schema
   };
-  number: string;
+  number?: string;
   artist?: string;
   rarity?: string;
   flavorText?: string;
   nationalPokedexNumbers?: number[];
-  legalities: { [key: string]: string };
-  images: { small: string; large: string };
-  tcgplayer?: any; 
+  legalities?: { [key: string]: string };
+  images?: { small?: string; large?: string }; // Both small and large are optional
+  tcgplayer?: any;
   cardmarket?: any;
 }
 
@@ -80,27 +85,33 @@ async function getCardDetails(id: string): Promise<PokemonCardDetail | null> {
     return null;
   }
   try {
-    const response = await fetch(`${APP_URL}/api/cards/${id}`); // Fetch from internal API
+    const response = await fetch(`${APP_URL}/api/cards/${id}`);
     if (!response.ok) {
       if (response.status === 404) return null;
       console.error("Failed to fetch card details from internal API:", response.status, await response.text());
       return null;
     }
     const data = await response.json();
-    const apiCard: ApiPokemonCardDetail = data.data;
+    const apiCard: ApiPokemonCardDetailSource = data.data;
 
     if (!apiCard) return null;
+
+    // PokemonCardSummary part
+    const summaryImageUrl = apiCard.images?.small || apiCard.images?.large || "https://placehold.co/245x342.png";
+    const detailLargeImageUrl = apiCard.images?.large || apiCard.images?.small || "https://placehold.co/400x557.png";
+
 
     return {
       id: apiCard.id,
       name: apiCard.name,
-      setName: apiCard.set.name,
+      setName: apiCard.set?.name || "Unknown Set",
       rarity: apiCard.rarity || "Unknown",
       type: apiCard.types?.[0] || "Colorless",
-      imageUrl: apiCard.images.large, 
-      largeImageUrl: apiCard.images.large,
-      number: apiCard.number,
+      imageUrl: summaryImageUrl, // Use small for summary, fallback to large or placeholder
+      number: apiCard.number || "??",
       artist: apiCard.artist || "N/A",
+      // PokemonCardDetail specific extensions
+      largeImageUrl: detailLargeImageUrl, // Use large for detail, fallback to small or placeholder
       supertype: apiCard.supertype,
       subtypes: apiCard.subtypes,
       hp: apiCard.hp,
@@ -125,9 +136,9 @@ const typeIcons: { [key: string]: React.ElementType } = {
   Water: Droplet,
   Grass: Leaf,
   Psychic: Brain,
-  Fighting: EyeIcon, 
-  Darkness: ShieldHalf, 
-  Metal: ShieldHalf, 
+  Fighting: EyeIcon,
+  Darkness: ShieldHalf,
+  Metal: ShieldHalf,
   Fairy: Star,
   Dragon: Dna,
   Colorless: Palette,
@@ -151,6 +162,7 @@ export default async function CardDetailPage({ params }: { params: { id: string 
   }
 
   const TypeIcon = typeIcons[card.type] || typeIcons.Unknown;
+  const displayImageUrl = card.largeImageUrl || "https://placehold.co/400x557.png";
 
   return (
     <>
@@ -169,16 +181,15 @@ export default async function CardDetailPage({ params }: { params: { id: string 
       <div className="grid md:grid-cols-3 gap-8">
         <div className="md:col-span-1">
           <Card className="overflow-hidden shadow-xl">
-            {card.largeImageUrl ? (
-              <Image
-                src={card.largeImageUrl}
-                alt={card.name}
-                width={400}
-                height={557}
-                className="w-full h-auto object-contain"
-                priority 
-              />
-            ) : <div className="w-full aspect-[400/557] bg-muted flex items-center justify-center text-muted-foreground">No Image Available</div>}
+            <Image
+              src={displayImageUrl}
+              alt={card.name}
+              width={400}
+              height={557}
+              className="w-full h-auto object-contain"
+              priority
+              data-ai-hint={displayImageUrl.includes('placehold.co') ? "pokemon card" : undefined}
+            />
           </Card>
         </div>
         <div className="md:col-span-2">
@@ -222,7 +233,7 @@ export default async function CardDetailPage({ params }: { params: { id: string 
                   </div>
                 )}
               </div>
-              
+
               {card.flavorText && (
                 <div>
                   <h3 className="font-headline text-lg mb-1 mt-3 text-foreground">Flavor Text</h3>
@@ -263,7 +274,7 @@ export default async function CardDetailPage({ params }: { params: { id: string 
                   </ul>
                 </div>
               )}
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t pt-4 mt-4 text-sm">
                 {card.weaknesses && card.weaknesses.length > 0 && (
                   <div>
@@ -285,11 +296,10 @@ export default async function CardDetailPage({ params }: { params: { id: string 
                 )}
               </div>
 
-
             </CardContent>
             <CardFooter>
                 <p className="text-xs text-muted-foreground">
-                    Pokémon and Pokémon character names are trademarks of Nintendo. Card data proxied from pokemontcg.io.
+                    Pokémon and Pokémon character names are trademarks of Nintendo. Card data proxied from configured API sources.
                 </p>
             </CardFooter>
           </Card>

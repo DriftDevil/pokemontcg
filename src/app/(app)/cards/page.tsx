@@ -8,9 +8,9 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import CardFiltersForm from '@/components/cards/card-filters-form';
 
-// Matches API structure for a card (used for mapping results from internal API)
-// Adjusted to make fields optional based on the sparse openapi.yaml Card schema for pokeapi.huangtechhub.dev
-interface ApiPokemonCard {
+// Interface for the raw API response from external sources.
+// Fields are optional to accommodate differences between primary (sparse) and backup (rich) APIs.
+interface ApiPokemonCardSource {
   id: string;
   name: string;
   supertype?: string;
@@ -31,17 +31,17 @@ interface ApiPokemonCard {
   resistances?: { type: string; value: string }[];
   retreatCost?: string[];
   convertedRetreatCost?: number;
-  set: {
+  set: { // Set structure can also vary
     id: string;
     name: string;
-    series: string;
-    printedTotal: number;
-    total: number;
-    legalities: { [key: string]: string };
+    series?: string;
+    printedTotal?: number;
+    total?: number;
+    legalities?: { [key: string]: string };
     ptcgoCode?: string;
-    releaseDate: string;
-    updatedAt: string;
-    images: { symbol: string; logo: string };
+    releaseDate?: string;
+    updatedAt?: string;
+    images?: { symbol: string; logo: string };
   };
   number?: string;
   artist?: string;
@@ -49,18 +49,19 @@ interface ApiPokemonCard {
   flavorText?: string;
   nationalPokedexNumbers?: number[];
   legalities?: { [key: string]: string };
-  images?: { small: string; large: string };
+  images?: { small?: string; large?: string }; // Both small and large are optional
   tcgplayer?: any;
   cardmarket?: any;
 }
 
+// Interface for the card data structure used by this page's components.
 export interface PokemonCard {
   id: string;
   name: string;
   setName: string;
   rarity: string;
   type: string; // Primary type
-  imageUrl: string;
+  imageUrl: string; // Small image for list view, with fallback
   number: string;
   artist: string;
 }
@@ -70,7 +71,7 @@ interface SetOption {
   name: string;
 }
 
-const APP_URL = process.env.APP_URL || ""; // For internal API calls like sets, types, rarities
+const APP_URL = process.env.APP_URL || "";
 const PRIMARY_EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
 const BACKUP_EXTERNAL_API_BASE_URL = 'https://api.pokemontcg.io/v2';
 
@@ -123,7 +124,6 @@ async function getRarityOptions(): Promise<string[]> {
   }
 }
 
-
 async function getCards(filters: { search?: string; set?: string; type?: string; rarity?: string }): Promise<PokemonCard[]> {
   const queryParams = new URLSearchParams();
   const queryParts: string[] = [];
@@ -146,65 +146,56 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     queryParams.set('q', queryParts.join(' '));
   }
   queryParams.set('pageSize', '24');
-  queryParams.set('orderBy', 'name');
+  queryParams.set('orderBy', 'name'); // Sorting by name can be helpful
   const queryString = queryParams.toString();
 
   let apiResponse;
-  let externalUrlToLog = "";
+  let fetchUrl = ""; // To log the actual URL being fetched
+
+  const mapApiCardToPokemonCard = (apiCard: ApiPokemonCardSource): PokemonCard => ({
+    id: apiCard.id,
+    name: apiCard.name,
+    setName: apiCard.set?.name || "Unknown Set",
+    rarity: apiCard.rarity || "Unknown",
+    type: apiCard.types?.[0] || "Colorless",
+    imageUrl: apiCard.images?.small || apiCard.images?.large || "https://placehold.co/245x342.png", // Prefer small, fallback to large, then placeholder
+    number: apiCard.number || "??",
+    artist: apiCard.artist || "N/A",
+  });
 
   // Try Primary API
   if (PRIMARY_EXTERNAL_API_BASE_URL) {
-    const primaryFetchUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/cards${queryString ? `?${queryString}` : ''}`;
-    externalUrlToLog = primaryFetchUrl;
-    console.log('Attempting to fetch cards from Primary API (getCards function):', primaryFetchUrl);
+    fetchUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/cards${queryString ? `?${queryString}` : ''}`;
+    console.log('Fetching cards with URL (getCards function - Primary Attempt):', fetchUrl);
     try {
-      apiResponse = await fetch(primaryFetchUrl);
+      apiResponse = await fetch(fetchUrl);
       if (apiResponse.ok) {
         const data = await apiResponse.json();
-        return (data.data || []).map((apiCard: ApiPokemonCard) => ({
-          id: apiCard.id,
-          name: apiCard.name,
-          setName: apiCard.set?.name || "Unknown Set",
-          rarity: apiCard.rarity || "Unknown",
-          type: apiCard.types?.[0] || "Colorless",
-          imageUrl: apiCard.images?.small || "https://placehold.co/245x342.png",
-          number: apiCard.number || "??",
-          artist: apiCard.artist || "N/A",
-        }));
+        return (data.data || []).map(mapApiCardToPokemonCard);
       }
       const errorData = await apiResponse.text();
-      console.warn(`Primary API (${primaryFetchUrl}) failed: ${apiResponse.status}`, errorData);
+      console.warn(`Primary API (${fetchUrl}) failed: ${apiResponse.status}`, errorData);
     } catch (error) {
-      console.warn(`Failed to fetch from Primary API (${primaryFetchUrl}):`, error);
+      console.warn(`Failed to fetch from Primary API (${fetchUrl}):`, error);
     }
   } else {
      console.warn("Primary External API base URL not configured. Proceeding to backup.");
   }
 
   // Try Backup API if Primary failed or was not configured
-  const backupFetchUrl = `${BACKUP_EXTERNAL_API_BASE_URL}/cards${queryString ? `?${queryString}` : ''}`;
-  externalUrlToLog = backupFetchUrl; // Update log URL if we reach here
-  console.log('Attempting to fetch cards from Backup API (getCards function):', backupFetchUrl);
+  fetchUrl = `${BACKUP_EXTERNAL_API_BASE_URL}/cards${queryString ? `?${queryString}` : ''}`;
+  console.log('Attempting to fetch cards from Backup API (getCards function):', fetchUrl);
   try {
-    apiResponse = await fetch(backupFetchUrl);
+    apiResponse = await fetch(fetchUrl);
     if (!apiResponse.ok) {
       const errorData = await apiResponse.text();
-      console.error(`Backup API (${backupFetchUrl}) also failed: ${apiResponse.status}`, errorData);
+      console.error(`Backup API (${fetchUrl}) also failed: ${apiResponse.status}`, errorData);
       return [];
     }
     const data = await apiResponse.json();
-    return (data.data || []).map((apiCard: ApiPokemonCard) => ({
-      id: apiCard.id,
-      name: apiCard.name,
-      setName: apiCard.set?.name || "Unknown Set",
-      rarity: apiCard.rarity || "Unknown",
-      type: apiCard.types?.[0] || "Colorless",
-      imageUrl: apiCard.images?.small || "https://placehold.co/245x342.png",
-      number: apiCard.number || "??",
-      artist: apiCard.artist || "N/A",
-    }));
+    return (data.data || []).map(mapApiCardToPokemonCard);
   } catch (error) {
-    console.error(`Failed to fetch from Backup API (${backupFetchUrl}):`, error);
+    console.error(`Failed to fetch from Backup API (${fetchUrl}):`, error);
     return [];
   }
 }
@@ -267,24 +258,14 @@ export default async function CardsPage({ searchParams }: { searchParams?: { sea
           {cards.map((card) => (
             <Card key={card.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 group">
               <CardHeader className="p-0 relative aspect-[245/342] bg-muted flex items-center justify-center">
-                {card.imageUrl === "https://placehold.co/245x342.png" ? (
-                     <Image
-                        src={card.imageUrl}
-                        alt={card.name}
-                        width={245}
-                        height={342}
-                        className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
-                        data-ai-hint="pokemon card"
-                      />
-                ) : card.imageUrl ? (
-                  <Image
-                    src={card.imageUrl}
+                <Image
+                    src={card.imageUrl} // This now has a robust fallback
                     alt={card.name}
                     width={245}
                     height={342}
                     className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                    data-ai-hint={card.imageUrl.includes('placehold.co') ? "pokemon card" : undefined}
                   />
-                ) : <div className="text-sm text-muted-foreground">No Image</div> }
               </CardHeader>
               <CardContent className="p-3 flex-grow">
                 <CardTitle className="font-headline text-md leading-tight mb-1 truncate" title={card.name}>{card.name}</CardTitle>
@@ -310,4 +291,3 @@ export default async function CardsPage({ searchParams }: { searchParams?: { sea
     </>
   );
 }
-    
