@@ -6,11 +6,9 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Zap, Flame, Droplet, Leaf, EyeIcon, Brain, ShieldHalf, Palette, Star, Dna, HelpCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import type { PokemonCard as PokemonCardSummary } from "../page"; // Use existing summary type
+import type { PokemonCard as PokemonCardSummary } from "../page";
 
-const API_BASE_URL = 'https://api.pokemontcg.io/v2';
-
-// More detailed type for the card detail page, extending summary or defining new one based on API
+// Detailed type for the card detail page, extending summary or defining new one based on API
 interface PokemonCardDetail extends PokemonCardSummary {
   supertype?: string;
   subtypes?: string[];
@@ -29,7 +27,6 @@ interface PokemonCardDetail extends PokemonCardSummary {
   retreatCost?: string[];
   flavorText?: string;
   nationalPokedexNumbers?: number[];
-  // using large image for detail view
   largeImageUrl?: string; 
 }
 
@@ -71,17 +68,17 @@ interface ApiPokemonCardDetail {
   nationalPokedexNumbers?: number[];
   legalities: { [key: string]: string };
   images: { small: string; large: string };
-  tcgplayer?: any; // Can be expanded if needed
-  cardmarket?: any; // Can be expanded if needed
+  tcgplayer?: any; 
+  cardmarket?: any;
 }
 
 
 async function getCardDetails(id: string): Promise<PokemonCardDetail | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}/cards/${id}`);
+    const response = await fetch(`/api/cards/${id}`); // Fetch from internal API
     if (!response.ok) {
       if (response.status === 404) return null;
-      console.error("Failed to fetch card details:", response.status, await response.text());
+      console.error("Failed to fetch card details from internal API:", response.status, await response.text());
       return null;
     }
     const data = await response.json();
@@ -95,7 +92,7 @@ async function getCardDetails(id: string): Promise<PokemonCardDetail | null> {
       setName: apiCard.set.name,
       rarity: apiCard.rarity || "Unknown",
       type: apiCard.types?.[0] || "Colorless",
-      imageUrl: apiCard.images.large, // Use large image for detail view
+      imageUrl: apiCard.images.large, 
       largeImageUrl: apiCard.images.large,
       number: apiCard.number,
       artist: apiCard.artist || "N/A",
@@ -112,7 +109,7 @@ async function getCardDetails(id: string): Promise<PokemonCardDetail | null> {
       nationalPokedexNumbers: apiCard.nationalPokedexNumbers,
     };
   } catch (error) {
-    console.error("Error fetching card details:", error);
+    console.error("Error fetching card details from internal API:", error);
     return null;
   }
 }
@@ -125,11 +122,11 @@ const typeIcons: { [key: string]: React.ElementType } = {
   Psychic: Brain,
   Fighting: EyeIcon, 
   Darkness: ShieldHalf, 
-  Metal: ShieldHalf, // Using ShieldHalf for Metal too
+  Metal: ShieldHalf, 
   Fairy: Star,
   Dragon: Dna,
   Colorless: Palette,
-  Unknown: HelpCircle, // Icon for unknown type
+  Unknown: HelpCircle,
 };
 
 export default async function CardDetailPage({ params }: { params: { id: string } }) {
@@ -174,7 +171,7 @@ export default async function CardDetailPage({ params }: { params: { id: string 
                 width={400}
                 height={557}
                 className="w-full h-auto object-contain"
-                priority // Prioritize loading hero image
+                priority 
               />
             ) : <div className="w-full aspect-[400/557] bg-muted flex items-center justify-center text-muted-foreground">No Image Available</div>}
           </Card>
@@ -287,7 +284,7 @@ export default async function CardDetailPage({ params }: { params: { id: string 
             </CardContent>
             <CardFooter>
                 <p className="text-xs text-muted-foreground">
-                    Pokémon and Pokémon character names are trademarks of Nintendo. Card data provided by pokemontcg.io.
+                    Pokémon and Pokémon character names are trademarks of Nintendo. Card data proxied from pokemontcg.io.
                 </p>
             </CardFooter>
           </Card>
@@ -296,4 +293,3 @@ export default async function CardDetailPage({ params }: { params: { id: string 
     </>
   );
 }
-

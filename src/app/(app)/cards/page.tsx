@@ -9,9 +9,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 
-const API_BASE_URL = 'https://api.pokemontcg.io/v2';
-
-// Matches API structure for a card
+// Matches API structure for a card (used for mapping results from internal API)
 interface ApiPokemonCard {
   id: string;
   name: string;
@@ -74,37 +72,37 @@ interface SetOption {
 
 async function getSetOptions(): Promise<SetOption[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/sets?select=id,name&orderBy=name`);
-    if (!response.ok) throw new Error('Failed to fetch sets');
+    // Fetch from internal API, selecting necessary fields if supported by proxy or processing client-side
+    const response = await fetch(`/api/sets?select=id,name&orderBy=name`);
+    if (!response.ok) throw new Error('Failed to fetch sets from internal API');
     const data = await response.json();
     return (data.data || []).map((set: any) => ({ id: set.id, name: set.name }));
   } catch (error) {
-    console.error("Error fetching set options:", error);
+    console.error("Error fetching set options from internal API:", error);
     return [];
   }
 }
 
 async function getTypeOptions(): Promise<string[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/types`);
-    if (!response.ok) throw new Error('Failed to fetch types');
+    const response = await fetch(`/api/types`);
+    if (!response.ok) throw new Error('Failed to fetch types from internal API');
     const data = await response.json();
     return data.data || [];
   } catch (error) {
-    console.error("Error fetching type options:", error);
+    console.error("Error fetching type options from internal API:", error);
     return [];
   }
 }
 
 async function getRarityOptions(): Promise<string[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/rarities`);
-    if (!response.ok) throw new Error('Failed to fetch rarities');
+    const response = await fetch(`/api/rarities`);
+    if (!response.ok) throw new Error('Failed to fetch rarities from internal API');
     const data = await response.json();
-    // Filter out potential null or empty rarities if any
     return (data.data || []).filter((r: string | null) => r && r.trim() !== "");
   } catch (error) {
-    console.error("Error fetching rarity options:", error);
+    console.error("Error fetching rarity options from internal API:", error);
     return [];
   }
 }
@@ -124,19 +122,22 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     queryParts.push(`types:${filters.type}`);
   }
   if (filters.rarity && filters.rarity !== "All Rarities") {
-    queryParts.push(`rarity:"${filters.rarity}"`);
+    // Ensure rarity value is quoted if it contains spaces
+    const rarityValue = filters.rarity.includes(" ") ? `"${filters.rarity}"` : filters.rarity;
+    queryParts.push(`rarity:${rarityValue}`);
   }
+  
 
   if (queryParts.length > 0) {
     queryParams.set('q', queryParts.join(' '));
   }
-  queryParams.set('pageSize', '24'); // Fetch 24 cards for the list view
-  queryParams.set('orderBy', 'name'); // Sort by name
+  queryParams.set('pageSize', '24'); 
+  queryParams.set('orderBy', 'name');
 
   try {
-    const response = await fetch(`${API_BASE_URL}/cards?${queryParams.toString()}`);
+    const response = await fetch(`/api/cards?${queryParams.toString()}`);
     if (!response.ok) {
-      console.error("Failed to fetch cards:", response.status, await response.text());
+      console.error("Failed to fetch cards from internal API:", response.status, await response.text());
       return [];
     }
     const data = await response.json();
@@ -151,7 +152,7 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
       artist: apiCard.artist || "N/A",
     }));
   } catch (error) {
-    console.error("Error fetching cards:", error);
+    console.error("Error fetching cards from internal API:", error);
     return [];
   }
 }

@@ -7,7 +7,7 @@ import { Layers, Search, Eye } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
-const API_BASE_URL = 'https://api.pokemontcg.io/v2';
+// No longer need API_BASE_URL here as we use internal /api routes
 
 interface ApiSet {
   id: string;
@@ -47,9 +47,10 @@ async function getCardSets(searchTerm?: string): Promise<CardSet[]> {
   // It also defaults to pageSize 250, which should fetch all or most sets.
   
   try {
-    const response = await fetch(`${API_BASE_URL}/sets?${queryParams.toString()}`);
+    // Fetch from internal API route
+    const response = await fetch(`/api/sets?${queryParams.toString()}`);
     if (!response.ok) {
-      console.error("Failed to fetch sets:", response.status, await response.text());
+      console.error("Failed to fetch sets from internal API:", response.status, await response.text());
       return [];
     }
     const data = await response.json();
@@ -62,7 +63,7 @@ async function getCardSets(searchTerm?: string): Promise<CardSet[]> {
       logoUrl: apiSet.images.logo,
     }));
   } catch (error) {
-    console.error("Error fetching card sets:", error);
+    console.error("Error fetching card sets from internal API:", error);
     return [];
   }
 }
@@ -112,23 +113,23 @@ export default async function CardSetsPage({ searchParams }: { searchParams?: { 
                       fill
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                       className="object-contain"
-                      priority={index < 4} // Add priority to the first few images
+                      priority={index < 4} 
                     />
                   ) : <div className="text-sm text-muted-foreground">No Logo</div> }
                 </div>
               </CardHeader>
               <CardContent className="p-4 flex-grow">
                 <div className="flex items-center mb-2">
-                  {set.symbolUrl && (
-                    <div className="relative w-6 h-6 mr-2 shrink-0">
-                      <Image 
-                        src={set.symbolUrl} 
-                        alt={`${set.name} symbol`} 
-                        fill
-                        className="object-contain" 
-                      />
+                   <div className="relative w-6 h-6 mr-2 shrink-0">
+                    {set.symbolUrl && (
+                        <Image 
+                            src={set.symbolUrl} 
+                            alt={`${set.name} symbol`} 
+                            fill
+                            className="object-contain" 
+                        />
+                    )}
                     </div>
-                  )}
                   <CardTitle className="font-headline text-lg leading-tight">{set.name}</CardTitle>
                 </div>
                 <CardDescription className="text-xs">
