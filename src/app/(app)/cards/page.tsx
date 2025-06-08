@@ -221,7 +221,7 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
 
 
   if (PRIMARY_EXTERNAL_API_BASE_URL) {
-    fetchUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/cards${queryString ? `?${queryString}` : ''}`;
+    fetchUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/v2/cards${queryString ? `?${queryString}` : ''}`;
     console.log('Fetching cards with URL (getCards function - Primary Attempt):', fetchUrl);
     try {
       apiResponse = await fetch(fetchUrl);

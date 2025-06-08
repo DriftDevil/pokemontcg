@@ -15,8 +15,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     return NextResponse.json({ error: 'Card ID is required' }, { status: 400 });
   }
 
-  // Assuming PRIMARY_EXTERNAL_API_BASE_URL is like https://host.com/v2
-  const primaryExternalUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/cards/${id}`;
+  const primaryExternalUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/v2/cards/${id}`;
   const backupExternalUrl = `${BACKUP_EXTERNAL_API_BASE_URL}/cards/${id}`;
 
   let response;
@@ -63,3 +62,4 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     return NextResponse.json({ error: 'Failed to fetch data from all external APIs' }, { status: 500 });
   }
 }
+

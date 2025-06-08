@@ -10,8 +10,7 @@ export async function GET(request: NextRequest) {
     // Try backup if primary is not configured
   }
 
-  // Assuming PRIMARY_EXTERNAL_API_BASE_URL is like https://host.com/v2
-  const primaryExternalUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/rarities`;
+  const primaryExternalUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/v2/rarities`;
   const backupExternalUrl = `${BACKUP_EXTERNAL_API_BASE_URL}/rarities`;
 
   let response;
@@ -48,3 +47,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch data from all external APIs' }, { status: 500 });
   }
 }
+
