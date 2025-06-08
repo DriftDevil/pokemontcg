@@ -1,18 +1,16 @@
+
 'use server';
 import { Issuer, custom } from 'openid-client';
 import type { Client } from 'openid-client';
 
-let oidcClient: Client | null = null;
+let oidcClientInstance: Client | null = null;
+let oidcClientPromise: Promise<Client> | null = null;
 
 custom.setHttpOptionsDefaults({
   timeout: 10000, // Increase timeout to 10 seconds
 });
 
-export async function getOidcClient(): Promise<Client> {
-  if (oidcClient) {
-    return oidcClient;
-  }
-
+async function initializeClient(): Promise<Client> {
   if (!process.env.AUTHENTIK_ISSUER) {
     throw new Error('AUTHENTIK_ISSUER environment variable is not set');
   }
@@ -22,27 +20,45 @@ export async function getOidcClient(): Promise<Client> {
   if (!process.env.AUTHENTIK_CLIENT_SECRET) {
     throw new Error('AUTHENTIK_CLIENT_SECRET environment variable is not set');
   }
-  if (!process.env.APP_URL) {
-    console.warn('APP_URL environment variable is not set, defaulting to http://localhost:9002 for OIDC client.');
-  }
-
-  const appUrl = process.env.APP_URL || 'http://localhost:9002';
+  
+  const appUrl = process.env.APP_URL || (() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('APP_URL environment variable is not set, defaulting to http://localhost:9002 for OIDC client in development.');
+      return 'http://localhost:9002';
+    }
+    // In production or other environments, APP_URL must be set.
+    throw new Error('APP_URL environment variable is not set. This is required for OIDC client.');
+  })();
+  
   const redirect_uri = `${appUrl}/api/auth/callback`;
 
   try {
     const issuer = await Issuer.discover(process.env.AUTHENTIK_ISSUER);
     
-    oidcClient = new issuer.Client({
+    const client = new issuer.Client({
       client_id: process.env.AUTHENTIK_CLIENT_ID,
       client_secret: process.env.AUTHENTIK_CLIENT_SECRET,
       redirect_uris: [redirect_uri],
       response_types: ['code'],
+      // Consider making id_token_signed_response_alg configurable if needed
       // id_token_signed_response_alg: 'ES256', // Set based on your Authentik app config
     });
     
-    return oidcClient;
+    oidcClientInstance = client;
+    return client;
   } catch (error) {
     console.error('Failed to discover OIDC issuer or configure client:', error);
+    oidcClientPromise = null; // Reset promise on failure to allow retry
     throw new Error('OIDC client initialization failed.');
   }
+}
+
+export function getOidcClient(): Promise<Client> {
+  if (oidcClientInstance) {
+    return Promise.resolve(oidcClientInstance);
+  }
+  if (!oidcClientPromise) {
+    oidcClientPromise = initializeClient();
+  }
+  return oidcClientPromise;
 }
