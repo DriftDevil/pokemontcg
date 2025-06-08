@@ -10,7 +10,8 @@ export async function GET(request: NextRequest) {
     // Try backup if primary is not configured
   }
 
-  const primaryExternalUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/v2/types`;
+  // Assuming PRIMARY_EXTERNAL_API_BASE_URL is like https://host.com/v2
+  const primaryExternalUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/types`;
   const backupExternalUrl = `${BACKUP_EXTERNAL_API_BASE_URL}/types`;
 
   let response;

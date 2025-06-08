@@ -15,7 +15,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     return NextResponse.json({ error: 'Card ID is required' }, { status: 400 });
   }
 
-  const primaryExternalUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/v2/cards/${id}`;
+  // Assuming PRIMARY_EXTERNAL_API_BASE_URL is like https://host.com/v2
+  const primaryExternalUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/cards/${id}`;
   const backupExternalUrl = `${BACKUP_EXTERNAL_API_BASE_URL}/cards/${id}`;
 
   let response;

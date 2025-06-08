@@ -11,7 +11,8 @@ export async function GET(request: NextRequest) {
   }
 
   const searchParams = request.nextUrl.searchParams.toString();
-  const primaryExternalUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/v2/sets${searchParams ? `?${searchParams}` : ''}`;
+  // Assuming PRIMARY_EXTERNAL_API_BASE_URL is like https://host.com/v2
+  const primaryExternalUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/sets${searchParams ? `?${searchParams}` : ''}`;
   const backupExternalUrl = `${BACKUP_EXTERNAL_API_BASE_URL}/sets${searchParams ? `?${searchParams}` : ''}`;
 
   let response;
