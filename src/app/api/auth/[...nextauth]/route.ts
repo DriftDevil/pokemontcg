@@ -1,7 +1,2 @@
-
-import NextAuth from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
-
-const handler = NextAuth(authOptions);
-
-export { handler as GET, handler as POST };
+// This file is no longer needed as NextAuth is being replaced by a manual OIDC implementation.
+// You can safely delete this file.

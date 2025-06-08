@@ -12,12 +12,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Gem, User, LogOut, Settings, Moon, Sun, LogInIcon } from "lucide-react";
+import { Menu, User, LogOut, Settings, Moon, Sun, LogInIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import AppSidebarContent, { type NavItem } from "./app-sidebar-content";
-import { useSession, signIn, signOut } from "next-auth/react";
+
+// Define a simple user type for the application
+interface AppUser {
+  id: string;
+  name?: string;
+  email?: string;
+  picture?: string;
+}
 
 const useThemeToggle = () => {
   const [theme, setTheme] = useState("light");
@@ -47,17 +54,42 @@ const useThemeToggle = () => {
 
 
 export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
-  const pathname = usePathname();
   const router = useRouter();
   const { theme, toggleTheme } = useThemeToggle();
-  const { data: session, status } = useSession();
-  const isLoadingSession = status === "loading";
-  const user = session?.user;
+  const [user, setUser] = useState<AppUser | null>(null);
+  const [isLoadingSession, setIsLoadingSession] = useState(true);
+
+  const fetchUser = useCallback(async () => {
+    setIsLoadingSession(true);
+    try {
+      const res = await fetch('/api/auth/user');
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data);
+      } else {
+        setUser(null);
+      }
+    } catch (error) {
+      console.error("Failed to fetch user session", error);
+      setUser(null);
+    } finally {
+      setIsLoadingSession(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchUser();
+  }, [fetchUser]);
 
   const handleLogout = async () => {
-    await signOut({ callbackUrl: '/' });
+    // Redirect to our logout endpoint, which handles Authentik logout and clears cookies
+    router.push('/api/auth/logout');
   };
   
+  const handleLogin = () => {
+    router.push('/login');
+  };
+
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
       <div className="md:hidden">
@@ -86,7 +118,7 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                   <Avatar className="h-9 w-9">
-                    <AvatarImage src={user.image || `https://placehold.co/40x40.png?text=${user.name?.charAt(0) || 'U'}`} alt={user.name || 'User'} data-ai-hint="user avatar" />
+                    <AvatarImage src={user.picture || `https://placehold.co/40x40.png?text=${user.name?.charAt(0) || 'U'}`} alt={user.name || 'User'} data-ai-hint="user avatar" />
                     <AvatarFallback>{user.name?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
                   </Avatar>
                 </Button>
@@ -117,7 +149,7 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-             <Button asChild variant="outline" onClick={() => signIn()}>
+             <Button asChild variant="outline" onClick={handleLogin}>
                 <Link href="/login">
                     <LogInIcon className="mr-2 h-4 w-4" /> Login
                 </Link>

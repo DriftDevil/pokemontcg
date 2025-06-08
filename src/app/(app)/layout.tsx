@@ -4,8 +4,8 @@
 import AppHeader from "@/components/layout/app-header";
 import AppSidebarContent, { type NavItem } from "@/components/layout/app-sidebar-content";
 import { SidebarProvider, Sidebar, SidebarInset } from "@/components/ui/sidebar";
-import { LayoutDashboard, Users, FileText, BookOpen, Layers, CreditCard } from "lucide-react";
-import { SessionProvider } from "next-auth/react";
+import { LayoutDashboard, Users, FileText, CreditCard, Layers } from "lucide-react";
+// SessionProvider is removed as NextAuth is no longer used.
 
 const navItems: NavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard, segment: "dashboard", isAdmin: true },
@@ -17,7 +17,7 @@ const navItems: NavItem[] = [
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <SessionProvider>
+    // <SessionProvider> SessionProvider removed
       <SidebarProvider defaultOpen>
         <div className="flex min-h-screen w-full">
           <Sidebar collapsible="icon" className="hidden md:flex md:flex-col border-r border-sidebar-border">
@@ -33,6 +33,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </SidebarProvider>
-    </SessionProvider>
+    // </SessionProvider> SessionProvider removed
   );
 }

@@ -10,32 +10,33 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Gem, LogIn } from "lucide-react";
+import { Gem } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import React from "react";
-import { signIn } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
+import React, { useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { toast } = useToast();
 
-  const handleSubmitPassword = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    // TODO: Implement actual password-based authentication logic if needed
-    // For now, this part is not connected to NextAuth OIDC
-    console.log("Simulating admin password login...");
-    // Example: Call signIn with 'credentials' provider if you set one up
-    // signIn('credentials', { redirect: false, email: event.currentTarget.email.value, password: event.currentTarget.password.value })
-    //   .then(res => { if (res?.ok) router.push("/admin/dashboard"); else console.error("Password login failed", res?.error) });
-    alert("Password login form submitted. Implement actual logic or remove if OIDC is primary.");
-  };
+  useEffect(() => {
+    const error = searchParams.get('error');
+    if (error) {
+      toast({
+        title: "Login Error",
+        description: decodeURIComponent(error),
+        variant: "destructive",
+      });
+      // Clean the URL
+      router.replace('/login', { scroll: false });
+    }
+  }, [searchParams, router, toast]);
 
   const handleOidcLogin = () => {
-    // Redirect to Authentik, then Authentik redirects back to /api/auth/callback/authentik
-    // which NextAuth handles. On success, redirect to /admin/dashboard.
-    signIn('authentik', { callbackUrl: '/admin/dashboard' });
+    // Redirect to our own login API route, which will then redirect to Authentik
+    router.push("/api/auth/login");
   };
 
   return (
@@ -51,44 +52,15 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmitPassword} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="admin@example.com"
-                required
-                className="text-base"
-                name="email"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input 
-                id="password" 
-                type="password" 
-                placeholder="••••••••" 
-                required 
-                className="text-base"
-                name="password"
-              />
-            </div>
-            <Button type="submit" className="w-full" size="lg">
-              <LogIn className="mr-2 h-5 w-5" />
-              Sign In with Password
-            </Button>
-          </form>
+          {/* Password form removed for simplicity to focus on OIDC */}
+           <div className="text-center text-muted-foreground mb-6">
+            Please use OIDC to sign in.
+          </div>
+          <Button variant="outline" className="w-full" size="lg" onClick={handleOidcLogin}>
+              Sign in with OIDC (Authentik)
+          </Button>
         </CardContent>
         <CardFooter className="flex flex-col items-center space-y-4 pt-6">
-            <div className="relative w-full flex items-center">
-              <div className="flex-grow border-t border-muted"></div>
-              <span className="flex-shrink mx-4 text-muted-foreground text-sm">Or</span>
-              <div className="flex-grow border-t border-muted"></div>
-            </div>
-            <Button variant="outline" className="w-full" onClick={handleOidcLogin}>
-                Sign in with OIDC (Authentik)
-            </Button>
           <Link
             href="/"
             className="text-sm text-primary hover:underline mt-4"
