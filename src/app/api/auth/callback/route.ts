@@ -9,8 +9,8 @@ export async function GET(request: NextRequest) {
     const client = await getOidcClient();
     const searchParams = request.nextUrl.searchParams;
     
-    const code_verifier = cookies().get('oidc_code_verifier')?.value;
-    const nonce = cookies().get('oidc_nonce')?.value;
+    const code_verifier = (await cookies()).get('oidc_code_verifier')?.value;
+    const nonce = (await cookies()).get('oidc_nonce')?.value;
 
     if (!code_verifier) {
       throw new Error('Missing code_verifier cookie');
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     // For now, we trust openid-client's validation based on discovered JWKS
     const claims = tokenSet.claims(); // Decoded claims
 
-    cookies().set('id_token', tokenSet.id_token, {
+    (await cookies()).set('id_token', tokenSet.id_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       path: '/',
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (tokenSet.access_token) {
-      cookies().set('access_token', tokenSet.access_token, {
+      (await cookies()).set('access_token', tokenSet.access_token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         path: '/',
@@ -58,8 +58,10 @@ export async function GET(request: NextRequest) {
     }
     
     // Clean up PKCE and nonce cookies
-    cookies().delete('oidc_code_verifier');
-    cookies().delete('oidc_nonce');
+    (await
+      // Clean up PKCE and nonce cookies
+      cookies()).delete('oidc_code_verifier');
+    (await cookies()).delete('oidc_nonce');
 
     return NextResponse.redirect(new URL('/admin/dashboard', appUrl));
   } catch (error) {
@@ -69,10 +71,12 @@ export async function GET(request: NextRequest) {
         errorMessage = error.message;
     }
     // Clear potentially partial cookies on error
-    cookies().delete('oidc_code_verifier');
-    cookies().delete('oidc_nonce');
-    cookies().delete('id_token');
-    cookies().delete('access_token');
+    (await
+      // Clear potentially partial cookies on error
+      cookies()).delete('oidc_code_verifier');
+    (await cookies()).delete('oidc_nonce');
+    (await cookies()).delete('id_token');
+    (await cookies()).delete('access_token');
     return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMessage)}`, process.env.APP_URL || 'http://localhost:9002'));
   }
 }

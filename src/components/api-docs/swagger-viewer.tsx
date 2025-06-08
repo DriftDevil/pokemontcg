@@ -1,60 +1,76 @@
 
 "use client";
 
-import React, { useEffect, useState } from 'react';
-// Tabs and Textarea are not used if we remove the Raw YAML tab for now.
-// import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-// import { Textarea } from '@/components/ui/textarea';
-import "swagger-ui-react/swagger-ui.css"; 
+import React, { useEffect, useState, memo } from 'react';
+import "swagger-ui-react/swagger-ui.css";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertTriangle } from "lucide-react";
 
 interface SwaggerViewerProps {
-  specUrl: string | null; // Expecting a URL string or null
+  spec: object | null; // Expecting a pre-parsed spec object
 }
 
-export default function SwaggerViewer({ specUrl }: SwaggerViewerProps) {
+// Memoize SwaggerUI component to prevent re-renders if spec object reference doesn't change.
+// Note: swagger-ui-react's SwaggerUI component might not be memoized itself,
+// so this helps if our `spec` prop is stable.
+const MemoizedSwaggerUI = memo(function WrappedSwaggerUI({ LoadedSwaggerUI, spec }: { LoadedSwaggerUI: React.ComponentType<any>, spec: object }) {
+  // The key prop on LoadedSwaggerUI can help force re-initialization if needed,
+  // but typically passing a new spec object to `spec` prop should be enough.
+  return <LoadedSwaggerUI spec={spec} />;
+});
+
+export default function SwaggerViewer({ spec }: SwaggerViewerProps) {
   const [LoadedSwaggerUI, setLoadedSwaggerUI] = useState<React.ComponentType<any> | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     import('swagger-ui-react')
       .then(module => {
-        setLoadedSwaggerUI(() => module.default); 
+        setLoadedSwaggerUI(() => module.default);
       })
       .catch(err => {
-        console.error("Failed to load Swagger UI:", err);
-        setError("Could not load Swagger UI component. Please ensure 'swagger-ui-react' is installed and its CSS is correctly imported.");
+        console.error("Failed to load Swagger UI React component:", err);
+        setLoadError("Could not load Swagger UI component. Please ensure 'swagger-ui-react' is installed and its CSS is correctly imported.");
       });
   }, []);
 
-
-  if (error) {
+  if (loadError) {
      return (
-      <div className="p-4 border rounded-md bg-destructive/10 text-destructive">
-        <p>{error}</p>
-      </div>
+      <Alert variant="destructive" className="my-4">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>Component Load Error</AlertTitle>
+        <AlertDescription>{loadError}</AlertDescription>
+      </Alert>
     );
   }
 
   if (!LoadedSwaggerUI) {
     return (
-      <div className="p-4 border rounded-md bg-muted">
-        <p className="text-muted-foreground">Loading Swagger Viewer...</p>
+      <div className="space-y-2 p-4">
+        <Skeleton className="h-8 w-1/4" />
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-8 w-1/2" />
       </div>
     );
   }
-  
-  if (!specUrl) {
+
+  if (!spec) {
+    // This case should ideally be handled by the parent (OpenApiViewerClient shows its own loading/error)
+    // but as a fallback:
     return (
-      <div className="p-4 border rounded-md bg-muted">
-        <p className="text-muted-foreground">API Specification URL not provided.</p>
-      </div>
+       <Alert className="my-4">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>No Specification</AlertTitle>
+        <AlertDescription>API Specification not provided or is empty.</AlertDescription>
+      </Alert>
     );
   }
-  
-  // Simplified to only show Swagger UI directly
+
   return (
     <div className="swagger-container bg-card p-1 rounded-md shadow">
-      <LoadedSwaggerUI url={specUrl} /> 
+      {/* Using MemoizedSwaggerUI */}
+      <MemoizedSwaggerUI LoadedSwaggerUI={LoadedSwaggerUI} spec={spec} />
     </div>
   );
 }
