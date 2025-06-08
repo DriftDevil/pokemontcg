@@ -4,19 +4,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
 const EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
-const COOKIE_SECRET = process.env.COOKIE_SECRET; // For potential future encryption/signing
+const COOKIE_SECRET = process.env.COOKIE_SECRET; 
 
 if (!EXTERNAL_API_BASE_URL) {
-  console.error('EXTERNAL_API_BASE_URL is not set. Password login cannot function.');
+  console.error('[API Password Login] EXTERNAL_API_BASE_URL is not set. Password login cannot function.');
 }
 if (!COOKIE_SECRET) {
-    console.warn('COOKIE_SECRET is not set. Session cookies will not be signed/encrypted.');
+    console.warn('[API Password Login] COOKIE_SECRET is not set. Session cookies will not be signed/encrypted.');
 }
 
 
 export async function POST(request: NextRequest) {
   if (!EXTERNAL_API_BASE_URL) {
-    return NextResponse.json({ message: 'API endpoint not configured.', details: 'Server configuration error.' }, { status: 500 });
+    return NextResponse.json({ message: 'API endpoint not configured.', details: 'Server configuration error: EXTERNAL_API_BASE_URL not set.' }, { status: 500 });
   }
 
   try {
@@ -26,8 +26,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Email and password are required.', details: 'Missing credentials in request.' }, { status: 400 });
     }
 
-    const externalApiUrl = `${EXTERNAL_API_BASE_URL}/login/password`;
-    console.log(`Attempting password login to external API: ${externalApiUrl}`);
+    const externalApiUrl = `${EXTERNAL_API_BASE_URL}/auth/local/login`;
+    console.log(`[API Password Login] Attempting password login to external API: ${externalApiUrl}`);
 
     const apiResponse = await fetch(externalApiUrl, {
       method: 'POST',
@@ -37,40 +37,43 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({ email, password }),
     });
 
+    let responseData;
+    const responseBodyText = await apiResponse.text(); 
+
     if (!apiResponse.ok) {
-      let errorDetails = `External API returned status ${apiResponse.status}`;
-      let responseBodyText = '';
+      let errorDetails = `External API returned status ${apiResponse.status}.`;
       try {
-        responseBodyText = await apiResponse.text();
+        // Try to parse as JSON first, as some APIs return JSON errors
         const parsedError = JSON.parse(responseBodyText);
         errorDetails = parsedError.message || parsedError.detail || responseBodyText;
       } catch (e) {
-        // If parsing as JSON fails, use the raw text (or part of it)
-        errorDetails = responseBodyText.substring(0, 200) + (responseBodyText.length > 200 ? '...' : '') || `External API request failed with status ${apiResponse.status}`;
-        console.warn('External API error response was not valid JSON:', responseBodyText.substring(0, 500));
+        // If parsing as JSON fails, use the raw text 
+        errorDetails = responseBodyText.substring(0, 500) + (responseBodyText.length > 500 ? '...' : '') || `External API request failed with status ${apiResponse.status}`;
+        if (responseBodyText.toLowerCase().includes('<html')) {
+            errorDetails = `External API returned an HTML page (status ${apiResponse.status}), not JSON. Check if the URL is correct or if the API is down.`;
+        }
+        console.warn(`[API Password Login] External API error response was not valid JSON (or was HTML): ${responseBodyText.substring(0, 200)}...`);
       }
-      console.error(`External API login failed: ${apiResponse.status}`, errorDetails);
+      console.error(`[API Password Login] External API login failed: ${apiResponse.status}`, errorDetails);
       return NextResponse.json(
         { message: 'Login failed at external API.', details: errorDetails },
-        { status: apiResponse.status }
+        { status: apiResponse.status } 
       );
     }
 
-    let responseData;
     try {
-        responseData = await apiResponse.json();
+        responseData = JSON.parse(responseBodyText);
     } catch (e) {
-        const errorText = await apiResponse.text(); // Re-fetch text if json() fails.
-        console.error('External API sent non-JSON response even on OK status:', e, errorText.substring(0,500));
+        console.error('[API Password Login] External API sent non-JSON response even on OK status:', e, responseBodyText.substring(0,500));
         return NextResponse.json(
-            { message: 'Received invalid data format from authentication service.', details: 'The authentication service responded successfully but the data was not in the expected format.' },
+            { message: 'Received invalid data format from authentication service.', details: 'The authentication service responded successfully but the data was not in the expected JSON format.' },
             { status: 502 } // Bad Gateway
         );
     }
 
-    const token = responseData.token;
+    const token = responseData.token; // Assuming the token is directly in the response body
     if (!token) {
-      console.error('Token not found in external API response:', responseData);
+      console.error('[API Password Login] Token not found in external API response:', responseData);
       return NextResponse.json({ message: 'Token not found in API response.', details: 'Authentication service did not provide a token.' }, { status: 500 });
     }
 
@@ -82,10 +85,12 @@ export async function POST(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 7, // 7 days, adjust as needed
     });
 
-    return NextResponse.json({ message: 'Login successful' }, { status: 200 });
+    // Include user data in the response if available from login, otherwise client will fetch from /api/auth/user
+    const user = responseData.user || responseData.data; // Check common user object keys
+    return NextResponse.json({ message: 'Login successful', user }, { status: 200 });
 
   } catch (error: any) {
-    console.error('Password login internal error:', error);
+    console.error('[API Password Login] Internal error:', error);
     let errorMessage = 'An unexpected error occurred during password login.';
     if (error instanceof Error) {
         errorMessage = error.message;
