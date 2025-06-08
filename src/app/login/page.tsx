@@ -33,6 +33,7 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const [isSubmittingOidc, setIsSubmittingOidc] = useState(false);
   const [isSubmittingPassword, setIsSubmittingPassword] = useState(false);
 
   const {
@@ -51,12 +52,15 @@ export default function LoginPage() {
         description: decodeURIComponent(error),
         variant: "destructive",
       });
-      router.replace('/login', { scroll: false });
+      // Clear the error from URL to prevent re-toasting on refresh
+      router.replace('/login', { scroll: false }); 
     }
   }, [searchParams, router, toast]);
 
   const handleOidcLogin = () => {
+    setIsSubmittingOidc(true);
     router.push("/api/auth/login");
+    // No need to setIsSubmittingOidc(false) here as page will redirect
   };
 
   const onPasswordSubmit: SubmitHandler<PasswordLoginInputs> = async (data) => {
@@ -68,21 +72,29 @@ export default function LoginPage() {
         body: JSON.stringify(data),
       });
 
+      const responseData = await response.json(); // Try to parse JSON regardless of response.ok
+
       if (response.ok) {
         toast({ title: "Login Successful", description: "Redirecting to dashboard..." });
-        router.push('/admin/dashboard'); 
-        router.refresh(); // Important to update server-side state like cookies being read by middleware/layouts
+        router.push('/admin/dashboard');
+        router.refresh(); 
       } else {
-        const errorData = await response.json();
-        toast({ title: "Login Failed", description: errorData.message || "Invalid credentials or server error.", variant: "destructive" });
+        toast({ 
+          title: responseData.message || "Login Failed", 
+          description: responseData.details || "Invalid credentials or server error.", 
+          variant: "destructive" 
+        });
       }
     } catch (error) {
-       toast({ title: "Login Error", description: "An unexpected error occurred while trying to log in.", variant: "destructive" });
+       // This catch block handles network errors or if response.json() itself fails (e.g. not JSON at all)
+       toast({ title: "Login Error", description: "An unexpected error occurred. The server might be down or returned an invalid response.", variant: "destructive" });
        console.error("Password login submit error:", error);
     } finally {
       setIsSubmittingPassword(false);
     }
   };
+  
+  const isAnyFormSubmitting = isSubmittingOidc || isSubmittingPassword;
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-background to-secondary/30 p-4">
@@ -106,7 +118,7 @@ export default function LoginPage() {
                 placeholder="admin@example.com"
                 {...register("email")}
                 className={errors.email ? "border-destructive" : ""}
-                disabled={isSubmittingPassword}
+                disabled={isAnyFormSubmitting}
               />
               {errors.email && (
                 <p className="text-xs text-destructive mt-1">
@@ -122,7 +134,7 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 {...register("password")}
                 className={errors.password ? "border-destructive" : ""}
-                disabled={isSubmittingPassword}
+                disabled={isAnyFormSubmitting}
               />
               {errors.password && (
                 <p className="text-xs text-destructive mt-1">
@@ -130,7 +142,7 @@ export default function LoginPage() {
                 </p>
               )}
             </div>
-            <Button type="submit" className="w-full" size="lg" disabled={isSubmittingPassword}>
+            <Button type="submit" className="w-full" size="lg" disabled={isAnyFormSubmitting}>
               {isSubmittingPassword ? "Signing in..." : <><LogIn className="mr-2 h-4 w-4" /> Sign in with Password</>}
             </Button>
           </form>
@@ -140,14 +152,14 @@ export default function LoginPage() {
               <span className="w-full border-t" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">
+              <span className="bg-card px-2 text-muted-foreground"> {/* Changed from bg-background */}
                 Or continue with
               </span>
             </div>
           </div>
 
-          <Button variant="outline" className="w-full" size="lg" onClick={handleOidcLogin} disabled={isSubmittingPassword}>
-              Sign in with OIDC (Authentik)
+          <Button variant="outline" className="w-full" size="lg" onClick={handleOidcLogin} disabled={isAnyFormSubmitting}>
+              {isSubmittingOidc ? "Redirecting..." : "Sign in with OIDC (Authentik)"}
           </Button>
         </CardContent>
         <CardFooter className="flex flex-col items-center space-y-2 pt-6">
