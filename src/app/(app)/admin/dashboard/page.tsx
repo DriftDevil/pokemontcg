@@ -135,7 +135,7 @@ async function fetchApiRequests24h(): Promise<number> {
     console.error(`EXTERNAL_API_BASE_URL is not defined. Cannot fetch API requests count from /usage.`);
     return 0;
   }
-  const fetchUrl = `${EXTERNAL_API_BASE_URL}/usage`;
+  const fetchUrl = `${EXTERNAL_API_BASE_URL}/usage`; // Corrected: No /v2 prefix
 
   try {
     const response = await fetch(fetchUrl); 
@@ -221,7 +221,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{apiRequests24h.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">{(apiRequests24h > 0 || apiRequests24h === 0) ? "Live data (from external API via EXTERNAL_API_BASE_URL)" : "No data / API error"}</p>
+            <p className="text-xs text-muted-foreground">{(apiRequests24h > 0 || (process.env.EXTERNAL_API_BASE_URL && apiRequests24h === 0)) ? "Live data (from external API via EXTERNAL_API_BASE_URL)" : "No data / API error"}</p>
           </CardContent>
         </Card>
       </div>
