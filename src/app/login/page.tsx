@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Gem, LogIn } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -33,6 +33,7 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const [isSubmittingPassword, setIsSubmittingPassword] = useState(false);
 
   const {
     register,
@@ -50,7 +51,6 @@ export default function LoginPage() {
         description: decodeURIComponent(error),
         variant: "destructive",
       });
-      // Clean the URL
       router.replace('/login', { scroll: false });
     }
   }, [searchParams, router, toast]);
@@ -60,28 +60,28 @@ export default function LoginPage() {
   };
 
   const onPasswordSubmit: SubmitHandler<PasswordLoginInputs> = async (data) => {
-    toast({
-      title: "Password Login Not Implemented",
-      description: "Please use OIDC (Authentik) to sign in. Password login is for demonstration purposes only.",
-      variant: "default",
-    });
-    console.log("Password login attempt:", data);
-    // In a real app, you would call your backend API here:
-    // try {
-    //   const response = await fetch('/api/auth/password-login', { // This route doesn't exist
-    //     method: 'POST',
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify(data),
-    //   });
-    //   if (response.ok) {
-    //     router.push('/admin/dashboard'); // Or wherever you redirect after login
-    //   } else {
-    //     const errorData = await response.json();
-    //     toast({ title: "Login Failed", description: errorData.message || "Invalid credentials", variant: "destructive" });
-    //   }
-    // } catch (error) {
-    //    toast({ title: "Login Error", description: "An unexpected error occurred.", variant: "destructive" });
-    // }
+    setIsSubmittingPassword(true);
+    try {
+      const response = await fetch('/api/auth/password-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        toast({ title: "Login Successful", description: "Redirecting to dashboard..." });
+        router.push('/admin/dashboard'); 
+        router.refresh(); // Important to update server-side state like cookies being read by middleware/layouts
+      } else {
+        const errorData = await response.json();
+        toast({ title: "Login Failed", description: errorData.message || "Invalid credentials or server error.", variant: "destructive" });
+      }
+    } catch (error) {
+       toast({ title: "Login Error", description: "An unexpected error occurred while trying to log in.", variant: "destructive" });
+       console.error("Password login submit error:", error);
+    } finally {
+      setIsSubmittingPassword(false);
+    }
   };
 
   return (
@@ -106,6 +106,7 @@ export default function LoginPage() {
                 placeholder="admin@example.com"
                 {...register("email")}
                 className={errors.email ? "border-destructive" : ""}
+                disabled={isSubmittingPassword}
               />
               {errors.email && (
                 <p className="text-xs text-destructive mt-1">
@@ -121,6 +122,7 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 {...register("password")}
                 className={errors.password ? "border-destructive" : ""}
+                disabled={isSubmittingPassword}
               />
               {errors.password && (
                 <p className="text-xs text-destructive mt-1">
@@ -128,8 +130,8 @@ export default function LoginPage() {
                 </p>
               )}
             </div>
-            <Button type="submit" className="w-full" size="lg">
-              <LogIn className="mr-2 h-4 w-4" /> Sign in with Password
+            <Button type="submit" className="w-full" size="lg" disabled={isSubmittingPassword}>
+              {isSubmittingPassword ? "Signing in..." : <><LogIn className="mr-2 h-4 w-4" /> Sign in with Password</>}
             </Button>
           </form>
 
@@ -144,7 +146,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <Button variant="outline" className="w-full" size="lg" onClick={handleOidcLogin}>
+          <Button variant="outline" className="w-full" size="lg" onClick={handleOidcLogin} disabled={isSubmittingPassword}>
               Sign in with OIDC (Authentik)
           </Button>
         </CardContent>
