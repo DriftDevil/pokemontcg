@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -15,16 +16,26 @@ import { Gem, LogIn } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React from "react";
+import { signIn } from "next-auth/react";
 
 export default function LoginPage() {
   const router = useRouter();
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmitPassword = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    // TODO: Implement actual password-based authentication logic
-    // For now, simulate login and redirect to dashboard
-    console.log("Simulating admin login...");
-    router.push("/admin/dashboard");
+    // TODO: Implement actual password-based authentication logic if needed
+    // For now, this part is not connected to NextAuth OIDC
+    console.log("Simulating admin password login...");
+    // Example: Call signIn with 'credentials' provider if you set one up
+    // signIn('credentials', { redirect: false, email: event.currentTarget.email.value, password: event.currentTarget.password.value })
+    //   .then(res => { if (res?.ok) router.push("/admin/dashboard"); else console.error("Password login failed", res?.error) });
+    alert("Password login form submitted. Implement actual logic or remove if OIDC is primary.");
+  };
+
+  const handleOidcLogin = () => {
+    // Redirect to Authentik, then Authentik redirects back to /api/auth/callback/authentik
+    // which NextAuth handles. On success, redirect to /admin/dashboard.
+    signIn('authentik', { callbackUrl: '/admin/dashboard' });
   };
 
   return (
@@ -40,7 +51,7 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmitPassword} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -49,6 +60,7 @@ export default function LoginPage() {
                 placeholder="admin@example.com"
                 required
                 className="text-base"
+                name="email"
               />
             </div>
             <div className="space-y-2">
@@ -59,24 +71,27 @@ export default function LoginPage() {
                 placeholder="••••••••" 
                 required 
                 className="text-base"
+                name="password"
               />
             </div>
             <Button type="submit" className="w-full" size="lg">
               <LogIn className="mr-2 h-5 w-5" />
-              Sign In
+              Sign In with Password
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="flex flex-col items-center space-y-4">
-            <p className="text-sm text-muted-foreground">
-                Or connect using your identity provider:
-            </p>
-            <Button variant="outline" className="w-full" onClick={() => alert("OIDC Login (Authentik) not implemented yet.")}>
+        <CardFooter className="flex flex-col items-center space-y-4 pt-6">
+            <div className="relative w-full flex items-center">
+              <div className="flex-grow border-t border-muted"></div>
+              <span className="flex-shrink mx-4 text-muted-foreground text-sm">Or</span>
+              <div className="flex-grow border-t border-muted"></div>
+            </div>
+            <Button variant="outline" className="w-full" onClick={handleOidcLogin}>
                 Sign in with OIDC (Authentik)
             </Button>
           <Link
             href="/"
-            className="text-sm text-primary hover:underline"
+            className="text-sm text-primary hover:underline mt-4"
           >
             Back to Home
           </Link>

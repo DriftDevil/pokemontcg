@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -11,31 +12,35 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Gem, User, LogOut, Settings, Moon, Sun } from "lucide-react";
+import { Menu, Gem, User, LogOut, Settings, Moon, Sun, LogInIcon } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import React, { useState, useEffect } from "react";
-import AppSidebarContent, { type NavItem } from "./app-sidebar-content"; // Adjust path as necessary
+import AppSidebarContent, { type NavItem } from "./app-sidebar-content";
+import { useSession, signIn, signOut } from "next-auth/react";
 
-// Mock theme state for demonstration
-const useMockTheme = () => {
+const useThemeToggle = () => {
   const [theme, setTheme] = useState("light");
 
   useEffect(() => {
-    // In a real app, this would interact with localStorage or a theme provider
-    const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-    setTheme(currentTheme);
+    const storedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    setTheme(storedTheme);
+    if (storedTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
   }, []);
 
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
     setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
     if (newTheme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-    // Persist theme choice if needed (e.g., localStorage.setItem('theme', newTheme));
   };
   return { theme, toggleTheme };
 };
@@ -43,19 +48,14 @@ const useMockTheme = () => {
 
 export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
   const pathname = usePathname();
-  const { theme, toggleTheme } = useMockTheme();
+  const router = useRouter();
+  const { theme, toggleTheme } = useThemeToggle();
+  const { data: session, status } = useSession();
+  const isLoadingSession = status === "loading";
+  const user = session?.user;
 
-  // This mock user state would come from an auth context in a real app
-  const [user, setUser] = useState<{ name: string; email: string; imageUrl?: string } | null>({
-    name: "Admin User",
-    email: "admin@pokeapi.com",
-  });
-
-  const handleLogout = () => {
-    // Perform logout logic here
-    setUser(null);
-    // Redirect to login or home page, e.g., router.push('/login');
-    alert("Logout clicked. Implement actual logout.");
+  const handleLogout = async () => {
+    await signOut({ callbackUrl: '/' });
   };
   
   return (
@@ -79,31 +79,33 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
           <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
             {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
           </Button>
-          {user ? (
+          {isLoadingSession ? (
+            <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />
+          ) : user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                   <Avatar className="h-9 w-9">
-                    <AvatarImage src={user.imageUrl || `https://placehold.co/40x40.png?text=${user.name.charAt(0)}`} alt={user.name} data-ai-hint="user avatar" />
-                    <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
+                    <AvatarImage src={user.image || `https://placehold.co/40x40.png?text=${user.name?.charAt(0) || 'U'}`} alt={user.name || 'User'} data-ai-hint="user avatar" />
+                    <AvatarFallback>{user.name?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{user.name}</p>
-                    <p className="text-xs leading-none text-muted-foreground">
+                    <p className="text-sm font-medium leading-none">{user.name || "User"}</p>
+                    {user.email && <p className="text-xs leading-none text-muted-foreground">
                       {user.email}
-                    </p>
+                    </p>}
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push('/admin/profile')}> {/* Placeholder for profile page */}
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push('/admin/settings')}> {/* Placeholder for settings page */}
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>
                 </DropdownMenuItem>
@@ -115,8 +117,10 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-             <Button asChild>
-                <Link href="/login">Login</Link>
+             <Button asChild variant="outline" onClick={() => signIn()}>
+                <Link href="/login">
+                    <LogInIcon className="mr-2 h-4 w-4" /> Login
+                </Link>
              </Button>
           )}
         </div>
