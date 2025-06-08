@@ -27,7 +27,7 @@ async function initializeClient(): Promise<Client> {
       return 'http://localhost:9002';
     }
     // In production or other environments, APP_URL must be set.
-    throw new Error('APP_URL environment variable is not set. This is required for OIDC client.');
+    throw new Error('APP_URL environment variable is not set. This is required for OIDC client initialization in non-development environments.');
   })();
   
   const redirect_uri = `${appUrl}/api/auth/callback`;
@@ -49,11 +49,14 @@ async function initializeClient(): Promise<Client> {
   } catch (error) {
     console.error('Failed to discover OIDC issuer or configure client:', error);
     oidcClientPromise = null; // Reset promise on failure to allow retry
-    throw new Error('OIDC client initialization failed.');
+    if (error instanceof Error) {
+        throw new Error(`OIDC client initialization failed: ${error.message}`);
+    }
+    throw new Error('OIDC client initialization failed due to an unknown error.');
   }
 }
 
-export function getOidcClient(): Promise<Client> {
+export async function getOidcClient(): Promise<Client> {
   if (oidcClientInstance) {
     return Promise.resolve(oidcClientInstance);
   }
@@ -62,3 +65,4 @@ export function getOidcClient(): Promise<Client> {
   }
   return oidcClientPromise;
 }
+
