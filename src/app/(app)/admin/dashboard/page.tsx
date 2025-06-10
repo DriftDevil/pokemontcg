@@ -132,7 +132,7 @@ async function fetchTotalUsersCount(): Promise<number> {
       headers['Cookie'] = `session_token=${sessionToken}`;
       console.log(`[AdminDashboardPage - fetchTotalUsersCount] Forwarding session_token cookie for /api/users/all`);
     } else {
-      console.warn("[AdminDashboardPage - fetchTotalUsersCount] No session_token cookie to forward for /api/users/all call.");
+      console.warn("[AdminDashboardPage - fetchTotalUsersCount] No session_token cookie to forward for /api/users/all call. This will likely result in a 401 error.");
     }
     
     const response = await fetch(fetchUrl, { 
@@ -175,7 +175,7 @@ async function fetchApiRequests24h(): Promise<number> {
       headers['Cookie'] = `session_token=${sessionToken}`;
       console.log(`[AdminDashboardPage - fetchApiRequests24h] Forwarding session_token cookie for /api/usage`);
     } else {
-      console.warn("[AdminDashboardPage - fetchApiRequests24h] No session_token cookie to forward for /api/usage call.");
+      console.warn("[AdminDashboardPage - fetchApiRequests24h] No session_token cookie to forward for /api/usage call. This will likely result in a 401 error.");
     }
     
     const response = await fetch(fetchUrl, { 
