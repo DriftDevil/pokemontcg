@@ -59,8 +59,9 @@ export default function LoginPage() {
 
   const handleOidcLogin = () => {
     setIsSubmittingOidc(true);
+    // For OIDC, router.push is generally fine as it involves multiple redirects
+    // and the final callback usually handles session setup before landing on the app.
     router.push("/api/auth/login");
-    // No need to setIsSubmittingOidc(false) here as page will redirect
   };
 
   const onPasswordSubmit: SubmitHandler<PasswordLoginInputs> = async (data) => {
@@ -72,12 +73,12 @@ export default function LoginPage() {
         body: JSON.stringify(data),
       });
 
-      const responseData = await response.json(); // Try to parse JSON regardless of response.ok
+      const responseData = await response.json();
 
       if (response.ok) {
         toast({ title: "Login Successful", description: "Redirecting to dashboard..." });
-        router.push('/admin/dashboard');
-        // router.refresh(); // Removed this line
+        // Use window.location.assign for a full page load to ensure cookie is picked up
+        window.location.assign('/admin/dashboard');
       } else {
         toast({ 
           title: responseData.message || "Login Failed", 
@@ -86,11 +87,14 @@ export default function LoginPage() {
         });
       }
     } catch (error) {
-       // This catch block handles network errors or if response.json() itself fails (e.g. not JSON at all)
        toast({ title: "Login Error", description: "An unexpected error occurred. The server might be down or returned an invalid response.", variant: "destructive" });
        console.error("Password login submit error:", error);
     } finally {
-      setIsSubmittingPassword(false);
+      // Only set to false if not redirecting, though with window.location.assign this might not always run
+      // or its effect might not be visible.
+      if (!window.location.pathname.endsWith('/admin/dashboard')) {
+        setIsSubmittingPassword(false);
+      }
     }
   };
   
@@ -152,7 +156,7 @@ export default function LoginPage() {
               <span className="w-full border-t" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground"> {/* Changed from bg-background */}
+              <span className="bg-card px-2 text-muted-foreground">
                 Or continue with
               </span>
             </div>
