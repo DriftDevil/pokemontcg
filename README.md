@@ -21,7 +21,6 @@ This is a Next.js application built within Firebase Studio, designed to serve as
 *   **Frontend**: Next.js (App Router), React, TypeScript
 *   **UI Components**: ShadCN UI
 *   **Styling**: Tailwind CSS
-*   **AI (Optional)**: Genkit (configured, but specific AI features may vary)
 *   **Authentication**: `openid-client` for OIDC, direct API calls for password-based auth.
 
 ## Getting Started
@@ -39,7 +38,6 @@ This project is intended to be run within Firebase Studio.
 
 2.  **Running the App**:
     *   Use the development server: `npm run dev` (typically runs on port 9002 as configured in `package.json`).
-    *   For Genkit development (if using AI features): `npm run genkit:dev` or `npm run genkit:watch`.
 
 ## Key Files & Directories
 
@@ -50,7 +48,6 @@ This project is intended to be run within Firebase Studio.
     *   `src/components/layout`: Components related to the app's layout (header, sidebar).
     *   `src/components/admin`: Components specific to the admin sections.
 *   `src/lib`: Utility functions, including OIDC client setup (`oidcClient.ts`).
-*   `src/ai`: Genkit related files for AI functionality (if implemented).
 *   `openapi.yaml`: OpenAPI specification for the backend API, used by the API documentation viewer.
 *   `globals.css`: Global styles and Tailwind CSS theme configuration, including dark mode overrides for Swagger UI.
 
