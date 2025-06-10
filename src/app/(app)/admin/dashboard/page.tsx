@@ -27,7 +27,7 @@ async function fetchTotalCountFromPaginated(endpoint: string): Promise<number> {
   }
 
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const sessionToken = cookieStore.get('session_token')?.value;
     console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] session_token from cookies(): ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
@@ -42,7 +42,7 @@ async function fetchTotalCountFromPaginated(endpoint: string): Promise<number> {
     const response = await fetch(fetchUrl, {
       headers: fetchHeaders,
       cache: 'no-store',
-      credentials: 'omit', // Omit as we are manually setting the Cookie header
+      credentials: 'omit',
     });
 
     if (!response.ok) {
@@ -85,7 +85,6 @@ async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]>
   }
 
   try {
-    // This fetch is to a public, unauthenticated endpoint (listing sets), so no cookie forwarding needed.
     const response = await fetch(fetchUrl, { cache: 'no-store' });
     if (!response.ok) {
       console.error(`[AdminDashboardPage - fetchSetReleaseData] Failed to fetch from ${fetchUrl}: ${response.status}`);
@@ -146,7 +145,7 @@ async function fetchTotalUsersCount(): Promise<number> {
   }
 
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const sessionToken = cookieStore.get('session_token')?.value;
     console.log(`[AdminDashboardPage - fetchTotalUsersCount] session_token from cookies(): ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
@@ -164,7 +163,7 @@ async function fetchTotalUsersCount(): Promise<number> {
       method: 'GET',
       headers: fetchHeaders,
       cache: 'no-store',
-      credentials: 'omit', // Omit as we are manually setting the Cookie header
+      credentials: 'omit',
     });
 
     if (!response.ok) {
@@ -195,7 +194,7 @@ async function fetchApiRequests24h(): Promise<number> {
   }
 
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const sessionToken = cookieStore.get('session_token')?.value;
     console.log(`[AdminDashboardPage - fetchApiRequests24h] session_token from cookies(): ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
@@ -213,7 +212,7 @@ async function fetchApiRequests24h(): Promise<number> {
       method: 'GET',
       headers: fetchHeaders,
       cache: 'no-store',
-      credentials: 'omit', // Omit as we are manually setting the Cookie header
+      credentials: 'omit',
     });
 
     if (!response.ok) {
@@ -238,10 +237,9 @@ const mockRecentUsers = [
 
 
 export default async function AdminDashboardPage() {
-  // Enhanced top-level cookie logging
-  const serverCookies = cookies().getAll();
+  const serverCookies = (await cookies()).getAll();
   console.log('[AdminDashboardPage - Render] All cookies available to Server Component at page top:', JSON.stringify(serverCookies, null, 2));
-  const topLevelSessionToken = cookies().get('session_token')?.value;
+  const topLevelSessionToken = (await cookies()).get('session_token')?.value;
   console.log(`[AdminDashboardPage - Render] session_token value at page top: ${topLevelSessionToken ? 'PRESENT' : 'ABSENT'}`);
 
 
