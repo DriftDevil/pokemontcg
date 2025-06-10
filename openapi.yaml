@@ -196,11 +196,11 @@ paths:
               schema:
                 type: object
                 properties:
-                  accessToken: # Changed from 'token' to 'accessToken'
+                  accessToken:
                     type: string
-                  email: # Added email to response schema based on image
+                  email:
                     type: string
-                  type: # Added type to response schema based on image
+                  type:
                     type: string
                     example: Bearer
   /auth/local/set-password:
@@ -358,12 +358,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  api_requests_24h:
-                    type: integer
-                  totalUsers:
-                    type: integer
+                $ref: '#/components/schemas/ApiUsageMetrics'
   /version:
     get:
       summary: API version
@@ -559,6 +554,47 @@ components:
         version:
           type: string
 
-    
+    EndpointUsage:
+      type: object
+      description: Usage statistics for a specific API endpoint.
+      properties:
+        path:
+          type: string
+          description: The API path.
+          example: /v2/sets
+        method:
+          type: string
+          description: The HTTP method.
+          example: GET
+        statusCode:
+          type: integer
+          description: The HTTP status code of the response.
+          example: 200
+        count:
+          type: integer
+          description: Number of times this endpoint was called.
+          example: 72
+        lastSeen:
+          type: string
+          format: date-time
+          description: The last time this endpoint was called.
+          example: "2025-06-10T13:37:17.783937Z"
+
+    ApiUsageMetrics:
+      type: object
+      description: Overall API usage metrics.
+      properties:
+        requestCountLast24h:
+          type: integer
+          description: Total number of API requests in the last 24 hours.
+        totalUsers:
+          type: integer
+          description: Total number of registered users.
+        topEndpoints:
+          type: array
+          items:
+            $ref: '#/components/schemas/EndpointUsage'
+          description: List of most frequently accessed endpoints.
 
     
+```
