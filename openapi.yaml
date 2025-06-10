@@ -19,6 +19,10 @@ tags:
   - name: System
     description: System health and version information
 
+security:
+  - oauth2: [openid, profile, email]
+  - localAuth: []
+
 paths:
   /v2/sets:
     get:
@@ -191,7 +195,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  token:
+                  token: # Note: your API actually returns 'accessToken'
                     type: string
   /auth/local/set-password:
     post:
