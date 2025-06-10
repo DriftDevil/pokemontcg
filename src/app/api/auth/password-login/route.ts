@@ -2,6 +2,7 @@
 'use server';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import type { ResponseCookie } from 'next/dist/compiled/@edge-runtime/cookies';
 
 // Module-level check (good for immediate feedback during development server start if possible)
 const MODULE_EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
     }
 
     const isProduction = process.env.NODE_ENV === 'production';
-    const cookieOptions: Parameters<typeof cookies().set>[2] = {
+    const cookieOptions: Partial<ResponseCookie> = {
       httpOnly: true,
       secure: isProduction,
       path: '/',
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 7, // 7 days
     };
     
-    // console.log(`[API Password Login] Setting 'session_token' cookie with options: ${JSON.stringify(cookieOptions)}`);
+    console.log(`[API Password Login] Setting 'session_token' cookie with options: ${JSON.stringify(cookieOptions)}`);
     cookies().set('session_token', token, cookieOptions);
     // console.log(`[API Password Login] 'session_token' cookie should be set.`);
 
