@@ -77,7 +77,7 @@ export default function LoginPage() {
       if (response.ok) {
         toast({ title: "Login Successful", description: "Redirecting to dashboard..." });
         router.push('/admin/dashboard');
-        router.refresh(); 
+        // router.refresh(); // Removed this line
       } else {
         toast({ 
           title: responseData.message || "Login Failed", 
