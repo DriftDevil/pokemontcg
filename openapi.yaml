@@ -344,6 +344,9 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/User'
+                  total:
+                    type: integer
+                    description: Total number of users found.
   /usage:
     get:
       summary: Get API usage metrics (admin only)
@@ -432,8 +435,10 @@ components:
           type: boolean
         createdAt:
           type: string
+          format: date-time
         lastSeen:
           type: string
+          format: date-time
 
     UserWithAuthSource:
       type: object
@@ -597,4 +602,5 @@ components:
           description: List of most frequently accessed endpoints.
 
     
-```
+
+    
