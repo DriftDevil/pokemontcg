@@ -5,7 +5,7 @@ import { getOidcClient } from '@/lib/oidcClient';
 import { cookies } from 'next/headers';
 
 export async function GET() {
-  const appUrl = process.env.APP_URL || 'http://localhost:9002';
+  const appUrl = process.env.APP_URL || 'http://localhost:9003';
   const logoutRedirectUrl = process.env.LOGOUT_REDIRECT_URL || appUrl; 
 
   try {

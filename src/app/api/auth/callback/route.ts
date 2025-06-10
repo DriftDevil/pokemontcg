@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
         throw new Error('Missing nonce cookie');
     }
 
-    const appUrl = process.env.APP_URL || 'http://localhost:9002';
+    const appUrl = process.env.APP_URL || 'http://localhost:9003';
     const redirect_uri = `${appUrl}/api/auth/callback`;
 
     const params = client.callbackParams(request.url);
@@ -42,10 +42,10 @@ export async function GET(request: NextRequest) {
       httpOnly: true,
       path: '/',
       maxAge: tokenSet.expires_in || 3600, // Use token expiry or default to 1 hour
+      secure: isProduction,
     };
 
     if (isProduction) {
-        baseCookieOptions.secure = true;
         baseCookieOptions.sameSite = 'lax'; // Or 'strict'
         if (process.env.APP_URL) {
             try {
@@ -57,9 +57,7 @@ export async function GET(request: NextRequest) {
         }
     } else {
         // Development settings for localhost
-        baseCookieOptions.secure = false;
-        // Omitting sameSite for localhost to see if it helps, browsers might default to Lax.
-        // baseCookieOptions.sameSite = 'lax';
+        // Explicitly omitting sameSite for localhost, secure is false by default via isProduction
     }
     
     const idTokenCookieOptions = { ...baseCookieOptions };
@@ -82,6 +80,6 @@ export async function GET(request: NextRequest) {
     cookies().delete('oidc_nonce');
     cookies().delete('id_token');
     cookies().delete('session_token');
-    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMessage)}`, process.env.APP_URL || 'http://localhost:9002'));
+    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMessage)}`, process.env.APP_URL || 'http://localhost:9003'));
   }
 }

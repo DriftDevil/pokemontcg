@@ -14,7 +14,7 @@ import DynamicSetReleaseChartWrapper from "@/components/admin/dashboard/dynamic-
 
 async function fetchTotalCountFromPaginated(endpoint: string): Promise<number> {
   const APP_URL_ENV = process.env.APP_URL || "";
-  const baseUrl = APP_URL_ENV || 'http://localhost:' + (process.env.PORT || 9002);
+  const baseUrl = APP_URL_ENV || 'http://localhost:' + (process.env.PORT || 9003);
   const fetchUrl = `${baseUrl}/api/${endpoint}?limit=1`;
 
   console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] APP_URL_ENV: '${APP_URL_ENV}', Base URL: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
@@ -29,14 +29,14 @@ async function fetchTotalCountFromPaginated(endpoint: string): Promise<number> {
   try {
     const cookieStore = await cookies();
     const sessionToken = cookieStore.get('session_token')?.value;
-    console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] session_token from await cookies(): ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
+    console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Token from cookies(): ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
     const fetchHeaders = new Headers();
     if (sessionToken) {
       fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
-      console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Forwarding session_token in Authorization header.`);
+      console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Forwarding token in Authorization header.`);
     } else {
-      console.warn(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] session_token ABSENT in cookies(). Cannot forward.`);
+      console.warn(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Token ABSENT in cookies(). Cannot forward.`);
     }
 
     const response = await fetch(fetchUrl, {
@@ -73,7 +73,7 @@ interface PaginatedApiResponse<T> {
 
 async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]> {
   const APP_URL_ENV = process.env.APP_URL || "";
-  const baseUrl = APP_URL_ENV || 'http://localhost:' + (process.env.PORT || 9002);
+  const baseUrl = APP_URL_ENV || 'http://localhost:' + (process.env.PORT || 9003);
   const fetchUrl = `${baseUrl}/api/sets?all=true&orderBy=-releaseDate`;
   console.log(`[AdminDashboardPage - fetchSetReleaseData] APP_URL_ENV: '${APP_URL_ENV}', Base URL: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
 
@@ -133,7 +133,7 @@ interface ApiUserListResponse {
 
 async function fetchTotalUsersCount(): Promise<number> {
   const APP_URL_ENV = process.env.APP_URL || "";
-  const baseUrl = APP_URL_ENV || 'http://localhost:' + (process.env.PORT || 9002);
+  const baseUrl = APP_URL_ENV || 'http://localhost:' + (process.env.PORT || 9003);
   const fetchUrl = `${baseUrl}/api/users/all`;
   console.log(`[AdminDashboardPage - fetchTotalUsersCount] APP_URL_ENV: '${APP_URL_ENV}', Base URL: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
 
@@ -147,16 +147,16 @@ async function fetchTotalUsersCount(): Promise<number> {
   try {
     const cookieStore = await cookies();
     const sessionToken = cookieStore.get('session_token')?.value;
-    console.log(`[AdminDashboardPage - fetchTotalUsersCount] session_token from await cookies(): ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
+    console.log(`[AdminDashboardPage - fetchTotalUsersCount] Token from cookies(): ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
     const fetchHeaders = new Headers();
     fetchHeaders.append('Content-Type', 'application/json');
 
     if (sessionToken) {
       fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
-      console.log(`[AdminDashboardPage - fetchTotalUsersCount] Forwarding session_token in Authorization header for /api/users/all.`);
+      console.log(`[AdminDashboardPage - fetchTotalUsersCount] Forwarding token in Authorization header for /api/users/all.`);
     } else {
-      console.warn("[AdminDashboardPage - fetchTotalUsersCount] session_token ABSENT in cookies(). Cannot forward to /api/users/all.");
+      console.warn("[AdminDashboardPage - fetchTotalUsersCount] Token ABSENT in cookies(). Cannot forward to /api/users/all.");
     }
 
     const response = await fetch(fetchUrl, {
@@ -182,7 +182,7 @@ async function fetchTotalUsersCount(): Promise<number> {
 
 async function fetchApiRequests24h(): Promise<number> {
   const APP_URL_ENV = process.env.APP_URL || "";
-  const baseUrl = APP_URL_ENV || 'http://localhost:' + (process.env.PORT || 9002);
+  const baseUrl = APP_URL_ENV || 'http://localhost:' + (process.env.PORT || 9003);
   const fetchUrl = `${baseUrl}/api/usage`;
   console.log(`[AdminDashboardPage - fetchApiRequests24h] APP_URL_ENV: '${APP_URL_ENV}', Base URL: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
 
@@ -196,16 +196,16 @@ async function fetchApiRequests24h(): Promise<number> {
   try {
     const cookieStore = await cookies();
     const sessionToken = cookieStore.get('session_token')?.value;
-    console.log(`[AdminDashboardPage - fetchApiRequests24h] session_token from await cookies(): ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
+    console.log(`[AdminDashboardPage - fetchApiRequests24h] Token from cookies(): ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
     const fetchHeaders = new Headers();
     fetchHeaders.append('Content-Type', 'application/json');
 
     if (sessionToken) {
       fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
-      console.log(`[AdminDashboardPage - fetchApiRequests24h] Forwarding session_token in Authorization header for /api/usage.`);
+      console.log(`[AdminDashboardPage - fetchApiRequests24h] Forwarding token in Authorization header for /api/usage.`);
     } else {
-      console.warn("[AdminDashboardPage - fetchApiRequests24h] session_token ABSENT in cookies(). Cannot forward to /api/usage.");
+      console.warn("[AdminDashboardPage - fetchApiRequests24h] Token ABSENT in cookies(). Cannot forward to /api/usage.");
     }
 
     const response = await fetch(fetchUrl, {

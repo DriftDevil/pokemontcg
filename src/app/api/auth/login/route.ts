@@ -11,7 +11,7 @@ export async function GET() {
     const code_challenge = generators.codeChallenge(code_verifier);
     const nonce = generators.nonce();
 
-    const appUrl = process.env.APP_URL || 'http://localhost:9002';
+    const appUrl = process.env.APP_URL || 'http://localhost:9003';
     const redirect_uri = `${appUrl}/api/auth/callback`;
 
     (await cookies()).set('oidc_code_verifier', code_verifier, {
