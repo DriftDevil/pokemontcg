@@ -178,7 +178,7 @@ h1, h2, h3, h4, h5, h6 {
   }
   .dark .swagger-ui .opblock-summary-description,
   .dark .swagger-ui .opblock-summary-path {
-    color: hsl(var(--card-foreground));
+    color: hsl(var(--card-foreground)); /* Updated for better visibility */
   }
    .dark .swagger-ui .opblock-summary-path__deprecated {
     color: hsl(var(--destructive));
@@ -286,12 +286,35 @@ h1, h2, h3, h4, h5, h6 {
     border-color: hsl(var(--ring));
   }
 
-  /* Method specific button colors - adjust if needed */
-  .dark .swagger-ui .opblock.opblock-get .opblock-summary-method { color: #61affe; } /* Example blue */
-  .dark .swagger-ui .opblock.opblock-post .opblock-summary-method { color: #49cc90; } /* Example green */
-  .dark .swagger-ui .opblock.opblock-put .opblock-summary-method { color: #fca130; } /* Example orange */
-  .dark .swagger-ui .opblock.opblock-delete .opblock-summary-method { color: #f93e3e; } /* Example red */
-  .dark .swagger-ui .opblock.opblock-patch .opblock-summary-method { color: #50e3c2; } /* Example teal */
+  /* Method specific button colors - ensure good contrast */
+  .dark .swagger-ui .opblock.opblock-get .opblock-summary-method,
+  .dark .swagger-ui .opblock.opblock-get .opblock-summary-path a.nostyle,
+  .dark .swagger-ui .opblock.opblock-get .opblock-summary-description { color: #61affe; } /* Brighter blue */
+
+  .dark .swagger-ui .opblock.opblock-post .opblock-summary-method,
+  .dark .swagger-ui .opblock.opblock-post .opblock-summary-path a.nostyle,
+  .dark .swagger-ui .opblock.opblock-post .opblock-summary-description { color: #49cc90; } /* Brighter green */
+
+  .dark .swagger-ui .opblock.opblock-put .opblock-summary-method,
+  .dark .swagger-ui .opblock.opblock-put .opblock-summary-path a.nostyle,
+  .dark .swagger-ui .opblock.opblock-put .opblock-summary-description { color: #fca130; } /* Brighter orange */
+
+  .dark .swagger-ui .opblock.opblock-delete .opblock-summary-method,
+  .dark .swagger-ui .opblock.opblock-delete .opblock-summary-path a.nostyle,
+  .dark .swagger-ui .opblock.opblock-delete .opblock-summary-description { color: #f93e3e; } /* Brighter red */
+
+  .dark .swagger-ui .opblock.opblock-patch .opblock-summary-method,
+  .dark .swagger-ui .opblock.opblock-patch .opblock-summary-path a.nostyle,
+  .dark .swagger-ui .opblock.opblock-patch .opblock-summary-description { color: #50e3c2; } /* Brighter teal */
+
+  .dark .swagger-ui .opblock.opblock-options .opblock-summary-method,
+  .dark .swagger-ui .opblock.opblock-options .opblock-summary-path a.nostyle,
+  .dark .swagger-ui .opblock.opblock-options .opblock-summary-description { color: #d393e0; } /* Example purple for OPTIONS */
+
+  .dark .swagger-ui .opblock.opblock-head .opblock-summary-method,
+  .dark .swagger-ui .opblock.opblock-head .opblock-summary-path a.nostyle,
+  .dark .swagger-ui .opblock.opblock-head .opblock-summary-description { color: #c0ca33; } /* Example lime for HEAD */
+
 
   .dark .swagger-ui .opblock-deprecated .opblock-summary-method,
   .dark .swagger-ui .opblock-deprecated .opblock-summary-path,
