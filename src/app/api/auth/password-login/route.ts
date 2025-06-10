@@ -4,16 +4,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import type { ResponseCookie } from 'next/dist/compiled/@edge-runtime/cookies';
 
+// Log the EXTERNAL_API_BASE_URL at module load time to check its availability.
 const MODULE_EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
 if (!MODULE_EXTERNAL_API_BASE_URL) {
-  console.error('[API Password Login Module] WARNING: EXTERNAL_API_BASE_URL environment variable is not set. Password login will fail if this is not configured.');
+  console.error('[API Password Login Module] CRITICAL: EXTERNAL_API_BASE_URL environment variable is not set AT MODULE LOAD. Password login WILL FAIL.');
+} else {
+  console.log(`[API Password Login Module] EXTERNAL_API_BASE_URL is configured at module load: ${MODULE_EXTERNAL_API_BASE_URL}`);
 }
 
 export async function POST(request: NextRequest) {
+  // Re-check at request time as well, though module-level check is more indicative for serverless envs.
   const currentExternalApiBaseUrl = process.env.EXTERNAL_API_BASE_URL;
 
   if (!currentExternalApiBaseUrl) {
-    console.error('[API Password Login POST] Critical: EXTERNAL_API_BASE_URL is not set. Password login cannot function.');
+    console.error('[API Password Login POST] Critical: EXTERNAL_API_BASE_URL is not set at request time. Password login cannot function.');
     return NextResponse.json({ message: 'API endpoint not configured.', details: 'Server configuration error: EXTERNAL_API_BASE_URL not set.' }, { status: 500 });
   }
 
@@ -50,7 +54,7 @@ export async function POST(request: NextRequest) {
           errorDetails = `External API returned status ${apiResponse.status} with non-JSON body: ${responseBodyText.substring(0, 200)}...`;
         }
       } else if (responseBodyText && responseBodyText.toLowerCase().includes('<html')) {
-        errorDetails = `External API returned an HTML page (status ${apiResponse.status}). URL: ${externalApiUrl}. Check API configuration.`;
+        errorDetails = `External API returned an HTML page (status ${apiResponse.status}). URL: ${externalApiUrl}. Check API configuration or if the external API is down.`;
         console.warn(`[API Password Login] External API returned HTML: ${responseBodyText.substring(0, 200)}...`);
       } else if (responseBodyText) {
         errorDetails = `External API request failed with status ${apiResponse.status}. Response: ${responseBodyText.substring(0, 500)}`;
@@ -99,8 +103,14 @@ export async function POST(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 7, // 7 days
     };
     
-    // Let browser default domain for localhost
-
+    if (!isProduction) {
+       // For localhost development, ensure secure is false if APP_URL is http
+       // And let browser handle domain for localhost.
+       if (process.env.APP_URL?.startsWith('http://localhost')) {
+         cookieOptions.secure = false;
+       }
+    }
+    
     console.log(`[API Password Login] Setting 'session_token' cookie with options: ${JSON.stringify(cookieOptions)} (isProduction: ${isProduction})`);
     cookies().set('session_token', token, cookieOptions);
 
