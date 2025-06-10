@@ -106,9 +106,8 @@ async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]>
   }
 }
 
-// Represents the structure from /api/users/all, which wraps User from openapi.yaml in a 'data' field
 interface ApiUserListResponse {
-  data?: AdminUserPageType[]; // The User type from admin/users/page.tsx
+  data?: AdminUserPageType[]; 
 }
 
 
@@ -125,18 +124,37 @@ async function fetchTotalUsersCount(): Promise<number> {
   }
 
   try {
-    const response = await fetch(fetchUrl, { cache: 'no-store' });
+    const cookieStore = await cookies();
+    const oidcToken = cookieStore.get('access_token')?.value;
+    const passwordToken = cookieStore.get('password_access_token')?.value;
+    
+    const forwardedCookiesArray: string[] = [];
+    if (oidcToken) forwardedCookiesArray.push(`access_token=${oidcToken}`);
+    if (passwordToken) forwardedCookiesArray.push(`password_access_token=${passwordToken}`);
+
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (forwardedCookiesArray.length > 0) {
+      headers['Cookie'] = forwardedCookiesArray.join('; ');
+      console.log(`[AdminDashboardPage - fetchTotalUsersCount] Forwarding cookies: ${headers['Cookie']}`);
+    } else {
+      console.warn("[AdminDashboardPage - fetchTotalUsersCount] No cookies to forward for /api/users/all call.");
+    }
+    
+    const response = await fetch(fetchUrl, { 
+      headers,
+      cache: 'no-store' 
+    });
+
     if (!response.ok) {
-      console.error(`Failed to fetch total users count from ${fetchUrl}: ${response.status}`);
+      console.error(`Failed to fetch total users count from internal ${fetchUrl}: ${response.status}`);
       const errorBody = await response.text();
-      console.error(`Error body for ${fetchUrl}: ${errorBody}`);
+      console.error(`Error body for internal ${fetchUrl}: ${errorBody}`);
       return 0;
     }
-    // Adjusted to expect { data: User[] } as per /api/users/all (proxied from external)
     const data: ApiUserListResponse = await response.json(); 
     return data.data?.length || 0;
   } catch (error) {
-    console.error(`Error fetching total users count from ${fetchUrl}:`, error);
+    console.error(`Error fetching total users count from internal ${fetchUrl}:`, error);
     return 0;
   }
 }
@@ -158,13 +176,16 @@ async function fetchApiRequests24h(): Promise<number> {
     const oidcToken = cookieStore.get('access_token')?.value;
     const passwordToken = cookieStore.get('password_access_token')?.value;
     
-    const forwardedCookies: string[] = [];
-    if (oidcToken) forwardedCookies.push(`access_token=${oidcToken}`);
-    if (passwordToken) forwardedCookies.push(`password_access_token=${passwordToken}`);
+    const forwardedCookiesArray: string[] = [];
+    if (oidcToken) forwardedCookiesArray.push(`access_token=${oidcToken}`);
+    if (passwordToken) forwardedCookiesArray.push(`password_access_token=${passwordToken}`);
 
     const headers: HeadersInit = { 'Content-Type': 'application/json' };
-    if (forwardedCookies.length > 0) {
-      headers['Cookie'] = forwardedCookies.join('; ');
+    if (forwardedCookiesArray.length > 0) {
+      headers['Cookie'] = forwardedCookiesArray.join('; ');
+      console.log(`[AdminDashboardPage - fetchApiRequests24h] Forwarding cookies: ${headers['Cookie']}`);
+    } else {
+      console.warn("[AdminDashboardPage - fetchApiRequests24h] No cookies to forward for /api/usage call.");
     }
     
     const response = await fetch(fetchUrl, { 
@@ -180,7 +201,7 @@ async function fetchApiRequests24h(): Promise<number> {
     }
     const data = await response.json();
     return data.api_requests_24h || 0; 
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error fetching API requests count from internal ${fetchUrl}:`, error);
     return 0;
   }
