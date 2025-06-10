@@ -154,7 +154,7 @@ async function fetchApiRequests24h(): Promise<number> {
   }
 
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const oidcToken = cookieStore.get('access_token')?.value;
     const passwordToken = cookieStore.get('password_access_token')?.value;
     
@@ -324,5 +324,7 @@ export default async function AdminDashboardPage() {
     </>
   );
 }
+
+    
 
     
