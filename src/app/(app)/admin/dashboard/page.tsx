@@ -29,12 +29,12 @@ async function fetchTotalCountFromPaginated(endpoint: string): Promise<number> {
   try {
     const cookieStore = await cookies();
     const sessionToken = cookieStore.get('session_token')?.value;
-    console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] session_token from cookies(): ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
+    console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] session_token from await cookies(): ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
     const fetchHeaders = new Headers();
     if (sessionToken) {
-      fetchHeaders.append('Cookie', `session_token=${sessionToken}`);
-      console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Forwarding session_token in Cookie header.`);
+      fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
+      console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Forwarding session_token in Authorization header.`);
     } else {
       console.warn(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] session_token ABSENT in cookies(). Cannot forward.`);
     }
@@ -42,7 +42,7 @@ async function fetchTotalCountFromPaginated(endpoint: string): Promise<number> {
     const response = await fetch(fetchUrl, {
       headers: fetchHeaders,
       cache: 'no-store',
-      credentials: 'omit',
+      credentials: 'omit', 
     });
 
     if (!response.ok) {
@@ -147,14 +147,14 @@ async function fetchTotalUsersCount(): Promise<number> {
   try {
     const cookieStore = await cookies();
     const sessionToken = cookieStore.get('session_token')?.value;
-    console.log(`[AdminDashboardPage - fetchTotalUsersCount] session_token from cookies(): ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
+    console.log(`[AdminDashboardPage - fetchTotalUsersCount] session_token from await cookies(): ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
     const fetchHeaders = new Headers();
     fetchHeaders.append('Content-Type', 'application/json');
 
     if (sessionToken) {
-      fetchHeaders.append('Cookie', `session_token=${sessionToken}`);
-      console.log(`[AdminDashboardPage - fetchTotalUsersCount] Forwarding session_token in Cookie header for /api/users/all.`);
+      fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
+      console.log(`[AdminDashboardPage - fetchTotalUsersCount] Forwarding session_token in Authorization header for /api/users/all.`);
     } else {
       console.warn("[AdminDashboardPage - fetchTotalUsersCount] session_token ABSENT in cookies(). Cannot forward to /api/users/all.");
     }
@@ -196,14 +196,14 @@ async function fetchApiRequests24h(): Promise<number> {
   try {
     const cookieStore = await cookies();
     const sessionToken = cookieStore.get('session_token')?.value;
-    console.log(`[AdminDashboardPage - fetchApiRequests24h] session_token from cookies(): ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
+    console.log(`[AdminDashboardPage - fetchApiRequests24h] session_token from await cookies(): ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
     const fetchHeaders = new Headers();
     fetchHeaders.append('Content-Type', 'application/json');
 
     if (sessionToken) {
-      fetchHeaders.append('Cookie', `session_token=${sessionToken}`);
-      console.log(`[AdminDashboardPage - fetchApiRequests24h] Forwarding session_token in Cookie header for /api/usage.`);
+      fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
+      console.log(`[AdminDashboardPage - fetchApiRequests24h] Forwarding session_token in Authorization header for /api/usage.`);
     } else {
       console.warn("[AdminDashboardPage - fetchApiRequests24h] session_token ABSENT in cookies(). Cannot forward to /api/usage.");
     }
@@ -374,4 +374,3 @@ export default async function AdminDashboardPage() {
     </>
   );
 }
-

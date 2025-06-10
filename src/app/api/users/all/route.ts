@@ -5,6 +5,28 @@ import { cookies } from 'next/headers';
 
 const EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
 
+function getTokenFromRequest(request: NextRequest): string | undefined {
+  const authHeader = request.headers.get('Authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    console.log('[API /api/users/all] Token found in Authorization header.');
+    return authHeader.substring(7); // Remove "Bearer "
+  }
+
+  try {
+    const cookieStore = cookies();
+    const tokenFromCookie = cookieStore.get('session_token')?.value;
+    if (tokenFromCookie) {
+      console.log('[API /api/users/all] Token found in session_token cookie.');
+      return tokenFromCookie;
+    }
+  } catch (e) {
+    console.warn('[API /api/users/all] Error accessing cookies using next/headers.cookies():', e);
+  }
+  
+  console.log('[API /api/users/all] Token not found in Authorization header or session_token cookie.');
+  return undefined;
+}
+
 export async function GET(request: NextRequest) {
   console.log(`[API /api/users/all] GET request received. URL: ${request.url}`);
 
@@ -13,23 +35,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'External API URL not configured' }, { status: 500 });
   }
 
-  let tokenToForward: string | undefined;
-
-  try {
-    const cookieStore = cookies(); 
-    tokenToForward = cookieStore.get('session_token')?.value;
-     if (tokenToForward) {
-      console.log('[API /api/users/all] Token found using next/headers.cookies().');
-    } else {
-      console.log('[API /api/users/all] session_token not found using next/headers.cookies().');
-    }
-  } catch (e) {
-    console.warn('[API /api/users/all] Error using next/headers.cookies():', e);
-  }
+  const tokenToForward = getTokenFromRequest(request);
   
   if (!tokenToForward) {
-    console.warn('[API /api/users/all] No session_token found. Responding with 401.');
-    return NextResponse.json({ error: 'Unauthorized. No session token found.' }, { status: 401 });
+    console.warn('[API /api/users/all] No token found in Authorization header or cookies. Responding with 401.');
+    return NextResponse.json({ error: 'Unauthorized. No token provided.' }, { status: 401 });
   }
 
   const externalUrl = `${EXTERNAL_API_BASE_URL}/user/all`;
@@ -57,5 +67,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch data from external API', details: error.message }, { status: 500 });
   }
 }
-
-    
