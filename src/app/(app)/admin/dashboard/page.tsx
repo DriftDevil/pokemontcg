@@ -36,7 +36,7 @@ async function fetchTotalCountFromPaginated(endpoint: string): Promise<number> {
       fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
       console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Forwarding token in Authorization header.`);
     } else {
-      console.warn(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Token ABSENT in cookies(). Cannot forward.`);
+      console.warn(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Token ABSENT in cookies(). Cannot forward for ${endpoint}. This might lead to 401 if ${endpoint} requires auth.`);
     }
 
     const response = await fetch(fetchUrl, {
@@ -54,7 +54,11 @@ async function fetchTotalCountFromPaginated(endpoint: string): Promise<number> {
     const data = await response.json();
     return data.totalCount || data.total || 0;
   } catch (error) {
-    console.error(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Error fetching count from ${fetchUrl}:`, error);
+    if (error instanceof TypeError && error.message.includes('fetch failed')) {
+      console.error(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] NETWORK ERROR: Fetch failed for ${fetchUrl}. This usually means the server at this URL is not reachable. Check APP_URL in .env if set, or ensure the server is running on the correct port.`, error);
+    } else {
+      console.error(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Error fetching count from ${fetchUrl}:`, error);
+    }
     return 0;
   }
 }
@@ -120,7 +124,11 @@ async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]>
       .map(([year, count]) => ({ year, count }))
       .sort((a, b) => parseInt(a.year) - parseInt(b.year));
   } catch (error) {
-    console.error(`[AdminDashboardPage - fetchSetReleaseData] Error fetching or processing from ${fetchUrl}:`, error);
+    if (error instanceof TypeError && error.message.includes('fetch failed')) {
+      console.error(`[AdminDashboardPage - fetchSetReleaseData] NETWORK ERROR: Fetch failed for ${fetchUrl}. This usually means the server at this URL is not reachable. Check APP_URL in .env if set, or ensure the server is running on the correct port.`, error);
+    } else {
+      console.error(`[AdminDashboardPage - fetchSetReleaseData] Error fetching or processing from ${fetchUrl}:`, error);
+    }
     return [];
   }
 }
@@ -156,7 +164,7 @@ async function fetchTotalUsersCount(): Promise<number> {
       fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
       console.log(`[AdminDashboardPage - fetchTotalUsersCount] Forwarding token in Authorization header for /api/users/all.`);
     } else {
-      console.warn("[AdminDashboardPage - fetchTotalUsersCount] Token ABSENT in cookies(). Cannot forward to /api/users/all.");
+      console.warn("[AdminDashboardPage - fetchTotalUsersCount] Token ABSENT in cookies(). Cannot forward to /api/users/all. This might lead to 401.");
     }
 
     const response = await fetch(fetchUrl, {
@@ -175,7 +183,11 @@ async function fetchTotalUsersCount(): Promise<number> {
     const data: ApiUserListResponse = await response.json();
     return data.total || data.data?.length || 0;
   } catch (error) {
-    console.error(`[AdminDashboardPage - fetchTotalUsersCount] Error fetching from internal ${fetchUrl}:`, error);
+    if (error instanceof TypeError && error.message.includes('fetch failed')) {
+      console.error(`[AdminDashboardPage - fetchTotalUsersCount] NETWORK ERROR: Fetch failed for ${fetchUrl}. This usually means the server at this URL is not reachable. Check APP_URL in .env if set, or ensure the server is running on the correct port.`, error);
+    } else {
+      console.error(`[AdminDashboardPage - fetchTotalUsersCount] Error fetching from internal ${fetchUrl}:`, error);
+    }
     return 0;
   }
 }
@@ -205,7 +217,7 @@ async function fetchApiRequests24h(): Promise<number> {
       fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
       console.log(`[AdminDashboardPage - fetchApiRequests24h] Forwarding token in Authorization header for /api/usage.`);
     } else {
-      console.warn("[AdminDashboardPage - fetchApiRequests24h] Token ABSENT in cookies(). Cannot forward to /api/usage.");
+      console.warn("[AdminDashboardPage - fetchApiRequests24h] Token ABSENT in cookies(). Cannot forward to /api/usage. This might lead to 401.");
     }
 
     const response = await fetch(fetchUrl, {
@@ -224,7 +236,11 @@ async function fetchApiRequests24h(): Promise<number> {
     const data = await response.json();
     return data.requestCountLast24h || 0;
   } catch (error: any) {
-    console.error(`[AdminDashboardPage - fetchApiRequests24h] Error fetching API requests count from internal ${fetchUrl}:`, error);
+    if (error instanceof TypeError && error.message.includes('fetch failed')) {
+      console.error(`[AdminDashboardPage - fetchApiRequests24h] NETWORK ERROR: Fetch failed for ${fetchUrl}. This usually means the server at this URL is not reachable. Check APP_URL in .env if set, or ensure the server is running on the correct port.`, error);
+    } else {
+      console.error(`[AdminDashboardPage - fetchApiRequests24h] Error fetching API requests count from internal ${fetchUrl}:`, error);
+    }
     return 0;
   }
 }
