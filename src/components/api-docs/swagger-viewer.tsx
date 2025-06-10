@@ -11,12 +11,7 @@ interface SwaggerViewerProps {
   spec: object | null; // Expecting a pre-parsed spec object
 }
 
-// Memoize SwaggerUI component to prevent re-renders if spec object reference doesn't change.
-// Note: swagger-ui-react's SwaggerUI component might not be memoized itself,
-// so this helps if our `spec` prop is stable.
 const MemoizedSwaggerUI = memo(function WrappedSwaggerUI({ LoadedSwaggerUI, spec }: { LoadedSwaggerUI: React.ComponentType<any>, spec: object }) {
-  // The key prop on LoadedSwaggerUI can help force re-initialization if needed,
-  // but typically passing a new spec object to `spec` prop should be enough.
   return <LoadedSwaggerUI spec={spec} />;
 });
 
@@ -56,8 +51,6 @@ export default function SwaggerViewer({ spec }: SwaggerViewerProps) {
   }
 
   if (!spec) {
-    // This case should ideally be handled by the parent (OpenApiViewerClient shows its own loading/error)
-    // but as a fallback:
     return (
        <Alert className="my-4">
         <AlertTriangle className="h-4 w-4" />
@@ -68,8 +61,8 @@ export default function SwaggerViewer({ spec }: SwaggerViewerProps) {
   }
 
   return (
-    <div className="swagger-container bg-card p-1 rounded-md shadow">
-      {/* Using MemoizedSwaggerUI */}
+    // Removed bg-card, p-1, rounded-md, shadow as these are handled by parent CardContent
+    <div className="swagger-container">
       <MemoizedSwaggerUI LoadedSwaggerUI={LoadedSwaggerUI} spec={spec} />
     </div>
   );

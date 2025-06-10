@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -113,5 +114,192 @@ h1, h2, h3, h4, h5, h6 {
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Custom Swagger UI Dark Mode Overrides */
+@layer utilities {
+  .dark .swagger-ui {
+    background-color: hsl(var(--card)); /* Base background for swagger-ui content */
+  }
+  .dark .swagger-ui .topbar {
+    background-color: hsl(var(--muted));
+    border-bottom-color: hsl(var(--border));
+  }
+  .dark .swagger-ui .scheme-container {
+    background: hsl(var(--card));
+    box-shadow: none;
+    border-bottom: 1px solid hsl(var(--border));
+  }
+  .dark .swagger-ui .info {
+    background: hsl(var(--card));
+  }
+  .dark .swagger-ui .info .title {
+    color: hsl(var(--card-foreground));
+  }
+  .dark .swagger-ui .info .title small pre { /* Version badges */
+    color: hsl(var(--primary-foreground));
+    background-color: hsl(var(--primary));
+  }
+  .dark .swagger-ui .info .description,
+  .dark .swagger-ui .info .base-url,
+  .dark .swagger-ui .info a {
+    color: hsl(var(--muted-foreground));
+  }
+  .dark .swagger-ui .info a:hover {
+    color: hsl(var(--primary));
+  }
+
+  .dark .swagger-ui .opblock-tag-section .opblock-tag {
+    color: hsl(var(--foreground));
+    border-bottom-color: hsl(var(--border));
+  }
+  .dark .swagger-ui .opblock-tag-section .opblock-tag:hover {
+     background: hsl(var(--muted));
+  }
+  .dark .swagger-ui .opblock-tag {
+    color: hsl(var(--foreground));
+    border-bottom: 1px solid hsl(var(--border));
+  }
+   .dark .swagger-ui .opblock-tag small {
+      color: hsl(var(--muted-foreground));
+   }
+
+  .dark .swagger-ui .opblock {
+    background-color: hsl(var(--card));
+    border-color: hsl(var(--border));
+    box-shadow: none;
+  }
+  .dark .swagger-ui .opblock .opblock-summary {
+    border-color: hsl(var(--border));
+  }
+  .dark .swagger-ui .opblock .opblock-summary:hover {
+     background-color: hsl(var(--muted));
+  }
+  .dark .swagger-ui .opblock-summary-description,
+  .dark .swagger-ui .opblock-summary-path {
+    color: hsl(var(--card-foreground));
+  }
+   .dark .swagger-ui .opblock-summary-path__deprecated {
+    color: hsl(var(--destructive));
+  }
+  .dark .swagger-ui .opblock .opblock-section-header {
+    background: hsl(var(--muted));
+    border-top-color: hsl(var(--border));
+    border-bottom-color: hsl(var(--border));
+  }
+  .dark .swagger-ui .opblock .opblock-section-header h4 {
+    color: hsl(var(--muted-foreground));
+  }
+  .dark .swagger-ui .opblock-description-wrapper p,
+  .dark .swagger-ui .response-col_description__inner p,
+  .dark .swagger-ui .parameter__description {
+    color: hsl(var(--muted-foreground));
+  }
+  .dark .swagger-ui .responses-table td,
+  .dark .swagger-ui .responses-table th {
+    border-color: hsl(var(--border));
+    color: hsl(var(--card-foreground));
+  }
+  .dark .swagger-ui .response-col_status {
+     color: hsl(var(--primary)); /* Or a specific success color */
+  }
+  .dark .swagger-ui .model-container,
+  .dark .swagger-ui .models {
+    background-color: hsl(var(--card));
+    border-color: hsl(var(--border));
+  }
+  .dark .swagger-ui .model-container .model-title,
+  .dark .swagger-ui .models .model-title,
+  .dark .swagger-ui .model {
+    color: hsl(var(--card-foreground));
+  }
+  .dark .swagger-ui .model .prop .prop-type,
+  .dark .swagger-ui .model .prop .prop-name {
+     color: hsl(var(--muted-foreground));
+  }
+  .dark .swagger-ui table thead tr th,
+  .dark .swagger-ui table thead tr td {
+    border-color: hsl(var(--border));
+    color: hsl(var(--card-foreground));
+  }
+  .dark .swagger-ui .parameter__name,
+  .dark .swagger-ui .parameter__type,
+  .dark .swagger-ui .parameter__in,
+  .dark .swagger-ui .parameter__deprecated {
+    color: hsl(var(--card-foreground));
+  }
+  .dark .swagger-ui .dialog-ux .modal-ux-content {
+    background-color: hsl(var(--popover));
+    color: hsl(var(--popover-foreground));
+    border-color: hsl(var(--border));
+  }
+  .dark .swagger-ui .dialog-ux .modal-ux-header h3 {
+    color: hsl(var(--popover-foreground));
+  }
+  .dark .swagger-ui .dialog-ux .modal-ux-body p,
+  .dark .swagger-ui .dialog-ux .modal-ux-body label {
+    color: hsl(var(--popover-foreground));
+  }
+  .dark .swagger-ui .btn {
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground)) !important; /* Important to override Swagger's own color for text */
+    border-color: hsl(var(--primary));
+  }
+  .dark .swagger-ui .btn:hover {
+    filter: brightness(90%);
+  }
+  .dark .swagger-ui .btn.authorize {
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground)) !important;
+    border-color: hsl(var(--primary));
+  }
+  .dark .swagger-ui .btn.authorize span {
+    color: hsl(var(--primary-foreground)) !important;
+  }
+  .dark .swagger-ui .btn.authorize svg {
+    fill: hsl(var(--primary-foreground));
+  }
+  .dark .swagger-ui .btn.cancel {
+    background-color: transparent;
+    color: hsl(var(--foreground)) !important;
+    border-color: hsl(var(--border));
+  }
+  .dark .swagger-ui .btn.cancel:hover {
+    background-color: hsl(var(--muted));
+  }
+  .dark .swagger-ui select,
+  .dark .swagger-ui input[type="text"],
+  .dark .swagger-ui input[type="password"],
+  .dark .swagger-ui input[type="search"],
+  .dark .swagger-ui textarea {
+    background-color: hsl(var(--input));
+    color: hsl(var(--foreground));
+    border: 1px solid hsl(var(--border));
+    box-shadow: none;
+  }
+  .dark .swagger-ui select:focus,
+  .dark .swagger-ui input[type="text"]:focus,
+  .dark .swagger-ui input[type="password"]:focus,
+  .dark .swagger-ui input[type="search"]:focus,
+  .dark .swagger-ui textarea:focus {
+    border-color: hsl(var(--ring));
+  }
+
+  /* Method specific button colors - adjust if needed */
+  .dark .swagger-ui .opblock.opblock-get .opblock-summary-method { color: #61affe; } /* Example blue */
+  .dark .swagger-ui .opblock.opblock-post .opblock-summary-method { color: #49cc90; } /* Example green */
+  .dark .swagger-ui .opblock.opblock-put .opblock-summary-method { color: #fca130; } /* Example orange */
+  .dark .swagger-ui .opblock.opblock-delete .opblock-summary-method { color: #f93e3e; } /* Example red */
+  .dark .swagger-ui .opblock.opblock-patch .opblock-summary-method { color: #50e3c2; } /* Example teal */
+
+  .dark .swagger-ui .opblock-deprecated .opblock-summary-method,
+  .dark .swagger-ui .opblock-deprecated .opblock-summary-path,
+  .dark .swagger-ui .opblock-deprecated .opblock-summary-description {
+    color: hsl(var(--muted-foreground)) !important; /* Override to make deprecated less prominent */
+  }
+  .dark .swagger-ui .opblock-deprecated .opblock-summary {
+    opacity: 0.7;
+    border-style: dashed;
   }
 }
