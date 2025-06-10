@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
 
     console.log('[API Password Login] Full response from external auth service:', JSON.stringify(responseData, null, 2));
 
-    const token = responseData.accessToken;
+    const token = responseData.accessToken; // Changed from responseData.token
     if (!token) {
       console.error('[API Password Login] Token not found in external API response. Expected "accessToken" field. Received:', responseData);
       return NextResponse.json({ message: 'Authentication service did not provide a token.', details: 'Authentication service provided a response, but it did not contain an "accessToken" field. Check server logs for the full response.' }, { status: 500 });

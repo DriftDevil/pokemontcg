@@ -1,3 +1,4 @@
+
 openapi: 3.1.0
 info:
   title: Pokémon TCG API
@@ -195,8 +196,13 @@ paths:
               schema:
                 type: object
                 properties:
-                  token: # Note: your API actually returns 'accessToken'
+                  accessToken: # Changed from 'token' to 'accessToken'
                     type: string
+                  email: # Added email to response schema based on image
+                    type: string
+                  type: # Added type to response schema based on image
+                    type: string
+                    example: Bearer
   /auth/local/set-password:
     post:
       summary: Set user password
@@ -552,5 +558,7 @@ components:
           type: integer
         version:
           type: string
+
+    
 
     
