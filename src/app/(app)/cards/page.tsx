@@ -248,12 +248,22 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
   }
 }
 
-export default async function CardsPage({ searchParams }: { searchParams?: { search?: string; set?: string; type?: string; rarity?: string; page?: string } }) {
-  const currentSearch = searchParams?.search ?? "";
-  const currentSet = searchParams?.set ?? "All Sets";
-  const currentType = searchParams?.type ?? "All Types";
-  const currentRarity = searchParams?.rarity ?? "All Rarities";
-  const currentPageParam = searchParams?.page ?? "1";
+export default async function CardsPage({
+  searchParams = {}
+}: {
+  searchParams?: {
+    search?: string;
+    set?: string;
+    type?: string;
+    rarity?: string;
+    page?: string;
+  };
+}) {
+  const currentSearch = searchParams.search ?? "";
+  const currentSet = searchParams.set ?? "All Sets";
+  const currentType = searchParams.type ?? "All Types";
+  const currentRarity = searchParams.rarity ?? "All Rarities";
+  const currentPageParam = searchParams.page ?? "1";
   const currentPage = parseInt(currentPageParam, 10) || 1;
 
 
