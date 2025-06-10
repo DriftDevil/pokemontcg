@@ -9,17 +9,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { User as AdminUserPageType } from "@/app/(app)/admin/users/page"; 
 import { cookies } from 'next/headers';
-import dynamic from 'next/dynamic';
-import { Skeleton } from "@/components/ui/skeleton";
-
-const SetReleaseChart = dynamic(() => import('@/components/admin/dashboard/set-release-chart'), {
-  ssr: false, // Charts are often client-side only
-  loading: () => (
-    <div className="h-[300px] w-full flex items-center justify-center">
-      <Skeleton className="h-full w-full" />
-    </div>
-  ),
-});
+import DynamicSetReleaseChartWrapper from "@/components/admin/dashboard/dynamic-set-release-chart-wrapper";
 
 
 async function fetchTotalCountFromPaginated(endpoint: string): Promise<number> {
@@ -134,7 +124,7 @@ async function fetchTotalUsersCount(): Promise<number> {
   }
 
   try {
-    const cookieStore = await cookies(); 
+    const cookieStore = cookies(); 
     const sessionToken = cookieStore.get('session_token')?.value;
     
     const headers: HeadersInit = { 'Content-Type': 'application/json' };
@@ -177,7 +167,7 @@ async function fetchApiRequests24h(): Promise<number> {
   }
 
   try {
-    const cookieStore = await cookies(); 
+    const cookieStore = cookies(); 
     const sessionToken = cookieStore.get('session_token')?.value;
     
     const headers: HeadersInit = { 'Content-Type': 'application/json' };
@@ -293,7 +283,7 @@ export default async function AdminDashboardPage() {
             <CardDescription>Number of Pokémon TCG sets released per year.</CardDescription>
           </CardHeader>
           <CardContent>
-            <SetReleaseChart 
+            <DynamicSetReleaseChartWrapper 
               data={setReleaseTimelineData} 
               config={setReleaseChartConfig} 
             />
@@ -345,3 +335,4 @@ export default async function AdminDashboardPage() {
     </>
   );
 }
+
