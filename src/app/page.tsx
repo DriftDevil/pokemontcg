@@ -1,12 +1,49 @@
+
+"use client";
+
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
-import { Rocket, BookOpen } from "lucide-react";
+import { Rocket, BookOpen, Moon, Sun } from "lucide-react";
 
 export default function HomePage() {
+  const [theme, setTheme] = useState("light");
+
+  useEffect(() => {
+    const storedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    setTheme(storedTheme);
+    if (storedTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = theme === "light" ? "dark" : "light";
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-background to-secondary/30 p-4">
-      <header className="text-center mb-12">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-background to-secondary/30 p-4 relative">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={toggleTheme}
+        aria-label="Toggle theme"
+        className="fixed top-4 right-4 z-50 text-foreground hover:bg-accent/50 hover:text-accent-foreground"
+      >
+        {theme === "light" ? <Moon className="h-6 w-6" /> : <Sun className="h-6 w-6" />}
+      </Button>
+
+      <header className="text-center mb-12 pt-16 sm:pt-0"> {/* Added padding-top for smaller screens to avoid overlap with fixed button */}
         <h1 className="font-headline text-5xl md:text-7xl font-bold text-primary mb-4">
           PokeAPI Admin
         </h1>
