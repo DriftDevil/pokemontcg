@@ -46,9 +46,7 @@ export async function GET(request: NextRequest) {
       maxAge: tokenSet.expires_in || 3600, // Use token expiry or default to 1 hour
     };
     
-    if (!isProduction) {
-      cookieOptions.domain = 'localhost'; // Explicitly set for development
-    }
+    // Let browser default domain for localhost
 
     cookies().set('id_token', tokenSet.id_token, cookieOptions);
     cookies().set('session_token', tokenSet.access_token, cookieOptions);
@@ -72,4 +70,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMessage)}`, process.env.APP_URL || 'http://localhost:9002'));
   }
 }
-

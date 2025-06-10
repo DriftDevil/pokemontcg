@@ -4,7 +4,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import type { ResponseCookie } from 'next/dist/compiled/@edge-runtime/cookies';
 
-// Module-level check (good for immediate feedback during development server start if possible)
 const MODULE_EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
 if (!MODULE_EXTERNAL_API_BASE_URL) {
   console.error('[API Password Login Module] WARNING: EXTERNAL_API_BASE_URL environment variable is not set. Password login will fail if this is not configured.');
@@ -66,7 +65,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // If apiResponse.ok, expect JSON
     try {
         const contentType = apiResponse.headers.get("content-type");
         if (contentType && contentType.includes("application/json")) {
@@ -75,14 +73,14 @@ export async function POST(request: NextRequest) {
             console.error(`[API Password Login] External API success response was not JSON. Content-Type: ${contentType}. Body: ${responseBodyText.substring(0,500)}...`);
             return NextResponse.json(
                 { message: 'Received invalid data format from authentication service despite success status.', details: 'The authentication service responded successfully but the data was not in the expected JSON format.' },
-                { status: 502 } // Bad Gateway
+                { status: 502 } 
             );
         }
     } catch (e: any) {
         console.error('[API Password Login] Error parsing successful external API response as JSON:', e.message, `Body: ${responseBodyText.substring(0,500)}...`);
         return NextResponse.json(
             { message: 'Failed to parse response from authentication service.', details: 'The authentication service responded successfully but its data could not be processed.' },
-            { status: 502 } // Bad Gateway
+            { status: 502 } 
         );
     }
 
@@ -95,21 +93,19 @@ export async function POST(request: NextRequest) {
     const isProduction = process.env.NODE_ENV === 'production';
     const cookieOptions: Partial<ResponseCookie> = {
       httpOnly: true,
-      secure: isProduction,
+      secure: isProduction, 
       path: '/',
       sameSite: 'lax', 
       maxAge: 60 * 60 * 24 * 7, // 7 days
     };
     
-    if (!isProduction) {
-      cookieOptions.domain = 'localhost'; // Explicitly set for development
-    }
+    // Let browser default domain for localhost
 
-    console.log(`[API Password Login] Setting 'session_token' cookie with options: ${JSON.stringify(cookieOptions)}`);
+    console.log(`[API Password Login] Setting 'session_token' cookie with options: ${JSON.stringify(cookieOptions)} (isProduction: ${isProduction})`);
     cookies().set('session_token', token, cookieOptions);
 
     const user = responseData.user || responseData.data; 
-    return NextResponse.json({ message: 'Login successful', user: user }, { status: 200 });
+    return NextResponse.json({ message: 'Login successful', user: user, accessToken: token }, { status: 200 });
 
   } catch (error: any) {
     console.error('[API Password Login] Internal error in POST handler:', error.message, error.stack);
@@ -120,4 +116,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Internal server error during login process.', details: errorMessage }, { status: 500 });
   }
 }
-
