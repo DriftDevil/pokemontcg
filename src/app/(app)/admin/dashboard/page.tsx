@@ -13,17 +13,20 @@ import type { User as ApiUserType } from "@/app/(app)/admin/users/page";
 
 async function fetchTotalCountFromPaginated(endpoint: string): Promise<number> {
   const APP_URL = process.env.APP_URL || "";
-  const fetchUrl = `${APP_URL}/api/${endpoint}?limit=1`;
+  // Use relative path for internal API calls from server components if APP_URL is not set for self-calls
+  const baseUrl = APP_URL || 'http://localhost:' + (process.env.PORT || 9002); 
+  const fetchUrl = `${baseUrl}/api/${endpoint}?limit=1`;
+
 
   if (!APP_URL && process.env.NODE_ENV === 'development') {
-    console.warn(`APP_URL is not defined. Attempting relative fetch to ${fetchUrl} from server-side.`);
-  } else if (!APP_URL) {
-    console.error(`APP_URL is not defined for dashboard data fetching of ${endpoint}. Critical for non-relative fetches. Fetch URL was: ${fetchUrl}`);
+    console.warn(`APP_URL is not defined. Attempting fetch to ${fetchUrl} from server-side (dashboard data).`);
+  } else if (!APP_URL && process.env.NODE_ENV !== 'development') {
+    console.error(`APP_URL is not defined for dashboard data fetching of ${endpoint}. Fetch URL was: ${fetchUrl}`);
     return 0;
   }
 
   try {
-    const response = await fetch(fetchUrl);
+    const response = await fetch(fetchUrl, { cache: 'no-store' });
     if (!response.ok) {
       console.error(`Failed to fetch ${endpoint} count from ${fetchUrl}: ${response.status}`);
       const errorBody = await response.text();
@@ -52,17 +55,18 @@ interface PaginatedApiResponse<T> {
 
 async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]> {
   const APP_URL = process.env.APP_URL || "";
-  const fetchUrl = `${APP_URL}/api/sets?all=true&orderBy=-releaseDate`;
+  const baseUrl = APP_URL || 'http://localhost:' + (process.env.PORT || 9002);
+  const fetchUrl = `${baseUrl}/api/sets?all=true&orderBy=-releaseDate`;
 
   if (!APP_URL && process.env.NODE_ENV === 'development') {
-    console.warn(`APP_URL is not defined. Attempting relative fetch to ${fetchUrl} from server-side.`);
-  } else if (!APP_URL) {
+    console.warn(`APP_URL is not defined. Attempting fetch to ${fetchUrl} for set release data.`);
+  } else if (!APP_URL && process.env.NODE_ENV !== 'development') {
     console.error(`APP_URL is not defined for dashboard data fetching of set releases. Fetch URL was: ${fetchUrl}`);
     return [];
   }
   
   try {
-    const response = await fetch(fetchUrl); 
+    const response = await fetch(fetchUrl, { cache: 'no-store' }); 
     if (!response.ok) {
       console.error(`Failed to fetch set release data from ${fetchUrl}: ${response.status}`);
       const errorBody = await response.text();
@@ -104,24 +108,25 @@ async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]>
 
 async function fetchTotalUsersCount(): Promise<number> {
   const APP_URL = process.env.APP_URL || "";
-  const fetchUrl = `${APP_URL}/api/users/all`;
+  const baseUrl = APP_URL || 'http://localhost:' + (process.env.PORT || 9002);
+  const fetchUrl = `${baseUrl}/api/users/all`;
 
   if (!APP_URL && process.env.NODE_ENV === 'development') {
-    console.warn(`APP_URL is not defined. Attempting relative fetch to ${fetchUrl} from server-side.`);
-  } else if (!APP_URL) {
+    console.warn(`APP_URL is not defined. Attempting fetch to ${fetchUrl} for total users count.`);
+  } else if (!APP_URL && process.env.NODE_ENV !== 'development') {
     console.error(`APP_URL is not defined for fetching total users count. Fetch URL was: ${fetchUrl}`);
     return 0;
   }
 
   try {
-    const response = await fetch(fetchUrl);
+    const response = await fetch(fetchUrl, { cache: 'no-store' });
     if (!response.ok) {
       console.error(`Failed to fetch total users count from ${fetchUrl}: ${response.status}`);
       const errorBody = await response.text();
       console.error(`Error body for ${fetchUrl}: ${errorBody}`);
       return 0;
     }
-    const data: { data?: ApiUserType[] } = await response.json();
+    const data: { data?: ApiUserType[] } = await response.json(); // Assuming it follows { data: User[] }
     return data.data?.length || 0;
   } catch (error) {
     console.error(`Error fetching total users count from ${fetchUrl}:`, error);
@@ -130,36 +135,53 @@ async function fetchTotalUsersCount(): Promise<number> {
 }
 
 async function fetchApiRequests24h(): Promise<number> {
-  const EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
-  if (!EXTERNAL_API_BASE_URL) {
-    console.error(`EXTERNAL_API_BASE_URL is not defined. Cannot fetch API requests count from /usage.`);
-    return 0;
+  // Call the internal API route which handles authentication
+  const APP_URL = process.env.APP_URL || "";
+  const baseUrl = APP_URL || 'http://localhost:' + (process.env.PORT || 9002);
+  const fetchUrl = `${baseUrl}/api/usage`; 
+
+  if (!APP_URL && process.env.NODE_ENV === 'development') {
+    console.warn(`APP_URL is not defined. Attempting fetch to ${fetchUrl} for API requests count.`);
+  } else if (!APP_URL && process.env.NODE_ENV !== 'development') {
+     console.error(`APP_URL is not defined for fetching API requests count. Fetch URL was ${fetchUrl}. Critical error.`);
+     return 0;
   }
-  const fetchUrl = `${EXTERNAL_API_BASE_URL}/usage`; // Corrected: No /v2 prefix
 
   try {
-    const response = await fetch(fetchUrl); 
+    // This fetch is from Server Component to its own API route, so cookies might be forwarded by Next.js
+    // depending on deployment, but our /api/usage route explicitly reads cookies.
+    const response = await fetch(fetchUrl, { cache: 'no-store' }); 
     if (!response.ok) {
-      console.error(`Failed to fetch API requests count from ${fetchUrl}: ${response.status}`);
+      console.error(`Failed to fetch API requests count from internal ${fetchUrl}: ${response.status}`);
       const errorBody = await response.text();
-      console.error(`Error body for ${fetchUrl}: ${errorBody}`);
+      console.error(`Error body for internal ${fetchUrl}: ${errorBody}`);
       return 0;
     }
     const data = await response.json();
-    return data.api_requests_24h || data.data?.api_requests_24h || 0;
+    // Adjust based on the actual structure returned by your external /usage endpoint
+    return data.api_requests_24h || 0; 
   } catch (error) {
-    console.error(`Error fetching API requests count from ${fetchUrl}:`, error);
+    console.error(`Error fetching API requests count from internal ${fetchUrl}:`, error);
     return 0;
   }
 }
 
 const mockRecentUsers = [
-  { id: 'usr_1', name: 'Satoshi Tajiri', email: 'satoshi@poke.jp', role: 'Admin', status: 'Active' },
-  { id: 'usr_2', name: 'Ken Sugimori', email: 'ken@poke.jp', role: 'Editor', status: 'Active' },
-  { id: 'usr_3', name: 'Junichi Masuda', email: 'junichi@poke.jp', role: 'Viewer', status: 'Inactive' },
+  { id: 'usr_1', name: 'Satoshi Tajiri', email: 'satoshi@poke.jp', role: 'Admin', status: 'Active', preferredUsername: 'satoshi', createdAt: new Date().toISOString(), lastSeen: new Date().toISOString() },
+  { id: 'usr_2', name: 'Ken Sugimori', email: 'ken@poke.jp', role: 'Editor', status: 'Active', preferredUsername: 'ken', createdAt: new Date().toISOString(), lastSeen: new Date().toISOString() },
+  { id: 'usr_3', name: 'Junichi Masuda', email: 'junichi@poke.jp', role: 'Viewer', status: 'Inactive', preferredUsername: 'junichi', createdAt: new Date().toISOString(), lastSeen: new Date().toISOString() },
 ];
 
 export default async function AdminDashboardPage() {
+  // Ensure APP_URL is available for server-side fetches to its own API routes
+  // If process.env.APP_URL is not set, it will default to localhost for local dev
+  // but might fail in deployed environments if not configured.
+  const appUrlIsSet = !!process.env.APP_URL;
+  if (!appUrlIsSet && process.env.NODE_ENV !== 'development') {
+      console.error("CRITICAL: APP_URL is not set in a non-development environment. Dashboard data fetching will likely fail.");
+  }
+
+
   const [totalCards, totalSets, setReleaseTimelineData, totalUsers, apiRequests24h] = await Promise.all([
     fetchTotalCountFromPaginated("cards"),
     fetchTotalCountFromPaginated("sets"),
@@ -191,7 +213,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalUsers.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">{totalUsers > 0 || (process.env.APP_URL && totalUsers === 0) ? "Live data (via internal API)" : "No data / API error"}</p>
+            <p className="text-xs text-muted-foreground">{ (appUrlIsSet && totalUsers >= 0) || (process.env.NODE_ENV === 'development' && totalUsers >=0) ? "Live data (via internal API)" : "No data / API error"}</p>
           </CardContent>
         </Card>
         <Card>
@@ -201,7 +223,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalCards.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">{totalCards > 0 ? "Live data (via internal API)" : "No data / API error"}</p>
+            <p className="text-xs text-muted-foreground">{(appUrlIsSet && totalCards > 0) || (process.env.NODE_ENV === 'development' && totalCards > 0) ? "Live data (via internal API)" : "No data / API error"}</p>
           </CardContent>
         </Card>
         <Card>
@@ -211,7 +233,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalSets.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">{totalSets > 0 ? "Live data (via internal API)" : "No data / API error"}</p>
+            <p className="text-xs text-muted-foreground">{(appUrlIsSet && totalSets > 0) || (process.env.NODE_ENV === 'development' && totalSets > 0) ? "Live data (via internal API)" : "No data / API error"}</p>
           </CardContent>
         </Card>
         <Card>
@@ -221,7 +243,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{apiRequests24h.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">{(apiRequests24h > 0 || (process.env.EXTERNAL_API_BASE_URL && apiRequests24h === 0)) ? "Live data (from external API via EXTERNAL_API_BASE_URL)" : "No data / API error"}</p>
+            <p className="text-xs text-muted-foreground">{(appUrlIsSet && apiRequests24h >= 0) || (process.env.NODE_ENV === 'development' && apiRequests24h >=0) ? "Live data (from external API via internal proxy)" : "No data / API error"}</p>
           </CardContent>
         </Card>
       </div>
