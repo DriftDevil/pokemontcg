@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       if (contentType && contentType.includes("application/json")) {
         try {
           const parsedError = JSON.parse(responseBodyText);
-          errorDetails = parsedError.message || parsedError.error_description || parsedError.error || parsedError.detail || responseBodyText;
+          errorDetails = parsedError.details || parsedError.message || parsedError.error_description || parsedError.error || responseBodyText;
         } catch (e) {
           errorDetails = `External API returned status ${apiResponse.status} with non-JSON body: ${responseBodyText.substring(0, 200)}...`;
         }
@@ -101,9 +101,12 @@ export async function POST(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 7, // 7 days
     };
     
+    if (!isProduction) {
+      cookieOptions.domain = 'localhost'; // Explicitly set for development
+    }
+
     console.log(`[API Password Login] Setting 'session_token' cookie with options: ${JSON.stringify(cookieOptions)}`);
     cookies().set('session_token', token, cookieOptions);
-    // console.log(`[API Password Login] 'session_token' cookie should be set.`);
 
     const user = responseData.user || responseData.data; 
     return NextResponse.json({ message: 'Login successful', user: user }, { status: 200 });
@@ -117,3 +120,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Internal server error during login process.', details: errorMessage }, { status: 500 });
   }
 }
+
