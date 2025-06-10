@@ -6,10 +6,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import SetReleaseChart from "@/components/admin/dashboard/set-release-chart";
 import { cn } from "@/lib/utils";
 import type { User as AdminUserPageType } from "@/app/(app)/admin/users/page"; 
 import { cookies } from 'next/headers';
+import dynamic from 'next/dynamic';
+import { Skeleton } from "@/components/ui/skeleton";
+
+const SetReleaseChart = dynamic(() => import('@/components/admin/dashboard/set-release-chart'), {
+  ssr: false, // Charts are often client-side only
+  loading: () => (
+    <div className="h-[300px] w-full flex items-center justify-center">
+      <Skeleton className="h-full w-full" />
+    </div>
+  ),
+});
+
 
 async function fetchTotalCountFromPaginated(endpoint: string): Promise<number> {
   const APP_URL = process.env.APP_URL || "";
@@ -129,7 +140,7 @@ async function fetchTotalUsersCount(): Promise<number> {
     const headers: HeadersInit = { 'Content-Type': 'application/json' };
     if (sessionToken) {
       headers['Cookie'] = `session_token=${sessionToken}`;
-      console.log(`[AdminDashboardPage - fetchTotalUsersCount] Forwarding session_token cookie: ${headers['Cookie']}`);
+      console.log(`[AdminDashboardPage - fetchTotalUsersCount] Forwarding session_token cookie for /api/users/all`);
     } else {
       console.warn("[AdminDashboardPage - fetchTotalUsersCount] No session_token cookie to forward for /api/users/all call.");
     }
@@ -172,7 +183,7 @@ async function fetchApiRequests24h(): Promise<number> {
     const headers: HeadersInit = { 'Content-Type': 'application/json' };
     if (sessionToken) {
       headers['Cookie'] = `session_token=${sessionToken}`;
-      console.log(`[AdminDashboardPage - fetchApiRequests24h] Forwarding session_token cookie: ${headers['Cookie']}`);
+      console.log(`[AdminDashboardPage - fetchApiRequests24h] Forwarding session_token cookie for /api/usage`);
     } else {
       console.warn("[AdminDashboardPage - fetchApiRequests24h] No session_token cookie to forward for /api/usage call.");
     }
