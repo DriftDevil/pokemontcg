@@ -43,11 +43,9 @@ export async function POST(request: NextRequest) {
     if (!apiResponse.ok) {
       let errorDetails = `External API returned status ${apiResponse.status}.`;
       try {
-        // Try to parse as JSON first, as some APIs return JSON errors
         const parsedError = JSON.parse(responseBodyText);
         errorDetails = parsedError.message || parsedError.detail || responseBodyText;
       } catch (e) {
-        // If parsing as JSON fails, use the raw text 
         errorDetails = responseBodyText.substring(0, 500) + (responseBodyText.length > 500 ? '...' : '') || `External API request failed with status ${apiResponse.status}`;
         if (responseBodyText.toLowerCase().includes('<html')) {
             errorDetails = `External API returned an HTML page (status ${apiResponse.status}), not JSON. Check if the URL is correct or if the API is down.`;
@@ -71,10 +69,12 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    const token = responseData.token; // Assuming the token is directly in the response body
+    console.log('[API Password Login] Full response from external auth service:', JSON.stringify(responseData, null, 2));
+
+    const token = responseData.token; 
     if (!token) {
-      console.error('[API Password Login] Token not found in external API response:', responseData);
-      return NextResponse.json({ message: 'Token not found in API response.', details: 'Authentication service did not provide a token.' }, { status: 500 });
+      console.error('[API Password Login] Token not found in external API response. Expected "token" field. Received:', responseData);
+      return NextResponse.json({ message: 'Token not found in API response.', details: 'Authentication service provided a response, but it did not contain a "token" field. Check server logs for the full response.' }, { status: 500 });
     }
 
     cookies().set('password_access_token', token, {
@@ -85,8 +85,7 @@ export async function POST(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 7, // 7 days, adjust as needed
     });
 
-    // Include user data in the response if available from login, otherwise client will fetch from /api/auth/user
-    const user = responseData.user || responseData.data; // Check common user object keys
+    const user = responseData.user || responseData.data; 
     return NextResponse.json({ message: 'Login successful', user }, { status: 200 });
 
   } catch (error: any) {
@@ -98,4 +97,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Internal server error during login.', details: errorMessage }, { status: 500 });
   }
 }
-

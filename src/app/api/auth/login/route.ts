@@ -14,7 +14,7 @@ export async function GET() {
     const appUrl = process.env.APP_URL || 'http://localhost:9002';
     const redirect_uri = `${appUrl}/api/auth/callback`;
 
-    cookies().set('oidc_code_verifier', code_verifier, {
+    (await cookies()).set('oidc_code_verifier', code_verifier, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       path: '/',
@@ -22,7 +22,7 @@ export async function GET() {
       maxAge: 60 * 15, // 15 minutes
     });
 
-    cookies().set('oidc_nonce', nonce, {
+    (await cookies()).set('oidc_nonce', nonce, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         path: '/',
