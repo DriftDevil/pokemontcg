@@ -10,8 +10,8 @@ export async function GET(request: NextRequest) {
     const client = await getOidcClient();
     const searchParams = request.nextUrl.searchParams;
     
-    const code_verifier = cookies().get('oidc_code_verifier')?.value;
-    const nonce = cookies().get('oidc_nonce')?.value;
+    const code_verifier = (await cookies()).get('oidc_code_verifier')?.value;
+    const nonce = (await cookies()).get('oidc_nonce')?.value;
 
     if (!code_verifier) {
       throw new Error('Missing code_verifier cookie');
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
         throw new Error('Missing nonce cookie');
     }
 
-    const appUrl = process.env.APP_URL || 'http://localhost:9003';
+    const appUrl = process.env.APP_URL || 'http://localhost:9002';
     const redirect_uri = `${appUrl}/api/auth/callback`;
 
     const params = client.callbackParams(request.url);
@@ -63,11 +63,11 @@ export async function GET(request: NextRequest) {
     const idTokenCookieOptions = { ...baseCookieOptions };
     const sessionTokenCookieOptions = { ...baseCookieOptions };
 
-    cookies().set('id_token', tokenSet.id_token, idTokenCookieOptions);
-    cookies().set('session_token', tokenSet.access_token, sessionTokenCookieOptions);
+    (await cookies()).set('id_token', tokenSet.id_token, idTokenCookieOptions);
+    (await cookies()).set('session_token', tokenSet.access_token, sessionTokenCookieOptions);
     
-    cookies().delete('oidc_code_verifier');
-    cookies().delete('oidc_nonce');
+    (await cookies()).delete('oidc_code_verifier');
+    (await cookies()).delete('oidc_nonce');
 
     return NextResponse.redirect(new URL('/admin/dashboard', appUrl));
   } catch (error) {
@@ -76,10 +76,10 @@ export async function GET(request: NextRequest) {
     if (error instanceof Error) {
         errorMessage = error.message;
     }
-    cookies().delete('oidc_code_verifier');
-    cookies().delete('oidc_nonce');
-    cookies().delete('id_token');
-    cookies().delete('session_token');
-    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMessage)}`, process.env.APP_URL || 'http://localhost:9003'));
+    (await cookies()).delete('oidc_code_verifier');
+    (await cookies()).delete('oidc_nonce');
+    (await cookies()).delete('id_token');
+    (await cookies()).delete('session_token');
+    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMessage)}`, process.env.APP_URL || 'http://localhost:9002'));
   }
 }

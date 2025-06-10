@@ -23,8 +23,8 @@ async function initializeClient(): Promise<Client> {
   
   const appUrl = process.env.APP_URL || (() => {
     if (process.env.NODE_ENV === 'development') {
-      console.warn('APP_URL environment variable is not set, defaulting to http://localhost:9003 for OIDC client in development.');
-      return 'http://localhost:9003';
+      console.warn('APP_URL environment variable is not set, defaulting to http://localhost:9002 for OIDC client in development.');
+      return 'http://localhost:9002';
     }
     // In production or other environments, APP_URL must be set.
     throw new Error('APP_URL environment variable is not set. This is required for OIDC client initialization in non-development environments.');

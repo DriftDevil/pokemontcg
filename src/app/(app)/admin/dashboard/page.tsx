@@ -14,7 +14,7 @@ import DynamicSetReleaseChartWrapper from "@/components/admin/dashboard/dynamic-
 
 async function fetchTotalCountFromPaginated(endpoint: string): Promise<number> {
   const APP_URL_ENV = process.env.APP_URL || "";
-  const baseUrl = APP_URL_ENV || 'http://localhost:' + (process.env.PORT || 9003);
+  const baseUrl = APP_URL_ENV || 'http://localhost:' + (process.env.PORT || 9002);
   const fetchUrl = `${baseUrl}/api/${endpoint}?limit=1`;
 
   console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] APP_URL_ENV: '${APP_URL_ENV}', Base URL: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
@@ -77,7 +77,7 @@ interface PaginatedApiResponse<T> {
 
 async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]> {
   const APP_URL_ENV = process.env.APP_URL || "";
-  const baseUrl = APP_URL_ENV || 'http://localhost:' + (process.env.PORT || 9003);
+  const baseUrl = APP_URL_ENV || 'http://localhost:' + (process.env.PORT || 9002);
   const fetchUrl = `${baseUrl}/api/sets?all=true&orderBy=-releaseDate`;
   console.log(`[AdminDashboardPage - fetchSetReleaseData] APP_URL_ENV: '${APP_URL_ENV}', Base URL: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
 
@@ -141,7 +141,7 @@ interface ApiUserListResponse {
 
 async function fetchTotalUsersCount(): Promise<number> {
   const APP_URL_ENV = process.env.APP_URL || "";
-  const baseUrl = APP_URL_ENV || 'http://localhost:' + (process.env.PORT || 9003);
+  const baseUrl = APP_URL_ENV || 'http://localhost:' + (process.env.PORT || 9002);
   const fetchUrl = `${baseUrl}/api/users/all`;
   console.log(`[AdminDashboardPage - fetchTotalUsersCount] APP_URL_ENV: '${APP_URL_ENV}', Base URL: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
 
@@ -194,7 +194,7 @@ async function fetchTotalUsersCount(): Promise<number> {
 
 async function fetchApiRequests24h(): Promise<number> {
   const APP_URL_ENV = process.env.APP_URL || "";
-  const baseUrl = APP_URL_ENV || 'http://localhost:' + (process.env.PORT || 9003);
+  const baseUrl = APP_URL_ENV || 'http://localhost:' + (process.env.PORT || 9002);
   const fetchUrl = `${baseUrl}/api/usage`;
   console.log(`[AdminDashboardPage - fetchApiRequests24h] APP_URL_ENV: '${APP_URL_ENV}', Base URL: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
 

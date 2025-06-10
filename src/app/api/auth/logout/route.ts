@@ -5,18 +5,20 @@ import { getOidcClient } from '@/lib/oidcClient';
 import { cookies } from 'next/headers';
 
 export async function GET() {
-  const appUrl = process.env.APP_URL || 'http://localhost:9003';
+  const appUrl = process.env.APP_URL || 'http://localhost:9002';
   const logoutRedirectUrl = process.env.LOGOUT_REDIRECT_URL || appUrl; 
 
   try {
     const cookieStore = cookies();
-    const idToken = cookieStore.get('id_token')?.value;
+    const idToken = (await cookieStore).get('id_token')?.value;
 
     // Clear local session cookies
-    cookieStore.delete('id_token');
-    cookieStore.delete('session_token'); 
-    cookieStore.delete('oidc_code_verifier'); // Should have been cleared on callback, but good to be sure
-    cookieStore.delete('oidc_nonce');       // Same as above
+    (await
+      // Clear local session cookies
+      cookieStore).delete('id_token');
+    (await cookieStore).delete('session_token'); 
+    (await cookieStore).delete('oidc_code_verifier'); // Should have been cleared on callback, but good to be sure
+    (await cookieStore).delete('oidc_nonce');       // Same as above
 
     // If it was an OIDC session (indicated by presence of id_token), try to perform OIDC logout
     if (idToken) {
@@ -40,10 +42,12 @@ export async function GET() {
   } catch (error) {
     console.error('General logout route error:', error);
     // Ensure cookies are cleared even on general error
-    cookies().delete('id_token');
-    cookies().delete('session_token');
-    cookies().delete('oidc_code_verifier');
-    cookies().delete('oidc_nonce');
+    (await
+      // Ensure cookies are cleared even on general error
+      cookies()).delete('id_token');
+    (await cookies()).delete('session_token');
+    (await cookies()).delete('oidc_code_verifier');
+    (await cookies()).delete('oidc_nonce');
     return NextResponse.redirect(logoutRedirectUrl); 
   }
 }
