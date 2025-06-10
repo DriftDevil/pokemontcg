@@ -66,19 +66,29 @@ export async function POST(request: NextRequest) {
 
     console.log('[API Password Login] Full response from external auth service:', JSON.stringify(responseData, null, 2));
 
-    const token = responseData.accessToken; // Changed from responseData.token
+    const token = responseData.accessToken; 
     if (!token) {
       console.error('[API Password Login] Token not found in external API response. Expected "accessToken" field. Received:', responseData);
       return NextResponse.json({ message: 'Authentication service did not provide a token.', details: 'Authentication service provided a response, but it did not contain an "accessToken" field. Check server logs for the full response.' }, { status: 500 });
     }
 
-    cookies().set('session_token', token, {
+    const isProduction = process.env.NODE_ENV === 'production';
+    const cookieOptions: Parameters<typeof cookies().set>[2] = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProduction,
       path: '/',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 days, adjust as needed
-    });
+      sameSite: 'lax', 
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+    };
+
+    if (!isProduction) {
+      // Domain should typically not be set for localhost, as it might prevent 127.0.0.1 access.
+      // However, if issues persist and access is strictly via 'localhost', this can be tried.
+      // cookieOptions.domain = 'localhost'; // Be cautious with this
+    }
+
+
+    cookies().set('session_token', token, cookieOptions);
 
     const user = responseData.user || responseData.data; 
     return NextResponse.json({ message: 'Login successful', user: user }, { status: 200 });

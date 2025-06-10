@@ -3,15 +3,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOidcClient } from '@/lib/oidcClient';
 import { cookies } from 'next/headers';
-import * as jose from 'jose';
+import type { ResponseCookie } from 'next/dist/compiled/@edge-runtime/cookies';
 
 export async function GET(request: NextRequest) {
   try {
     const client = await getOidcClient();
     const searchParams = request.nextUrl.searchParams;
     
-    const code_verifier = (await cookies()).get('oidc_code_verifier')?.value;
-    const nonce = (await cookies()).get('oidc_nonce')?.value;
+    const code_verifier = cookies().get('oidc_code_verifier')?.value;
+    const nonce = cookies().get('oidc_nonce')?.value;
 
     if (!code_verifier) {
       throw new Error('Missing code_verifier cookie');
@@ -36,23 +36,27 @@ export async function GET(request: NextRequest) {
     if (!tokenSet.access_token) {
         throw new Error('Access token not found in token set');
     }
-
-    const cookieOptions = {
+    
+    const isProduction = process.env.NODE_ENV === 'production';
+    const cookieOptions: Partial<ResponseCookie> = { // Use Partial<ResponseCookie> for correct typing
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProduction,
       path: '/',
-      sameSite: 'lax' as 'lax' | 'strict' | 'none' | undefined,
+      sameSite: 'lax',
       maxAge: tokenSet.expires_in || 3600, // Use token expiry or default to 1 hour
     };
+    
+    // if (!isProduction) {
+      // Avoid setting domain for localhost generally, but can be tested if issues persist
+      // cookieOptions.domain = 'localhost';
+    // }
 
-    (await cookies()).set('id_token', tokenSet.id_token, cookieOptions);
-    (await cookies()).set('session_token', tokenSet.access_token, cookieOptions);
+    cookies().set('id_token', tokenSet.id_token, cookieOptions);
+    cookies().set('session_token', tokenSet.access_token, cookieOptions);
     
     // Clean up PKCE and nonce cookies
-    (await
-      // Clean up PKCE and nonce cookies
-      cookies()).delete('oidc_code_verifier');
-    (await cookies()).delete('oidc_nonce');
+    cookies().delete('oidc_code_verifier');
+    cookies().delete('oidc_nonce');
 
     return NextResponse.redirect(new URL('/admin/dashboard', appUrl));
   } catch (error) {
@@ -62,12 +66,10 @@ export async function GET(request: NextRequest) {
         errorMessage = error.message;
     }
     // Clear potentially partial cookies on error
-    (await
-      // Clear potentially partial cookies on error
-      cookies()).delete('oidc_code_verifier');
-    (await cookies()).delete('oidc_nonce');
-    (await cookies()).delete('id_token');
-    (await cookies()).delete('session_token');
+    cookies().delete('oidc_code_verifier');
+    cookies().delete('oidc_nonce');
+    cookies().delete('id_token');
+    cookies().delete('session_token');
     return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMessage)}`, process.env.APP_URL || 'http://localhost:9002'));
   }
 }
