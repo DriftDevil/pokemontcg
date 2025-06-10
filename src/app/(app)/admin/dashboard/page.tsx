@@ -127,16 +127,18 @@ async function fetchTotalUsersCount(): Promise<number> {
     const cookieStore = cookies(); 
     const sessionToken = cookieStore.get('session_token')?.value;
     
-    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    const fetchHeaders = new Headers();
+    fetchHeaders.append('Content-Type', 'application/json');
+
     if (sessionToken) {
-      headers['Cookie'] = `session_token=${sessionToken}`;
+      fetchHeaders.append('Cookie', `session_token=${sessionToken}`);
       console.log(`[AdminDashboardPage - fetchTotalUsersCount] Forwarding session_token cookie for /api/users/all`);
     } else {
       console.warn("[AdminDashboardPage - fetchTotalUsersCount] No session_token cookie to forward for /api/users/all call. This will likely result in a 401 error.");
     }
     
     const response = await fetch(fetchUrl, { 
-      headers,
+      headers: fetchHeaders,
       cache: 'no-store' 
     });
 
@@ -170,16 +172,18 @@ async function fetchApiRequests24h(): Promise<number> {
     const cookieStore = cookies(); 
     const sessionToken = cookieStore.get('session_token')?.value;
     
-    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    const fetchHeaders = new Headers();
+    fetchHeaders.append('Content-Type', 'application/json');
+
     if (sessionToken) {
-      headers['Cookie'] = `session_token=${sessionToken}`;
+      fetchHeaders.append('Cookie', `session_token=${sessionToken}`);
       console.log(`[AdminDashboardPage - fetchApiRequests24h] Forwarding session_token cookie for /api/usage`);
     } else {
       console.warn("[AdminDashboardPage - fetchApiRequests24h] No session_token cookie to forward for /api/usage call. This will likely result in a 401 error.");
     }
     
     const response = await fetch(fetchUrl, { 
-      headers,
+      headers: fetchHeaders,
       cache: 'no-store' 
     }); 
     
@@ -190,7 +194,7 @@ async function fetchApiRequests24h(): Promise<number> {
       return 0;
     }
     const data = await response.json();
-    return data.api_requests_24h || 0; 
+    return data.requestCountLast24h || 0; // Updated to match openapi.yaml
   } catch (error: any) {
     console.error(`Error fetching API requests count from internal ${fetchUrl}:`, error);
     return 0;

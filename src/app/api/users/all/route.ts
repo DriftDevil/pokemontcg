@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
   // Try next/headers.cookies() first
   try {
-    const cookieStore = await cookies(); // await the call
+    const cookieStore = cookies(); // Use synchronous cookies()
     tokenToForward = cookieStore.get('session_token')?.value;
      if (tokenToForward) {
       console.log('[API /api/users/all] Token found using next/headers.cookies().');
