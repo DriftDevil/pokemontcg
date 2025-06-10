@@ -13,7 +13,6 @@ if (!MODULE_EXTERNAL_API_BASE_URL) {
 }
 
 export async function POST(request: NextRequest) {
-  // Re-check at request time as well, though module-level check is more indicative for serverless envs.
   const currentExternalApiBaseUrl = process.env.EXTERNAL_API_BASE_URL;
 
   if (!currentExternalApiBaseUrl) {
@@ -39,7 +38,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({ email, password }),
     });
 
-    const responseBodyText = await apiResponse.text(); 
+    const responseBodyText = await apiResponse.text();
     let responseData;
 
     if (!apiResponse.ok) {
@@ -65,7 +64,7 @@ export async function POST(request: NextRequest) {
       console.error(`[API Password Login] External API login failed: ${apiResponse.status}`, errorDetails);
       return NextResponse.json(
         { message: 'Login failed at external API.', details: errorDetails },
-        { status: apiResponse.status } 
+        { status: apiResponse.status }
       );
     }
 
@@ -77,18 +76,18 @@ export async function POST(request: NextRequest) {
             console.error(`[API Password Login] External API success response was not JSON. Content-Type: ${contentType}. Body: ${responseBodyText.substring(0,500)}...`);
             return NextResponse.json(
                 { message: 'Received invalid data format from authentication service despite success status.', details: 'The authentication service responded successfully but the data was not in the expected JSON format.' },
-                { status: 502 } 
+                { status: 502 }
             );
         }
     } catch (e: any) {
         console.error('[API Password Login] Error parsing successful external API response as JSON:', e.message, `Body: ${responseBodyText.substring(0,500)}...`);
         return NextResponse.json(
             { message: 'Failed to parse response from authentication service.', details: 'The authentication service responded successfully but its data could not be processed.' },
-            { status: 502 } 
+            { status: 502 }
         );
     }
 
-    const token = responseData.accessToken; 
+    const token = responseData.accessToken;
     if (!token) {
       console.error('[API Password Login] accessToken not found in external API response. Received:', responseData);
       return NextResponse.json({ message: 'Authentication service did not provide an accessToken.', details: 'Check server logs for the full response from the authentication service.' }, { status: 500 });
@@ -97,24 +96,32 @@ export async function POST(request: NextRequest) {
     const isProduction = process.env.NODE_ENV === 'production';
     const cookieOptions: Partial<ResponseCookie> = {
       httpOnly: true,
-      secure: isProduction, 
       path: '/',
-      sameSite: 'lax', 
       maxAge: 60 * 60 * 24 * 7, // 7 days
     };
-    
-    if (!isProduction) {
-       // For localhost development, ensure secure is false if APP_URL is http
-       // And let browser handle domain for localhost.
-       if (process.env.APP_URL?.startsWith('http://localhost')) {
-         cookieOptions.secure = false;
-       }
+
+    if (isProduction) {
+        cookieOptions.secure = true;
+        cookieOptions.sameSite = 'lax'; // Or 'strict' if appropriate
+        if (process.env.APP_URL) {
+            try {
+                const url = new URL(process.env.APP_URL);
+                cookieOptions.domain = url.hostname;
+            } catch (e) {
+                console.error('[API Password Login] Failed to parse APP_URL for production cookie domain:', e);
+            }
+        }
+    } else {
+        // Development settings for localhost
+        cookieOptions.secure = false;
+        // Omitting sameSite for localhost to see if it helps, browsers might default to Lax.
+        // cookieOptions.sameSite = 'lax'; 
     }
     
     console.log(`[API Password Login] Setting 'session_token' cookie with options: ${JSON.stringify(cookieOptions)} (isProduction: ${isProduction})`);
     cookies().set('session_token', token, cookieOptions);
 
-    const user = responseData.user || responseData.data; 
+    const user = responseData.user || responseData.data;
     return NextResponse.json({ message: 'Login successful', user: user, accessToken: token }, { status: 200 });
 
   } catch (error: any) {

@@ -38,20 +38,36 @@ export async function GET(request: NextRequest) {
     }
     
     const isProduction = process.env.NODE_ENV === 'production';
-    const cookieOptions: Partial<ResponseCookie> = {
+    const baseCookieOptions: Partial<ResponseCookie> = {
       httpOnly: true,
-      secure: isProduction,
       path: '/',
-      sameSite: 'lax',
       maxAge: tokenSet.expires_in || 3600, // Use token expiry or default to 1 hour
     };
-    
-    // Let browser default domain for localhost
 
-    cookies().set('id_token', tokenSet.id_token, cookieOptions);
-    cookies().set('session_token', tokenSet.access_token, cookieOptions);
+    if (isProduction) {
+        baseCookieOptions.secure = true;
+        baseCookieOptions.sameSite = 'lax'; // Or 'strict'
+        if (process.env.APP_URL) {
+            try {
+                const url = new URL(process.env.APP_URL);
+                baseCookieOptions.domain = url.hostname;
+            } catch (e) {
+                console.error('[API OIDC Callback] Failed to parse APP_URL for production cookie domain:', e);
+            }
+        }
+    } else {
+        // Development settings for localhost
+        baseCookieOptions.secure = false;
+        // Omitting sameSite for localhost to see if it helps, browsers might default to Lax.
+        // baseCookieOptions.sameSite = 'lax';
+    }
     
-    // Clean up PKCE and nonce cookies
+    const idTokenCookieOptions = { ...baseCookieOptions };
+    const sessionTokenCookieOptions = { ...baseCookieOptions };
+
+    cookies().set('id_token', tokenSet.id_token, idTokenCookieOptions);
+    cookies().set('session_token', tokenSet.access_token, sessionTokenCookieOptions);
+    
     cookies().delete('oidc_code_verifier');
     cookies().delete('oidc_nonce');
 
@@ -62,7 +78,6 @@ export async function GET(request: NextRequest) {
     if (error instanceof Error) {
         errorMessage = error.message;
     }
-    // Clear potentially partial cookies on error
     cookies().delete('oidc_code_verifier');
     cookies().delete('oidc_nonce');
     cookies().delete('id_token');
