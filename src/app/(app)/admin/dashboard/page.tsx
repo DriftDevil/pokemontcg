@@ -9,11 +9,11 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import SetReleaseChart from "@/components/admin/dashboard/set-release-chart";
 import { cn } from "@/lib/utils";
-import type { User as ApiUserType } from "@/app/(app)/admin/users/page"; 
+import type { User as AdminUserPageType } from "@/app/(app)/admin/users/page"; 
+import { cookies } from 'next/headers';
 
 async function fetchTotalCountFromPaginated(endpoint: string): Promise<number> {
   const APP_URL = process.env.APP_URL || "";
-  // Use relative path for internal API calls from server components if APP_URL is not set for self-calls
   const baseUrl = APP_URL || 'http://localhost:' + (process.env.PORT || 9002); 
   const fetchUrl = `${baseUrl}/api/${endpoint}?limit=1`;
 
@@ -106,6 +106,12 @@ async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]>
   }
 }
 
+// Represents the structure from /api/users/all, which wraps User from openapi.yaml in a 'data' field
+interface ApiUserListResponse {
+  data?: AdminUserPageType[]; // The User type from admin/users/page.tsx
+}
+
+
 async function fetchTotalUsersCount(): Promise<number> {
   const APP_URL = process.env.APP_URL || "";
   const baseUrl = APP_URL || 'http://localhost:' + (process.env.PORT || 9002);
@@ -126,7 +132,8 @@ async function fetchTotalUsersCount(): Promise<number> {
       console.error(`Error body for ${fetchUrl}: ${errorBody}`);
       return 0;
     }
-    const data: { data?: ApiUserType[] } = await response.json(); // Assuming it follows { data: User[] }
+    // Adjusted to expect { data: User[] } as per /api/users/all (proxied from external)
+    const data: ApiUserListResponse = await response.json(); 
     return data.data?.length || 0;
   } catch (error) {
     console.error(`Error fetching total users count from ${fetchUrl}:`, error);
@@ -135,7 +142,6 @@ async function fetchTotalUsersCount(): Promise<number> {
 }
 
 async function fetchApiRequests24h(): Promise<number> {
-  // Call the internal API route which handles authentication
   const APP_URL = process.env.APP_URL || "";
   const baseUrl = APP_URL || 'http://localhost:' + (process.env.PORT || 9002);
   const fetchUrl = `${baseUrl}/api/usage`; 
@@ -148,9 +154,24 @@ async function fetchApiRequests24h(): Promise<number> {
   }
 
   try {
-    // This fetch is from Server Component to its own API route, so cookies might be forwarded by Next.js
-    // depending on deployment, but our /api/usage route explicitly reads cookies.
-    const response = await fetch(fetchUrl, { cache: 'no-store' }); 
+    const cookieStore = cookies();
+    const oidcToken = cookieStore.get('access_token')?.value;
+    const passwordToken = cookieStore.get('password_access_token')?.value;
+    
+    const forwardedCookies: string[] = [];
+    if (oidcToken) forwardedCookies.push(`access_token=${oidcToken}`);
+    if (passwordToken) forwardedCookies.push(`password_access_token=${passwordToken}`);
+
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (forwardedCookies.length > 0) {
+      headers['Cookie'] = forwardedCookies.join('; ');
+    }
+    
+    const response = await fetch(fetchUrl, { 
+      headers,
+      cache: 'no-store' 
+    }); 
+    
     if (!response.ok) {
       console.error(`Failed to fetch API requests count from internal ${fetchUrl}: ${response.status}`);
       const errorBody = await response.text();
@@ -158,7 +179,6 @@ async function fetchApiRequests24h(): Promise<number> {
       return 0;
     }
     const data = await response.json();
-    // Adjust based on the actual structure returned by your external /usage endpoint
     return data.api_requests_24h || 0; 
   } catch (error) {
     console.error(`Error fetching API requests count from internal ${fetchUrl}:`, error);
@@ -167,20 +187,17 @@ async function fetchApiRequests24h(): Promise<number> {
 }
 
 const mockRecentUsers = [
-  { id: 'usr_1', name: 'Satoshi Tajiri', email: 'satoshi@poke.jp', role: 'Admin', status: 'Active', preferredUsername: 'satoshi', createdAt: new Date().toISOString(), lastSeen: new Date().toISOString() },
-  { id: 'usr_2', name: 'Ken Sugimori', email: 'ken@poke.jp', role: 'Editor', status: 'Active', preferredUsername: 'ken', createdAt: new Date().toISOString(), lastSeen: new Date().toISOString() },
-  { id: 'usr_3', name: 'Junichi Masuda', email: 'junichi@poke.jp', role: 'Viewer', status: 'Inactive', preferredUsername: 'junichi', createdAt: new Date().toISOString(), lastSeen: new Date().toISOString() },
+  { id: 'usr_1', name: 'Satoshi Tajiri', email: 'satoshi@poke.jp', preferredUsername: 'satoshi', isAdmin: true, createdAt: new Date().toISOString(), lastSeen: new Date().toISOString(), avatar: "https://placehold.co/40x40.png?text=ST" },
+  { id: 'usr_2', name: 'Ken Sugimori', email: 'ken@poke.jp', preferredUsername: 'ken', isAdmin: false, createdAt: new Date().toISOString(), lastSeen: new Date().toISOString(), avatar: "https://placehold.co/40x40.png?text=KS"},
+  { id: 'usr_3', name: 'Junichi Masuda', email: 'junichi@poke.jp', preferredUsername: 'junichi', isAdmin: false, createdAt: new Date().toISOString(), lastSeen: new Date().toISOString(), avatar: "https://placehold.co/40x40.png?text=JM"},
 ];
 
+
 export default async function AdminDashboardPage() {
-  // Ensure APP_URL is available for server-side fetches to its own API routes
-  // If process.env.APP_URL is not set, it will default to localhost for local dev
-  // but might fail in deployed environments if not configured.
   const appUrlIsSet = !!process.env.APP_URL;
   if (!appUrlIsSet && process.env.NODE_ENV !== 'development') {
       console.error("CRITICAL: APP_URL is not set in a non-development environment. Dashboard data fetching will likely fail.");
   }
-
 
   const [totalCards, totalSets, setReleaseTimelineData, totalUsers, apiRequests24h] = await Promise.all([
     fetchTotalCountFromPaginated("cards"),
@@ -243,7 +260,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{apiRequests24h.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">{(appUrlIsSet && apiRequests24h >= 0) || (process.env.NODE_ENV === 'development' && apiRequests24h >=0) ? "Live data (from external API via internal proxy)" : "No data / API error"}</p>
+            <p className="text-xs text-muted-foreground">{apiRequests24h >= 0 ? "Live data (proxied)" : "No data / API error"}</p>
           </CardContent>
         </Card>
       </div>
@@ -280,17 +297,16 @@ export default async function AdminDashboardPage() {
               <TableBody>
                 {mockRecentUsers.slice(0,3).map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell className="font-medium">{user.name || user.preferredUsername}</TableCell>
                     <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.role}</TableCell>
+                    <TableCell>{user.isAdmin ? 'Admin' : 'User'}</TableCell>
                     <TableCell>
-                      <Badge variant={user.status === 'Active' ? 'default' : 'secondary'} 
+                       {/* Using a generic status for mock, actual status might not be directly in user object */}
+                      <Badge variant={'default'} 
                              className={cn(
-                                'border', 
-                                user.status === 'Active' ? 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700' 
-                                                        : 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-700/30 dark:text-slate-300 dark:border-slate-500'
+                                'border bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700'
                               )}>
-                        {user.status}
+                        Active 
                       </Badge>
                     </TableCell>
                   </TableRow>
@@ -309,3 +325,4 @@ export default async function AdminDashboardPage() {
   );
 }
 
+    
