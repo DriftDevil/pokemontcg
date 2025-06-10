@@ -17,26 +17,44 @@ async function fetchTotalCountFromPaginated(endpoint: string): Promise<number> {
   const baseUrl = APP_URL || 'http://localhost:' + (process.env.PORT || 9002); 
   const fetchUrl = `${baseUrl}/api/${endpoint}?limit=1`;
 
+  console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated] APP_URL: '${APP_URL}', Base URL for fetch: '${baseUrl}', Full fetch URL: '${fetchUrl}'`);
 
   if (!APP_URL && process.env.NODE_ENV === 'development') {
-    console.warn(`APP_URL is not defined. Attempting fetch to ${fetchUrl} from server-side (dashboard data).`);
+    console.warn(`[AdminDashboardPage - fetchTotalCountFromPaginated] APP_URL is not defined. Attempting fetch to ${fetchUrl}.`);
   } else if (!APP_URL && process.env.NODE_ENV !== 'development') {
-    console.error(`APP_URL is not defined for dashboard data fetching of ${endpoint}. Fetch URL was: ${fetchUrl}`);
+    console.error(`[AdminDashboardPage - fetchTotalCountFromPaginated] APP_URL is not defined for ${endpoint}. Fetch URL was: ${fetchUrl}`);
     return 0;
   }
 
   try {
-    const response = await fetch(fetchUrl, { cache: 'no-store' });
+    // For server-to-server fetches within the same app, cookies might be implicitly forwarded or explicitly handled.
+    // Here, we explicitly try to read and forward if necessary, though for simple GETs to own API routes,
+    // this might not always be required if cookies are correctly passed with the initial page request.
+    const cookieStore = cookies();
+    const sessionToken = cookieStore.get('session_token')?.value;
+    console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Token from cookies(): ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
+
+    const fetchHeaders = new Headers();
+    if (sessionToken) {
+      fetchHeaders.append('Cookie', `session_token=${sessionToken}`);
+    }
+    
+    const response = await fetch(fetchUrl, { 
+      headers: fetchHeaders,
+      cache: 'no-store',
+      credentials: 'omit', // Server-to-server, explicit header is better. 'include' might be relevant if node-fetch had browser-like implicit cookie jar
+    });
+
     if (!response.ok) {
-      console.error(`Failed to fetch ${endpoint} count from ${fetchUrl}: ${response.status}`);
+      console.error(`[AdminDashboardPage - fetchTotalCountFromPaginated] Failed to fetch ${endpoint} count from ${fetchUrl}: ${response.status}`);
       const errorBody = await response.text();
-      console.error(`Error body for ${fetchUrl}: ${errorBody}`);
+      console.error(`[AdminDashboardPage - fetchTotalCountFromPaginated] Error body for ${fetchUrl}: ${errorBody}`);
       return 0;
     }
     const data = await response.json();
     return data.totalCount || data.total || 0; 
   } catch (error) {
-    console.error(`Error fetching ${endpoint} count from ${fetchUrl}:`, error);
+    console.error(`[AdminDashboardPage - fetchTotalCountFromPaginated] Error fetching ${endpoint} count from ${fetchUrl}:`, error);
     return 0;
   }
 }
@@ -57,27 +75,29 @@ async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]>
   const APP_URL = process.env.APP_URL || "";
   const baseUrl = APP_URL || 'http://localhost:' + (process.env.PORT || 9002);
   const fetchUrl = `${baseUrl}/api/sets?all=true&orderBy=-releaseDate`;
+  console.log(`[AdminDashboardPage - fetchSetReleaseData] APP_URL: '${APP_URL}', Base URL for fetch: '${baseUrl}', Full fetch URL: '${fetchUrl}'`);
+
 
   if (!APP_URL && process.env.NODE_ENV === 'development') {
-    console.warn(`APP_URL is not defined. Attempting fetch to ${fetchUrl} for set release data.`);
+    console.warn(`[AdminDashboardPage - fetchSetReleaseData] APP_URL is not defined. Attempting fetch to ${fetchUrl}.`);
   } else if (!APP_URL && process.env.NODE_ENV !== 'development') {
-    console.error(`APP_URL is not defined for dashboard data fetching of set releases. Fetch URL was: ${fetchUrl}`);
+    console.error(`[AdminDashboardPage - fetchSetReleaseData] APP_URL is not defined. Fetch URL was: ${fetchUrl}`);
     return [];
   }
   
   try {
     const response = await fetch(fetchUrl, { cache: 'no-store' }); 
     if (!response.ok) {
-      console.error(`Failed to fetch set release data from ${fetchUrl}: ${response.status}`);
+      console.error(`[AdminDashboardPage - fetchSetReleaseData] Failed to fetch from ${fetchUrl}: ${response.status}`);
       const errorBody = await response.text();
-      console.error(`Error body for ${fetchUrl}: ${errorBody}`);
+      console.error(`[AdminDashboardPage - fetchSetReleaseData] Error body for ${fetchUrl}: ${errorBody}`);
       return [];
     }
     const responseData: PaginatedApiResponse<ApiSet> = await response.json();
     const sets = responseData.data || [];
 
     if (!Array.isArray(sets)) {
-        console.error('Set data received is not an array:', sets);
+        console.error('[AdminDashboardPage - fetchSetReleaseData] Set data received is not an array:', sets);
         return [];
     }
 
@@ -89,10 +109,10 @@ async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]>
           if (!isNaN(parseInt(year))) {
             releasesByYear[year] = (releasesByYear[year] || 0) + 1;
           } else {
-            console.warn(`Invalid year parsed from releaseDate: ${set.releaseDate} for set ${set.name}`);
+            console.warn(`[AdminDashboardPage - fetchSetReleaseData] Invalid year parsed from releaseDate: ${set.releaseDate} for set ${set.name}`);
           }
         } catch (e) {
-            console.warn(`Error parsing releaseDate: ${set.releaseDate} for set ${set.name}`, e);
+            console.warn(`[AdminDashboardPage - fetchSetReleaseData] Error parsing releaseDate: ${set.releaseDate} for set ${set.name}`, e);
         }
       }
     });
@@ -101,13 +121,14 @@ async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]>
       .map(([year, count]) => ({ year, count }))
       .sort((a, b) => parseInt(a.year) - parseInt(b.year));
   } catch (error) {
-    console.error(`Error fetching or processing set release data from ${fetchUrl}:`, error);
+    console.error(`[AdminDashboardPage - fetchSetReleaseData] Error fetching or processing from ${fetchUrl}:`, error);
     return [];
   }
 }
 
 interface ApiUserListResponse {
-  data?: AdminUserPageType[]; 
+  data?: AdminUserPageType[];
+  total?: number;
 }
 
 
@@ -115,17 +136,20 @@ async function fetchTotalUsersCount(): Promise<number> {
   const APP_URL = process.env.APP_URL || "";
   const baseUrl = APP_URL || 'http://localhost:' + (process.env.PORT || 9002);
   const fetchUrl = `${baseUrl}/api/users/all`;
+  console.log(`[AdminDashboardPage - fetchTotalUsersCount] APP_URL: '${APP_URL}', Base URL for fetch: '${baseUrl}', Full fetch URL: '${fetchUrl}'`);
+
 
   if (!APP_URL && process.env.NODE_ENV === 'development') {
-    console.warn(`APP_URL is not defined. Attempting fetch to ${fetchUrl} for total users count.`);
+    console.warn(`[AdminDashboardPage - fetchTotalUsersCount] APP_URL is not defined. Attempting fetch to ${fetchUrl}.`);
   } else if (!APP_URL && process.env.NODE_ENV !== 'development') {
-    console.error(`APP_URL is not defined for fetching total users count. Fetch URL was: ${fetchUrl}`);
+    console.error(`[AdminDashboardPage - fetchTotalUsersCount] APP_URL is not defined. Fetch URL was: ${fetchUrl}`);
     return 0;
   }
 
   try {
     const cookieStore = cookies(); 
     const sessionToken = cookieStore.get('session_token')?.value;
+    console.log(`[AdminDashboardPage - fetchTotalUsersCount] Token from cookies(): ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
     
     const fetchHeaders = new Headers();
     fetchHeaders.append('Content-Type', 'application/json');
@@ -134,25 +158,26 @@ async function fetchTotalUsersCount(): Promise<number> {
       fetchHeaders.append('Cookie', `session_token=${sessionToken}`);
       console.log(`[AdminDashboardPage - fetchTotalUsersCount] Forwarding session_token cookie for /api/users/all`);
     } else {
-      console.warn("[AdminDashboardPage - fetchTotalUsersCount] No session_token cookie to forward for /api/users/all call. This will likely result in a 401 error.");
+      console.warn("[AdminDashboardPage - fetchTotalUsersCount] session_token ABSENT in cookies(). Cannot forward to /api/users/all.");
     }
     
     const response = await fetch(fetchUrl, { 
-      method: 'GET', // Explicitly GET
+      method: 'GET',
       headers: fetchHeaders,
-      cache: 'no-store' 
+      cache: 'no-store',
+      credentials: 'omit', // Explicit header is used
     });
 
     if (!response.ok) {
-      console.error(`Failed to fetch total users count from internal ${fetchUrl}: ${response.status}`);
+      console.error(`[AdminDashboardPage - fetchTotalUsersCount] Failed to fetch from internal ${fetchUrl}: ${response.status}`);
       const errorBody = await response.text();
-      console.error(`Error body for internal ${fetchUrl}: ${errorBody}`);
+      console.error(`[AdminDashboardPage - fetchTotalUsersCount] Error body for internal ${fetchUrl}: ${errorBody}`);
       return 0;
     }
     const data: ApiUserListResponse = await response.json(); 
-    return data.data?.length || 0;
+    return data.total || data.data?.length || 0; // Use 'total' field as per updated OpenAPI
   } catch (error) {
-    console.error(`Error fetching total users count from internal ${fetchUrl}:`, error);
+    console.error(`[AdminDashboardPage - fetchTotalUsersCount] Error fetching from internal ${fetchUrl}:`, error);
     return 0;
   }
 }
@@ -161,17 +186,20 @@ async function fetchApiRequests24h(): Promise<number> {
   const APP_URL = process.env.APP_URL || "";
   const baseUrl = APP_URL || 'http://localhost:' + (process.env.PORT || 9002);
   const fetchUrl = `${baseUrl}/api/usage`; 
+  console.log(`[AdminDashboardPage - fetchApiRequests24h] APP_URL: '${APP_URL}', Base URL for fetch: '${baseUrl}', Full fetch URL: '${fetchUrl}'`);
+
 
   if (!APP_URL && process.env.NODE_ENV === 'development') {
-    console.warn(`APP_URL is not defined. Attempting fetch to ${fetchUrl} for API requests count.`);
+    console.warn(`[AdminDashboardPage - fetchApiRequests24h] APP_URL is not defined. Attempting fetch to ${fetchUrl}.`);
   } else if (!APP_URL && process.env.NODE_ENV !== 'development') {
-     console.error(`APP_URL is not defined for fetching API requests count. Fetch URL was ${fetchUrl}. Critical error.`);
+     console.error(`[AdminDashboardPage - fetchApiRequests24h] APP_URL is not defined. Fetch URL was ${fetchUrl}. Critical error.`);
      return 0;
   }
 
   try {
     const cookieStore = cookies(); 
     const sessionToken = cookieStore.get('session_token')?.value;
+    console.log(`[AdminDashboardPage - fetchApiRequests24h] Token from cookies(): ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
     
     const fetchHeaders = new Headers();
     fetchHeaders.append('Content-Type', 'application/json');
@@ -180,25 +208,26 @@ async function fetchApiRequests24h(): Promise<number> {
       fetchHeaders.append('Cookie', `session_token=${sessionToken}`);
       console.log(`[AdminDashboardPage - fetchApiRequests24h] Forwarding session_token cookie for /api/usage`);
     } else {
-      console.warn("[AdminDashboardPage - fetchApiRequests24h] No session_token cookie to forward for /api/usage call. This will likely result in a 401 error.");
+      console.warn("[AdminDashboardPage - fetchApiRequests24h] session_token ABSENT in cookies(). Cannot forward to /api/usage.");
     }
     
     const response = await fetch(fetchUrl, { 
-      method: 'GET', // Explicitly GET
+      method: 'GET',
       headers: fetchHeaders,
-      cache: 'no-store' 
+      cache: 'no-store',
+      credentials: 'omit', // Explicit header is used
     }); 
     
     if (!response.ok) {
-      console.error(`Failed to fetch API requests count from internal ${fetchUrl}: ${response.status}`);
+      console.error(`[AdminDashboardPage - fetchApiRequests24h] Failed to fetch API requests count from internal ${fetchUrl}: ${response.status}`);
       const errorBody = await response.text();
-      console.error(`Error body for internal ${fetchUrl}: ${errorBody}`);
+      console.error(`[AdminDashboardPage - fetchApiRequests24h] Error body for internal ${fetchUrl}: ${errorBody}`);
       return 0;
     }
     const data = await response.json();
     return data.requestCountLast24h || 0;
   } catch (error: any) {
-    console.error(`Error fetching API requests count from internal ${fetchUrl}:`, error);
+    console.error(`[AdminDashboardPage - fetchApiRequests24h] Error fetching API requests count from internal ${fetchUrl}:`, error);
     return 0;
   }
 }
@@ -212,8 +241,9 @@ const mockRecentUsers = [
 
 export default async function AdminDashboardPage() {
   const appUrlIsSet = !!process.env.APP_URL;
+  console.log(`[AdminDashboardPage - Render] APP_URL is set: ${appUrlIsSet}, NODE_ENV: ${process.env.NODE_ENV}`);
   if (!appUrlIsSet && process.env.NODE_ENV !== 'development') {
-      console.error("CRITICAL: APP_URL is not set in a non-development environment. Dashboard data fetching will likely fail.");
+      console.error("[AdminDashboardPage - Render] CRITICAL: APP_URL is not set in a non-development environment. Dashboard data fetching will likely fail.");
   }
 
   const [totalCards, totalSets, setReleaseTimelineData, totalUsers, apiRequests24h] = await Promise.all([
@@ -341,5 +371,3 @@ export default async function AdminDashboardPage() {
     </>
   );
 }
-
-    

@@ -80,15 +80,10 @@ export async function POST(request: NextRequest) {
       sameSite: 'lax', 
       maxAge: 60 * 60 * 24 * 7, // 7 days
     };
-
-    if (!isProduction) {
-      // Domain should typically not be set for localhost, as it might prevent 127.0.0.1 access.
-      // However, if issues persist and access is strictly via 'localhost', this can be tried.
-      // cookieOptions.domain = 'localhost'; // Be cautious with this
-    }
-
-
+    
+    console.log(`[API Password Login] Setting 'session_token' cookie with options: ${JSON.stringify(cookieOptions)}`);
     cookies().set('session_token', token, cookieOptions);
+    console.log(`[API Password Login] 'session_token' cookie should be set.`);
 
     const user = responseData.user || responseData.data; 
     return NextResponse.json({ message: 'Login successful', user: user }, { status: 200 });
