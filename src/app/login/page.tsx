@@ -52,16 +52,13 @@ export default function LoginPage() {
         description: decodeURIComponent(error),
         variant: "destructive",
       });
-      // Clear the error from URL to prevent re-toasting on refresh
       router.replace('/login', { scroll: false }); 
     }
   }, [searchParams, router, toast]);
 
   const handleOidcLogin = () => {
     setIsSubmittingOidc(true);
-    // For OIDC, router.push is generally fine as it involves multiple redirects
-    // and the final callback usually handles session setup before landing on the app.
-    router.push("/api/auth/login");
+    window.location.assign("/api/auth/login"); // Use full page load for OIDC start
   };
 
   const onPasswordSubmit: SubmitHandler<PasswordLoginInputs> = async (data) => {
@@ -73,27 +70,53 @@ export default function LoginPage() {
         body: JSON.stringify(data),
       });
 
-      const responseData = await response.json();
-
-      if (response.ok) {
-        toast({ title: "Login Successful", description: "Redirecting to dashboard..." });
-        // Use window.location.assign for a full page load to ensure cookie is picked up
-        window.location.assign('/admin/dashboard');
+      const contentType = response.headers.get("content-type");
+      if (response.ok && contentType && contentType.includes("application/json")) {
+        const responseData = await response.json(); // Only parse if truly JSON and OK
+        if (responseData.message === 'Login successful') {
+            toast({ title: "Login Successful", description: "Redirecting to dashboard..." });
+            window.location.assign('/admin/dashboard'); // Full page load for reliable cookie setting
+        } else {
+            // This case might not be hit if !response.ok handles API errors, but good for safety
+            toast({ 
+              title: responseData.message || "Login Failed", 
+              description: responseData.details || "An issue occurred during login.", 
+              variant: "destructive" 
+            });
+        }
       } else {
+        // Handle non-JSON responses or non-OK responses
+        let errorDetails = "An unexpected error occurred. The server might be down or returned an invalid response.";
+        try {
+          const errorBodyText = await response.text();
+          if (contentType && contentType.includes("application/json")) {
+            const parsedError = JSON.parse(errorBodyText); // If server sent JSON error
+            errorDetails = parsedError.details || parsedError.message || errorBodyText;
+          } else { // HTML or other non-JSON error
+            console.error("Password login error: Server response was not JSON. Status:", response.status, "Body snippet:", errorBodyText.substring(0, 200));
+            errorDetails = `Login failed (Status: ${response.status}). Please check credentials or contact support if the issue persists.`;
+            if (errorBodyText.toLowerCase().includes("<!doctype html")) {
+              errorDetails = `Login service returned an unexpected page. Please try again. (Status: ${response.status})`;
+            }
+          }
+        } catch (e) {
+          // Catch error from await response.text() or JSON.parse itself
+          console.error("Password login response processing error:", e);
+        }
         toast({ 
-          title: responseData.message || "Login Failed", 
-          description: responseData.details || "Invalid credentials or server error.", 
+          title: "Login Failed", 
+          description: errorDetails, 
           variant: "destructive" 
         });
       }
     } catch (error) {
-       toast({ title: "Login Error", description: "An unexpected error occurred. The server might be down or returned an invalid response.", variant: "destructive" });
-       console.error("Password login submit error:", error);
+       toast({ title: "Network Error", description: "Could not connect to the login service. Please check your internet connection and try again.", variant: "destructive" });
+       console.error("Password login submit fetch/network error:", error);
     } finally {
       // Only set to false if not redirecting, though with window.location.assign this might not always run
-      // or its effect might not be visible.
-      if (!window.location.pathname.endsWith('/admin/dashboard')) {
-        setIsSubmittingPassword(false);
+      // or its effect might not be visible. If still on login page, means redirect didn't happen.
+      if (window.location.pathname.endsWith('/login')) {
+         setIsSubmittingPassword(false);
       }
     }
   };
