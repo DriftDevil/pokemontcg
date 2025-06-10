@@ -71,10 +71,10 @@ export async function POST(request: NextRequest) {
 
     console.log('[API Password Login] Full response from external auth service:', JSON.stringify(responseData, null, 2));
 
-    const token = responseData.token; 
+    const token = responseData.accessToken; // Changed from responseData.token
     if (!token) {
-      console.error('[API Password Login] Token not found in external API response. Expected "token" field. Received:', responseData);
-      return NextResponse.json({ message: 'Token not found in API response.', details: 'Authentication service provided a response, but it did not contain a "token" field. Check server logs for the full response.' }, { status: 500 });
+      console.error('[API Password Login] Token not found in external API response. Expected "accessToken" field. Received:', responseData);
+      return NextResponse.json({ message: 'Authentication service did not provide a token.', details: 'Authentication service provided a response, but it did not contain an "accessToken" field. Check server logs for the full response.' }, { status: 500 });
     }
 
     cookies().set('password_access_token', token, {
@@ -85,8 +85,14 @@ export async function POST(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 7, // 7 days, adjust as needed
     });
 
+    // Assuming the response might also contain user details directly, or we might fetch them separately.
+    // For now, just acknowledge successful token retrieval.
+    // The /api/auth/user route will be responsible for fetching user details using this token.
+    // If your login response directly contains user data (e.g., responseData.user or responseData.data.user),
+    // you could return it here.
+    // For now, let's send back a generic success and the user info if available in response.
     const user = responseData.user || responseData.data; 
-    return NextResponse.json({ message: 'Login successful', user }, { status: 200 });
+    return NextResponse.json({ message: 'Login successful', user: user }, { status: 200 });
 
   } catch (error: any) {
     console.error('[API Password Login] Internal error:', error);
@@ -97,3 +103,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Internal server error during login.', details: errorMessage }, { status: 500 });
   }
 }
+
