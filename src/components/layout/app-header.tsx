@@ -23,7 +23,9 @@ interface AppUser {
   id: string;
   name?: string;
   email?: string;
-  picture?: string;
+  picture?: string; // For OIDC avatar
+  // preferredUsername?: string; // From openapi User schema
+  // isAdmin?: boolean; // From openapi User schema
 }
 
 const useThemeToggle = () => {
@@ -62,10 +64,10 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
   const fetchUser = useCallback(async () => {
     setIsLoadingSession(true);
     try {
-      const res = await fetch('/api/auth/user');
+      const res = await fetch('/api/auth/user', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        setUser(data);
+        setUser(data); // data can be null if not authenticated
       } else {
         setUser(null);
       }
@@ -81,13 +83,29 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
     fetchUser();
   }, [fetchUser]);
 
+  // Effect to refetch user on navigation to ensure state is fresh after login/logout redirects
+  const pathname = usePathname();
+  useEffect(() => {
+    fetchUser();
+  }, [pathname, fetchUser]);
+
+
   const handleLogout = async () => {
-    // Redirect to our logout endpoint, which handles Authentik logout and clears cookies
     router.push('/api/auth/logout');
   };
   
   const handleLogin = () => {
     router.push('/login');
+  };
+
+  const getAvatarFallback = () => {
+    if (user?.name) {
+      return user.name.split(' ').map(n => n[0]).join('').toUpperCase();
+    }
+    if (user?.email) {
+      return user.email.charAt(0).toUpperCase();
+    }
+    return 'U';
   };
 
   return (
@@ -113,21 +131,25 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
           </Button>
           {isLoadingSession ? (
             <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />
-          ) : user ? (
+          ) : user && user.id ? ( // Check for user.id to ensure it's a valid user object
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                   <Avatar className="h-9 w-9">
-                    <AvatarImage src={user.picture || `https://placehold.co/40x40.png?text=${user.name?.charAt(0) || 'U'}`} alt={user.name || 'User'} data-ai-hint="user avatar" />
-                    <AvatarFallback>{user.name?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+                    <AvatarImage 
+                      src={user.picture || `https://placehold.co/40x40.png?text=${getAvatarFallback()}`} 
+                      alt={user.name || 'User'} 
+                      data-ai-hint="user avatar" 
+                    />
+                    <AvatarFallback>{getAvatarFallback()}</AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{user.name || "User"}</p>
-                    {user.email && <p className="text-xs leading-none text-muted-foreground">
+                    <p className="text-sm font-medium leading-none">{user.name || user.email || "User"}</p>
+                    {user.email && user.name && <p className="text-xs leading-none text-muted-foreground">
                       {user.email}
                     </p>}
                   </div>
