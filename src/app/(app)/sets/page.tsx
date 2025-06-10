@@ -114,9 +114,9 @@ async function getCardSets(searchTerm?: string, page: number = 1): Promise<CardS
   }
 }
 
-export default async function CardSetsPage({ searchParams }: { searchParams?: { search?: string; page?: string } }) {
-  const searchTerm = searchParams?.search || "";
-  const currentPageParam = searchParams?.page || "1";
+export default async function CardSetsPage({ searchParams = {} }: { searchParams?: { search?: string; page?: string } }) {
+  const searchTerm = searchParams.search || "";
+  const currentPageParam = searchParams.page || "1";
   const currentPage = parseInt(currentPageParam, 10) || 1;
 
   const { sets, currentPage: apiCurrentPage, totalPages: apiTotalPages, totalCount: apiTotalCount } = await getCardSets(searchTerm, currentPage);
