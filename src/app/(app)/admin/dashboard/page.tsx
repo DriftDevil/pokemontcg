@@ -138,6 +138,7 @@ async function fetchTotalUsersCount(): Promise<number> {
     }
     
     const response = await fetch(fetchUrl, { 
+      method: 'GET', // Explicitly GET
       headers: fetchHeaders,
       cache: 'no-store' 
     });
@@ -183,6 +184,7 @@ async function fetchApiRequests24h(): Promise<number> {
     }
     
     const response = await fetch(fetchUrl, { 
+      method: 'GET', // Explicitly GET
       headers: fetchHeaders,
       cache: 'no-store' 
     }); 
@@ -194,7 +196,7 @@ async function fetchApiRequests24h(): Promise<number> {
       return 0;
     }
     const data = await response.json();
-    return data.requestCountLast24h || 0; // Updated to match openapi.yaml
+    return data.requestCountLast24h || 0;
   } catch (error: any) {
     console.error(`Error fetching API requests count from internal ${fetchUrl}:`, error);
     return 0;
@@ -340,3 +342,4 @@ export default async function AdminDashboardPage() {
   );
 }
 
+    
