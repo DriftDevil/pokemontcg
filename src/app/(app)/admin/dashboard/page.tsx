@@ -123,13 +123,13 @@ async function fetchTotalUsersCount(): Promise<number> {
   }
 
   try {
-    const cookieStore = await cookies(); // Await cookies()
+    const cookieStore = await cookies(); 
     const sessionToken = cookieStore.get('session_token')?.value;
     
     const headers: HeadersInit = { 'Content-Type': 'application/json' };
     if (sessionToken) {
       headers['Cookie'] = `session_token=${sessionToken}`;
-      console.log(`[AdminDashboardPage - fetchTotalUsersCount] Forwarding session_token cookie.`);
+      console.log(`[AdminDashboardPage - fetchTotalUsersCount] Forwarding session_token cookie: ${headers['Cookie']}`);
     } else {
       console.warn("[AdminDashboardPage - fetchTotalUsersCount] No session_token cookie to forward for /api/users/all call.");
     }
@@ -166,7 +166,7 @@ async function fetchApiRequests24h(): Promise<number> {
   }
 
   try {
-    const cookieStore = await cookies(); // Await cookies()
+    const cookieStore = await cookies(); 
     const sessionToken = cookieStore.get('session_token')?.value;
     
     const headers: HeadersInit = { 'Content-Type': 'application/json' };
