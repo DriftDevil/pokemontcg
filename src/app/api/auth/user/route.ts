@@ -9,120 +9,119 @@ interface AppUser {
   id: string;
   name?: string;
   email?: string;
-  picture?: string; // From OIDC 'picture'
-  isAdmin?: boolean; // Added from openapi.yaml User schema
-  // preferredUsername can be mapped to name if primary display name is desired
+  picture?: string; 
+  isAdmin?: boolean; 
+  authSource: 'oidc' | 'local';
 }
 
 // Represents the structure of the User object from the external API's /auth/local/me
-// based on openapi.yaml components.schemas.User
-interface ApiUser {
+interface ExternalApiUser { // Renamed from ApiUser to avoid confusion with openapi.yaml's User
     id: string;
     email?: string;
-    name?: string;
-    preferredUsername?: string;
-    isAdmin?: boolean;
-    createdAt?: string;
-    lastSeen?: string;
+    name?: string; // Directly from openapi.yaml User schema
+    preferredUsername?: string; // From openapi.yaml User schema
+    isAdmin?: boolean; // From openapi.yaml User schema
+    createdAt?: string; // From openapi.yaml User schema
+    lastSeen?: string; // From openapi.yaml User schema
 }
 
 // Represents the structure of the response from /auth/local/me which is UserWithAuthSource
-interface ApiUserResponse {
-    data: ApiUser;
-    authSource: 'local' | 'oidc';
+interface ExternalApiUserResponse { // Renamed from ApiUserResponse
+    data: ExternalApiUser;
+    authSource: 'local' | 'oidc'; // This authSource is from the external API, might differ from our app's
 }
 
 
 const EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
 
 export async function GET() {
-  const idTokenCookie = cookies().get('id_token');
-  const passwordAccessTokenCookie = cookies().get('password_access_token');
+  const cookieStore = cookies();
+  const idTokenCookie = cookieStore.get('id_token');
+  const sessionTokenCookie = cookieStore.get('session_token');
 
   if (idTokenCookie?.value) {
     try {
-      const idToken = idTokenCookie.value;
-      const claims = jose.decodeJwt(idToken); // Assuming token is pre-validated by oidcClient
+      const idTokenValue = idTokenCookie.value;
+      const claims = jose.decodeJwt(idTokenValue); 
 
-      if (!claims || !claims.sub) {
-          console.warn('[API User] OIDC ID token invalid or missing sub.');
-          cookies().delete('id_token');
-          cookies().delete('access_token');
-          return NextResponse.json(null, { status: 401 }); // Explicitly return null for unauthorized
+      if (claims && claims.sub && claims.iss) { // OIDC token MUST have an issuer
+        const user: AppUser = {
+          id: claims.sub,
+          name: (claims.name as string | undefined) || (claims.preferred_username as string | undefined),
+          email: claims.email as string | undefined,
+          picture: claims.picture as string | undefined,
+          isAdmin: (claims.is_admin as boolean | undefined) || (claims.groups as string[])?.includes('admin'),
+          authSource: 'oidc',
+        };
+        return NextResponse.json(user);
+      } else {
+        console.warn('[API User] OIDC ID token present but invalid or missing sub/iss. Falling back if session_token exists.');
       }
-
-      const user: AppUser = {
-        id: claims.sub,
-        name: (claims.name as string | undefined) || (claims.preferred_username as string | undefined),
-        email: claims.email as string | undefined,
-        picture: claims.picture as string | undefined,
-        isAdmin: (claims.is_admin as boolean | undefined) || (claims.groups as string[])?.includes('admin'), // Example: check custom claim or group
-      };
-      return NextResponse.json(user);
     } catch (error) {
       console.error('[API User] Error processing OIDC ID token:', error);
-      cookies().delete('id_token');
-      cookies().delete('access_token');
-      return NextResponse.json(null, { status: 500 });
+      // Don't immediately return error; fall through to check session_token for local auth
     }
   }
 
-  if (passwordAccessTokenCookie?.value) {
+  // If no valid OIDC session, try local session via session_token
+  if (sessionTokenCookie?.value) {
     if (!EXTERNAL_API_BASE_URL) {
-        console.error('[API User] EXTERNAL_API_BASE_URL not set. Cannot fetch user details for password session.');
+        console.error('[API User] EXTERNAL_API_BASE_URL not set. Cannot fetch user details for local session.');
+        // Clear potentially stale session_token if we can't verify it
+        cookieStore.delete('session_token');
         return NextResponse.json(null, { status: 500 });
     }
     try {
-        const token = passwordAccessTokenCookie.value;
+        const token = sessionTokenCookie.value;
         const externalUserUrl = `${EXTERNAL_API_BASE_URL}/auth/local/me`;
-        console.log(`[API User] Fetching user from external API: ${externalUserUrl}`);
+        
         const response = await fetch(externalUserUrl, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
             },
-            cache: 'no-store', // Ensure fresh data from external API
+            cache: 'no-store', 
         });
 
         if (!response.ok) {
             const errorBody = await response.text();
-            console.error(`[API User] Failed to fetch user from ${externalUserUrl}: ${response.status}`, errorBody);
+            console.error(`[API User] Failed to fetch user from ${externalUserUrl} for local session: ${response.status}`, errorBody);
             if (response.status === 401 || response.status === 403) { 
-                cookies().delete('password_access_token');
+                cookieStore.delete('session_token'); // Token is invalid/expired
             }
-            // Return null for client to handle, status code helps client understand why
             return NextResponse.json(null, { status: response.status });
         }
         
-        // Expecting UserWithAuthSource schema: { data: User, authSource: string }
-        const responseData: ApiUserResponse = await response.json();
+        const responseData: ExternalApiUserResponse = await response.json();
         
         if (!responseData || !responseData.data) {
-            console.error('[API User] User data or data field not found in /auth/local/me response from external API. Response:', responseData);
+            console.error('[API User] User data or data field not found in /auth/local/me response for local session. Response:', responseData);
             return NextResponse.json(null, { status: 500 });
         }
-        const apiUser = responseData.data;
+        const externalUser = responseData.data;
         
         const user: AppUser = {
-            id: apiUser.id,
-            name: apiUser.name || apiUser.preferredUsername,
-            email: apiUser.email,
-            isAdmin: apiUser.isAdmin,
+            id: externalUser.id,
+            name: externalUser.name || externalUser.preferredUsername,
+            email: externalUser.email,
+            isAdmin: externalUser.isAdmin,
+            authSource: 'local', 
             // picture is not typically available from a local password auth /me endpoint
         };
         return NextResponse.json(user);
 
     } catch (error: any) {
-        console.error('[API User] Error fetching user for password session:', error);
-        // Potentially clear cookie if there's a persistent error, but be cautious
-        // cookies().delete('password_access_token'); 
-        let errorMessage = 'Internal server error while fetching user for password session.';
+        console.error('[API User] Error fetching user for local session:', error);
+        let errorMessage = 'Internal server error while fetching user for local session.';
         if (error.message) {
             errorMessage = error.message;
         }
-        return NextResponse.json({ message: "Error fetching user details", details: errorMessage }, { status: 500 });
+        // Potentially clear cookie if there's a persistent error, but be cautious
+        // cookieStore.delete('session_token'); 
+        return NextResponse.json({ message: "Error fetching user details for local session", details: errorMessage }, { status: 500 });
     }
   }
 
-  return NextResponse.json(null); // No user session found, explicitly return null
+  // If neither OIDC with 'iss' nor local session_token led to a user
+  return NextResponse.json(null); 
 }

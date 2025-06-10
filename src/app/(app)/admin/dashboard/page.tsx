@@ -1,5 +1,4 @@
 
-
 import PageHeader from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { LayoutDashboard, Users, CreditCard, Layers, Activity } from 'lucide-react';
@@ -124,20 +123,15 @@ async function fetchTotalUsersCount(): Promise<number> {
   }
 
   try {
-    const cookieStore = await cookies();
-    const oidcToken = cookieStore.get('access_token')?.value;
-    const passwordToken = cookieStore.get('password_access_token')?.value;
+    const cookieStore = await cookies(); // Await cookies()
+    const sessionToken = cookieStore.get('session_token')?.value;
     
-    const forwardedCookiesArray: string[] = [];
-    if (oidcToken) forwardedCookiesArray.push(`access_token=${oidcToken}`);
-    if (passwordToken) forwardedCookiesArray.push(`password_access_token=${passwordToken}`);
-
     const headers: HeadersInit = { 'Content-Type': 'application/json' };
-    if (forwardedCookiesArray.length > 0) {
-      headers['Cookie'] = forwardedCookiesArray.join('; ');
-      console.log(`[AdminDashboardPage - fetchTotalUsersCount] Forwarding cookies: ${headers['Cookie']}`);
+    if (sessionToken) {
+      headers['Cookie'] = `session_token=${sessionToken}`;
+      console.log(`[AdminDashboardPage - fetchTotalUsersCount] Forwarding session_token cookie.`);
     } else {
-      console.warn("[AdminDashboardPage - fetchTotalUsersCount] No cookies to forward for /api/users/all call.");
+      console.warn("[AdminDashboardPage - fetchTotalUsersCount] No session_token cookie to forward for /api/users/all call.");
     }
     
     const response = await fetch(fetchUrl, { 
@@ -172,20 +166,15 @@ async function fetchApiRequests24h(): Promise<number> {
   }
 
   try {
-    const cookieStore = await cookies();
-    const oidcToken = cookieStore.get('access_token')?.value;
-    const passwordToken = cookieStore.get('password_access_token')?.value;
+    const cookieStore = await cookies(); // Await cookies()
+    const sessionToken = cookieStore.get('session_token')?.value;
     
-    const forwardedCookiesArray: string[] = [];
-    if (oidcToken) forwardedCookiesArray.push(`access_token=${oidcToken}`);
-    if (passwordToken) forwardedCookiesArray.push(`password_access_token=${passwordToken}`);
-
     const headers: HeadersInit = { 'Content-Type': 'application/json' };
-    if (forwardedCookiesArray.length > 0) {
-      headers['Cookie'] = forwardedCookiesArray.join('; ');
-      console.log(`[AdminDashboardPage - fetchApiRequests24h] Forwarding cookies: ${headers['Cookie']}`);
+    if (sessionToken) {
+      headers['Cookie'] = `session_token=${sessionToken}`;
+      console.log(`[AdminDashboardPage - fetchApiRequests24h] Forwarding session_token cookie: ${headers['Cookie']}`);
     } else {
-      console.warn("[AdminDashboardPage - fetchApiRequests24h] No cookies to forward for /api/usage call.");
+      console.warn("[AdminDashboardPage - fetchApiRequests24h] No session_token cookie to forward for /api/usage call.");
     }
     
     const response = await fetch(fetchUrl, { 
@@ -345,7 +334,3 @@ export default async function AdminDashboardPage() {
     </>
   );
 }
-
-    
-
-    

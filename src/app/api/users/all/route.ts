@@ -5,6 +5,16 @@ import { cookies } from 'next/headers';
 
 const EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
 
+// Helper to parse cookies from a string, e.g., from request.headers.get('Cookie')
+function parseCookieString(cookieString: string | null): Record<string, string> {
+  if (!cookieString) return {};
+  return cookieString.split(';').reduce((acc, cookie) => {
+    const [name, ...rest] = cookie.split('=');
+    acc[name.trim()] = decodeURIComponent(rest.join('='));
+    return acc;
+  }, {} as Record<string, string>);
+}
+
 export async function GET(request: NextRequest) {
   console.log(`[API /api/users/all] GET request received. URL: ${request.url}`);
 
@@ -13,14 +23,39 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'External API URL not configured' }, { status: 500 });
   }
 
-  const cookieStore = await cookies();
-  const oidcAccessToken = cookieStore.get('access_token')?.value;
-  const passwordAccessToken = cookieStore.get('password_access_token')?.value;
+  let tokenToForward: string | undefined;
+
+  // Try next/headers.cookies() first
+  try {
+    const cookieStore = await cookies(); // await the call
+    tokenToForward = cookieStore.get('session_token')?.value;
+     if (tokenToForward) {
+      console.log('[API /api/users/all] Token found using next/headers.cookies().');
+    }
+  } catch (e) {
+    console.warn('[API /api/users/all] Error using next/headers.cookies():', e, '- Will try parsing header directly.');
+  }
   
-  const tokenToForward = oidcAccessToken || passwordAccessToken;
+  // Fallback: If token not found via cookies(), try parsing the Cookie header directly
+  if (!tokenToForward) {
+    const rawCookieHeader = request.headers.get('Cookie');
+    if (rawCookieHeader) {
+      console.log('[API /api/users/all] Attempting to parse token from raw Cookie header:', rawCookieHeader);
+      const parsedCookies = parseCookieString(rawCookieHeader);
+      tokenToForward = parsedCookies['session_token'];
+      if (tokenToForward) {
+        console.log('[API /api/users/all] Token found by parsing raw Cookie header.');
+      } else {
+         console.log('[API /api/users/all] session_token not found in raw Cookie header.');
+      }
+    } else {
+       console.log('[API /api/users/all] No raw Cookie header found in request.');
+    }
+  }
+
 
   if (!tokenToForward) {
-    console.warn('[API /api/users/all] No authentication token found in cookies.');
+    console.warn('[API /api/users/all] No session_token found in cookies (checked both methods).');
     return NextResponse.json({ error: 'Unauthorized. No session token found.' }, { status: 401 });
   }
 
@@ -33,7 +68,7 @@ export async function GET(request: NextRequest) {
         'Authorization': `Bearer ${tokenToForward}`,
         'Content-Type': 'application/json',
       },
-      cache: 'no-store', // Ensure fresh data
+      cache: 'no-store', 
     });
 
     if (!response.ok) {
@@ -49,4 +84,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch data from external API', details: error.message }, { status: 500 });
   }
 }
-

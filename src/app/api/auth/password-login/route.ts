@@ -4,15 +4,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
 const EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
-const COOKIE_SECRET = process.env.COOKIE_SECRET; 
 
 if (!EXTERNAL_API_BASE_URL) {
   console.error('[API Password Login] EXTERNAL_API_BASE_URL is not set. Password login cannot function.');
 }
-if (!COOKIE_SECRET) {
-    console.warn('[API Password Login] COOKIE_SECRET is not set. Session cookies will not be signed/encrypted.');
-}
-
 
 export async function POST(request: NextRequest) {
   if (!EXTERNAL_API_BASE_URL) {
@@ -71,13 +66,13 @@ export async function POST(request: NextRequest) {
 
     console.log('[API Password Login] Full response from external auth service:', JSON.stringify(responseData, null, 2));
 
-    const token = responseData.accessToken; // Changed from responseData.token
+    const token = responseData.accessToken;
     if (!token) {
       console.error('[API Password Login] Token not found in external API response. Expected "accessToken" field. Received:', responseData);
       return NextResponse.json({ message: 'Authentication service did not provide a token.', details: 'Authentication service provided a response, but it did not contain an "accessToken" field. Check server logs for the full response.' }, { status: 500 });
     }
 
-    cookies().set('password_access_token', token, {
+    cookies().set('session_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       path: '/',
@@ -85,12 +80,6 @@ export async function POST(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 7, // 7 days, adjust as needed
     });
 
-    // Assuming the response might also contain user details directly, or we might fetch them separately.
-    // For now, just acknowledge successful token retrieval.
-    // The /api/auth/user route will be responsible for fetching user details using this token.
-    // If your login response directly contains user data (e.g., responseData.user or responseData.data.user),
-    // you could return it here.
-    // For now, let's send back a generic success and the user info if available in response.
     const user = responseData.user || responseData.data; 
     return NextResponse.json({ message: 'Login successful', user: user }, { status: 200 });
 
@@ -103,4 +92,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Internal server error during login.', details: errorMessage }, { status: 500 });
   }
 }
-
