@@ -130,12 +130,16 @@ h1, h2, h3, h4, h5, h6 {
     background: hsl(var(--card));
     box-shadow: none;
     border-bottom: 1px solid hsl(var(--border));
+    padding-bottom: 1rem; /* Add some padding */
   }
   .dark .swagger-ui .info {
     background: hsl(var(--card));
   }
   .dark .swagger-ui .info .title {
-    color: hsl(var(--card-foreground));
+    color: hsl(var(--foreground)); /* Brighter title */
+  }
+  .dark .swagger-ui .info .title span { /* Main title text part */
+     color: hsl(var(--foreground));
   }
   .dark .swagger-ui .info .title small pre { /* Version badges */
     color: hsl(var(--primary-foreground));
@@ -143,11 +147,22 @@ h1, h2, h3, h4, h5, h6 {
   }
   .dark .swagger-ui .info .description,
   .dark .swagger-ui .info .base-url,
+  .dark .swagger-ui .info .link,
   .dark .swagger-ui .info a {
-    color: hsl(var(--muted-foreground));
+    color: hsl(var(--muted-foreground)); /* Slightly brighter muted for description */
   }
   .dark .swagger-ui .info a:hover {
     color: hsl(var(--primary));
+  }
+
+  .dark .swagger-ui label,
+  .dark .swagger-ui .servers > label { /* "Servers" label */
+      color: hsl(var(--foreground));
+  }
+  .dark .swagger-ui .servers select {
+      background-color: hsl(var(--input));
+      color: hsl(var(--foreground));
+      border: 1px solid hsl(var(--border));
   }
 
   .dark .swagger-ui .opblock-tag-section .opblock-tag {
@@ -176,9 +191,12 @@ h1, h2, h3, h4, h5, h6 {
   .dark .swagger-ui .opblock .opblock-summary:hover {
      background-color: hsl(var(--muted));
   }
-  .dark .swagger-ui .opblock-summary-description,
+
+  .dark .swagger-ui .opblock-summary-description {
+    color: hsl(var(--card-foreground));
+  }
   .dark .swagger-ui .opblock-summary-path {
-    color: hsl(var(--card-foreground)); /* Updated for better visibility */
+    color: hsl(var(--card-foreground));
   }
    .dark .swagger-ui .opblock-summary-path__deprecated {
     color: hsl(var(--destructive));
@@ -287,34 +305,33 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   /* Method specific button colors - ensure good contrast */
-  .dark .swagger-ui .opblock.opblock-get .opblock-summary-method,
+  .dark .swagger-ui .opblock.opblock-get .opblock-summary-method { color: #61affe !important; }
   .dark .swagger-ui .opblock.opblock-get .opblock-summary-path a.nostyle,
-  .dark .swagger-ui .opblock.opblock-get .opblock-summary-description { color: #61affe; } /* Brighter blue */
+  .dark .swagger-ui .opblock.opblock-get .opblock-summary-description { color: hsl(var(--card-foreground)) !important; }
 
-  .dark .swagger-ui .opblock.opblock-post .opblock-summary-method,
+  .dark .swagger-ui .opblock.opblock-post .opblock-summary-method { color: #49cc90 !important; }
   .dark .swagger-ui .opblock.opblock-post .opblock-summary-path a.nostyle,
-  .dark .swagger-ui .opblock.opblock-post .opblock-summary-description { color: #49cc90; } /* Brighter green */
+  .dark .swagger-ui .opblock.opblock-post .opblock-summary-description { color: hsl(var(--card-foreground)) !important; }
 
-  .dark .swagger-ui .opblock.opblock-put .opblock-summary-method,
+  .dark .swagger-ui .opblock.opblock-put .opblock-summary-method { color: #fca130 !important; }
   .dark .swagger-ui .opblock.opblock-put .opblock-summary-path a.nostyle,
-  .dark .swagger-ui .opblock.opblock-put .opblock-summary-description { color: #fca130; } /* Brighter orange */
+  .dark .swagger-ui .opblock.opblock-put .opblock-summary-description { color: hsl(var(--card-foreground)) !important; }
 
-  .dark .swagger-ui .opblock.opblock-delete .opblock-summary-method,
+  .dark .swagger-ui .opblock.opblock-delete .opblock-summary-method { color: #f93e3e !important; }
   .dark .swagger-ui .opblock.opblock-delete .opblock-summary-path a.nostyle,
-  .dark .swagger-ui .opblock.opblock-delete .opblock-summary-description { color: #f93e3e; } /* Brighter red */
+  .dark .swagger-ui .opblock.opblock-delete .opblock-summary-description { color: hsl(var(--card-foreground)) !important; }
 
-  .dark .swagger-ui .opblock.opblock-patch .opblock-summary-method,
+  .dark .swagger-ui .opblock.opblock-patch .opblock-summary-method { color: #50e3c2 !important; }
   .dark .swagger-ui .opblock.opblock-patch .opblock-summary-path a.nostyle,
-  .dark .swagger-ui .opblock.opblock-patch .opblock-summary-description { color: #50e3c2; } /* Brighter teal */
+  .dark .swagger-ui .opblock.opblock-patch .opblock-summary-description { color: hsl(var(--card-foreground)) !important; }
 
-  .dark .swagger-ui .opblock.opblock-options .opblock-summary-method,
+  .dark .swagger-ui .opblock.opblock-options .opblock-summary-method { color: #d393e0 !important; }
   .dark .swagger-ui .opblock.opblock-options .opblock-summary-path a.nostyle,
-  .dark .swagger-ui .opblock.opblock-options .opblock-summary-description { color: #d393e0; } /* Example purple for OPTIONS */
-
-  .dark .swagger-ui .opblock.opblock-head .opblock-summary-method,
+  .dark .swagger-ui .opblock.opblock-options .opblock-summary-description { color: hsl(var(--card-foreground)) !important; }
+  
+  .dark .swagger-ui .opblock.opblock-head .opblock-summary-method { color: #c0ca33 !important; }
   .dark .swagger-ui .opblock.opblock-head .opblock-summary-path a.nostyle,
-  .dark .swagger-ui .opblock.opblock-head .opblock-summary-description { color: #c0ca33; } /* Example lime for HEAD */
-
+  .dark .swagger-ui .opblock.opblock-head .opblock-summary-description { color: hsl(var(--card-foreground)) !important; }
 
   .dark .swagger-ui .opblock-deprecated .opblock-summary-method,
   .dark .swagger-ui .opblock-deprecated .opblock-summary-path,
@@ -326,3 +343,4 @@ h1, h2, h3, h4, h5, h6 {
     border-style: dashed;
   }
 }
+
