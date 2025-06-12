@@ -38,33 +38,45 @@ export async function GET(request: NextRequest) {
     }
     
     const isProduction = process.env.NODE_ENV === 'production';
-    const baseCookieOptions: Partial<ResponseCookie> = {
+    const baseCookieOpts: Omit<ResponseCookie, 'name' | 'value'> = {
       httpOnly: true,
       path: '/',
       maxAge: tokenSet.expires_in || 3600, // Use token expiry or default to 1 hour
     };
 
     if (isProduction) {
-        baseCookieOptions.secure = true;
-        baseCookieOptions.sameSite = 'lax';
+        baseCookieOpts.secure = true;
+        baseCookieOpts.sameSite = 'lax';
         if (process.env.APP_URL) {
             try {
                 const url = new URL(process.env.APP_URL);
-                baseCookieOptions.domain = url.hostname;
+                 if (url.hostname && url.hostname !== 'localhost') {
+                    baseCookieOpts.domain = url.hostname;
+                }
             } catch (e) {
                 console.error('[API OIDC Callback] Failed to parse APP_URL for production cookie domain:', e);
             }
         }
     } else {
         // Development settings for localhost
-        baseCookieOptions.secure = false; 
+        baseCookieOpts.secure = false; 
+        baseCookieOpts.sameSite = 'lax';
+        // DO NOT set domain for localhost
     }
     
-    const idTokenCookieOptions = { ...baseCookieOptions };
-    const sessionTokenCookieOptions = { ...baseCookieOptions };
+    const idTokenCookie: ResponseCookie = {
+        name: 'id_token',
+        value: tokenSet.id_token,
+        ...baseCookieOpts
+    };
+    const sessionTokenCookie: ResponseCookie = {
+        name: 'session_token',
+        value: tokenSet.access_token,
+        ...baseCookieOpts
+    };
 
-    (await cookies()).set('id_token', tokenSet.id_token, idTokenCookieOptions);
-    (await cookies()).set('session_token', tokenSet.access_token, sessionTokenCookieOptions);
+    (await cookies()).set(idTokenCookie);
+    (await cookies()).set(sessionTokenCookie);
     
     (await cookies()).delete('oidc_code_verifier');
     (await cookies()).delete('oidc_nonce');

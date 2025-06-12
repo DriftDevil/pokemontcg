@@ -94,33 +94,44 @@ export async function POST(request: NextRequest) {
     }
 
     const isProduction = process.env.NODE_ENV === 'production';
-    const cookieOptions: Partial<ResponseCookie> = {
+    // Use Omit to ensure all properties of ResponseCookie (except name and value) are considered.
+    const baseCookieOptions: Omit<ResponseCookie, 'name' | 'value'> = {
       httpOnly: true,
       path: '/',
       maxAge: 60 * 60 * 24 * 7, // 7 days
     };
 
     if (isProduction) {
-        cookieOptions.secure = true;
-        cookieOptions.sameSite = 'lax'; // Or 'strict' if appropriate
+        baseCookieOptions.secure = true;
+        baseCookieOptions.sameSite = 'lax';
         if (process.env.APP_URL) {
             try {
                 const url = new URL(process.env.APP_URL);
-                cookieOptions.domain = url.hostname;
+                // Only set domain if APP_URL is a full URL with a valid hostname (not localhost for production)
+                if (url.hostname && url.hostname !== 'localhost') {
+                    baseCookieOptions.domain = url.hostname;
+                }
             } catch (e) {
                 console.error('[API Password Login] Failed to parse APP_URL for production cookie domain:', e);
             }
         }
     } else {
         // Development settings for localhost
-        cookieOptions.secure = false;
-        // Omitting sameSite for localhost to see if it helps, browsers might default to Lax.
-        // cookieOptions.sameSite = 'lax'; 
+        baseCookieOptions.secure = false; // Allow cookie over HTTP for localhost
+        baseCookieOptions.sameSite = 'lax'; // Good default for development too
+        // DO NOT set domain for localhost, let the browser handle it.
     }
     
-    console.log(`[API Password Login] Setting 'session_token' cookie with options: ${JSON.stringify(cookieOptions)} (isProduction: ${isProduction})`);
-    cookies().set('session_token', token, cookieOptions);
+    const sessionTokenCookie: ResponseCookie = {
+        name: 'session_token',
+        value: token,
+        ...baseCookieOptions
+    };
+    
+    console.log(`[API Password Login] Setting 'session_token' cookie with options: ${JSON.stringify(sessionTokenCookie)} (isProduction: ${isProduction})`);
+    cookies().set(sessionTokenCookie);
 
+    // Also include the token in the response body, as some clients might prefer to handle it directly.
     const user = responseData.user || responseData.data;
     return NextResponse.json({ message: 'Login successful', user: user, accessToken: token }, { status: 200 });
 
