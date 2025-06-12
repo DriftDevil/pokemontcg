@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Swagger UI OAuth2 Redirect</title>
+    <script>
+        'use strict';
+        function run () {
+            var oauth2 = window.opener.swaggerUIRedirectOauth2;
+            var sentState = oauth2.state;
+            var redirectUrl = oauth2.redirectUrl;
+            varতন্ত্রisValid, id_token, access_token, refresh_token, openid, scope, expires_in, token_type, session_state;
+
+            if (typeof oauth2 !== 'object') {
+                document.body.innerHTML = 'Could not complete OAuth 2.0 flow. OAuth2 redirect handler is not found in the parent window.';
+                return;
+            }
+
+            if (oauth2.auth.schema.get("type") === "openidConnect" && oauth2.auth.schema.get("usePkceWithAuthorizationCodeGrant")) {
+                 // PKCE specific handling
+                oauth2.auth.code = oauth2.auth.authCode; // for openidConnect with PKCE
+            }
+            
+            var bits = window.location.href.split('#');
+            if (bits.length > 1) {
+                var hash = bits[1];
+                var query = new URLSearchParams(hash);
+
+                // Common OAuth2 parameters
+                access_token = query.get("access_token");
+                id_token = query.get("id_token"); // For OIDC
+                refresh_token = query.get("refresh_token");
+                expires_in = query.get("expires_in");
+                token_type = query.get("token_type");
+                scope = query.get("scope");
+                session_state = query.get("session_state"); // OIDC Session Management
+
+                var state = query.get("state");
+
+                oauth2.auth.loggedin = false;
+
+                if (state !== sentState) {
+                    oauth2.errCb({
+                        authId: oauth2.auth.name,
+                        source: "auth",
+                        level: "warning",
+                        message: "Authorization may be unsafe, passed state was changed in server. The passed state wasn't returned from auth server."
+                    });
+                }
+
+                if (access_token) {
+                    var authData = {
+                        access_token: access_token,
+                        id_token: id_token,
+                        refresh_token: refresh_token,
+                        token_type: token_type,
+                        scope: scope,
+                        expires_in: expires_in,
+                        state: state,
+                        session_state: session_state,
+                    };
+                    oauth2.auth.schema.set("type", "oauth2"); // Ensure schema type is set correctly
+                    var isValid = oauth2.auth.validateToken(authData);
+                    if (isValid) {
+                        oauth2.auth.loggedin = true;
+                        oauth2.auth.token = authData;
+                        oauth2.auth.isOidc = typeof id_token !== "undefined"; // Set if OIDC
+                         if (oauth2.auth.isOidc) {
+                            // You might want to decode id_token here to get user info if needed
+                            // For example: oauth2.auth.user = jwt_decode(id_token);
+                        }
+                        oauth2.authCb(authData);
+                    } else {
+                         oauth2.errCb({
+                            authId: oauth2.auth.name,
+                            source: "auth",
+                            level: "error",
+                            message: "Invalid token received."
+                        });
+                    }
+                } else {
+                    // Handle authorization code grant if no access_token in hash
+                    var code = query.get("code");
+                    var error = query.get("error");
+
+                    if (error) {
+                        oauth2.errCb({
+                            authId: oauth2.auth.name,
+                            source: "auth",
+                            level: "error",
+                            message: "Error in authorization: " + error
+                        });
+                    } else if (code) {
+                        // Authorization code grant - exchange code for token
+                        oauth2.auth.schema.set("type", "oauth2"); // Ensure schema type is set for token exchange
+                        oauth2.auth.code = code;
+                        oauth2.auth.tokenRequest(null, oauth2.authCb, oauth2.errCb);
+                    } else {
+                         oauth2.errCb({
+                            authId: oauth2.auth.name,
+                            source: "auth",
+                            level: "error",
+                            message: "Neither access_token nor authorization code was returned from the server."
+                        });
+                    }
+                }
+            } else {
+                // Handle redirect from form_post response_mode (OIDC)
+                var form = new URLSearchParams(window.location.search);
+                access_token = form.get("access_token");
+                id_token = form.get("id_token");
+                refresh_token = form.get("refresh_token");
+                expires_in = form.get("expires_in");
+                token_type = form.get("token_type");
+                scope = form.get("scope"); // OIDC often returns scope here
+                state = form.get("state"); // State from query params
+                session_state = form.get("session_state"); // OIDC Session Management
+
+                if(state !== sentState) {
+                     oauth2.errCb({
+                        authId: oauth2.auth.name,
+                        source: "auth",
+                        level: "warning",
+                        message: "Authorization may be unsafe, passed state was changed in server. The passed state wasn't returned from auth server."
+                    });
+                }
+
+                if(access_token) {
+                    var authDataFromPost = {
+                        access_token: access_token,
+                        id_token: id_token,
+                        refresh_token: refresh_token,
+                        token_type: token_type,
+                        scope: scope,
+                        expires_in: expires_in,
+                        state: state,
+                        session_state: session_state
+                    };
+                    oauth2.auth.schema.set("type", "oauth2");
+                    var isValidPost = oauth2.auth.validateToken(authDataFromPost);
+                    if (isValidPost) {
+                        oauth2.auth.loggedin = true;
+                        oauth2.auth.token = authDataFromPost;
+                        oauth2.auth.isOidc = typeof id_token !== "undefined";
+                        oauth2.authCb(authDataFromPost);
+                    } else {
+                         oauth2.errCb({
+                            authId: oauth2.auth.name,
+                            source: "auth",
+                            level: "error",
+                            message: "Invalid token received via form_post."
+                        });
+                    }
+                } else {
+                    // Fallback for other cases or if query params were expected
+                    var error = new URLSearchParams(window.location.search).get('error');
+                    if (error) {
+                        oauth2.errCb({
+                            authId: oauth2.auth.name,
+                            source: "auth",
+                            level: "error",
+                            message: "Error in authorization: " + error
+                        });
+                    } else {
+                        // If no error and no token, it might be an issue with the server response
+                        // or flow configuration.
+                         oauth2.errCb({
+                            authId: oauth2.auth.name,
+                            source: "auth",
+                            level: "error",
+                            message: "Authorization failed. No token or error received in response."
+                        });
+                    }
+                }
+            }
+            window.close();
+        }
+
+        if (document.readyState === 'complete') {
+            run();
+        } else {
+            document.addEventListener('DOMContentLoaded', run);
+        }
+    </script>
+</head>
+<body>
+    Verifying OAuth2.0 authorization...
+</body>
+</html>
