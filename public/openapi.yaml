@@ -191,7 +191,11 @@ paths:
               schema:
                 type: object
                 properties:
-                  accessToken: # Changed from 'token' to 'accessToken'
+                  accessToken:
+                    type: string
+                  email: 
+                    type: string
+                  type:
                     type: string
   /auth/local/set-password:
     post:
@@ -211,6 +215,40 @@ paths:
       responses:
         "200":
           description: Password set successfully
+  /auth/local/change-password:
+    post:
+      summary: Change password (local auth only)
+      operationId: changePassword
+      tags: [Auth]
+      security:
+        - localAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                currentPassword:
+                  type: string
+                  description: User's current password
+                  example: oldPass123
+                newPassword:
+                  type: string
+                  description: New password to set
+                  example: newSecurePass456
+              required: [currentPassword, newPassword]
+      responses:
+        '204':
+          description: Password changed successfully (no content)
+        '400':
+          description: Invalid request body
+        '401':
+          description: Unauthorized or incorrect current password
+        '404':
+          description: User not found
+        '500':
+          description: Internal server error
   /auth/local/me:
     get:
       summary: Get current user (local)
