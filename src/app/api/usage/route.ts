@@ -8,22 +8,24 @@ const EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
 function getTokenFromRequest(request: NextRequest): string | undefined {
   const authHeader = request.headers.get('Authorization');
   if (authHeader && authHeader.startsWith('Bearer ')) {
-    console.log('[API /api/usage] Token found in Authorization header.');
+    console.log(`[API ${request.nextUrl.pathname}] Token found in Authorization header.`);
     return authHeader.substring(7); // Remove "Bearer "
   }
+  console.log(`[API ${request.nextUrl.pathname}] Token NOT found in Authorization header. All headers:`, JSON.stringify(Object.fromEntries(request.headers.entries())));
 
   try {
-    const cookieStore = cookies();
+    const cookieStore = cookies(); // This is Next.js specific cookies() for Route Handlers
     const tokenFromCookie = cookieStore.get('session_token')?.value;
     if (tokenFromCookie) {
-      console.log('[API /api/usage] Token found in session_token cookie.');
+      console.log(`[API ${request.nextUrl.pathname}] Token found in session_token cookie as fallback.`);
       return tokenFromCookie;
     }
+    console.log(`[API ${request.nextUrl.pathname}] Token NOT found in session_token cookie as fallback. All request cookies:`, JSON.stringify(cookieStore.getAll()));
   } catch (e) {
-    console.warn('[API /api/usage] Error accessing cookies using next/headers.cookies():', e);
+    console.warn(`[API ${request.nextUrl.pathname}] Error accessing cookies using next/headers.cookies() for fallback:`, e);
   }
   
-  console.log('[API /api/usage] Token not found in Authorization header or session_token cookie.');
+  console.log(`[API ${request.nextUrl.pathname}] Token not found in Authorization header or session_token cookie.`);
   return undefined;
 }
 
@@ -36,12 +38,12 @@ export async function GET(request: NextRequest) {
   const token = getTokenFromRequest(request);
 
   if (!token) {
-    console.warn('[API /api/usage] No token found in Authorization header or cookies. Responding with 401.');
+    console.warn(`[API ${request.nextUrl.pathname}] No token found for request. Responding with 401.`);
     return NextResponse.json({ error: 'Unauthorized. No token provided.' }, { status: 401 });
   }
 
   const externalUrl = `${EXTERNAL_API_BASE_URL}/usage`;
-  console.log(`[API /api/usage] Forwarding request to external API: ${externalUrl} with token.`);
+  console.log(`[API ${request.nextUrl.pathname}] Forwarding request to external API: ${externalUrl} with token.`);
 
   try {
     const response = await fetch(externalUrl, {
@@ -54,14 +56,15 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       const errorBody = await response.text();
-      console.error(`[API /api/usage] External API (${externalUrl}) failed: ${response.status}`, errorBody);
+      console.error(`[API ${request.nextUrl.pathname}] External API (${externalUrl}) failed: ${response.status}`, errorBody);
       return NextResponse.json({ error: `External API error: ${response.status}`, details: errorBody }, { status: response.status });
     }
 
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error: any) {
-    console.error(`[API /api/usage] Failed to fetch from External API (${externalUrl}):`, error);
+    console.error(`[API ${request.nextUrl.pathname}] Failed to fetch from External API (${externalUrl}):`, error);
     return NextResponse.json({ error: 'Failed to fetch data from external usage API', details: error.message }, { status: 500 });
   }
 }
+
