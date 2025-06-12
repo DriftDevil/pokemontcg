@@ -26,8 +26,7 @@ export async function POST(request: NextRequest) {
     if (!email || !password) {
       return NextResponse.json({ message: 'Email and password are required.', details: 'Missing credentials in request.' }, { status: 400 });
     }
-
-    // Avoid logging the password.
+    
     console.log(`[API Password Login] Attempting password login for email: ${email} to external API: ${currentExternalApiBaseUrl}/auth/local/login`);
 
     const apiResponse = await fetch(`${currentExternalApiBaseUrl}/auth/local/login`, {
@@ -94,42 +93,43 @@ export async function POST(request: NextRequest) {
     }
 
     const isProduction = process.env.NODE_ENV === 'production';
-    const baseCookieOptions: Partial<ResponseCookie> = {
+    const cookieOpts: Partial<ResponseCookie> = {
       httpOnly: true,
       path: '/',
       maxAge: 60 * 60 * 24 * 7, // 7 days
     };
 
     if (isProduction) {
-        baseCookieOptions.secure = true;
-        baseCookieOptions.sameSite = 'lax'; // 'lax' is a good default for production
+        cookieOpts.secure = true;
+        cookieOpts.sameSite = 'lax';
         if (process.env.APP_URL) {
             try {
                 const url = new URL(process.env.APP_URL);
                 if (url.hostname && url.hostname !== 'localhost') {
-                    baseCookieOptions.domain = url.hostname;
+                    cookieOpts.domain = url.hostname;
                 }
             } catch (e) {
                 console.error('[API Password Login] Failed to parse APP_URL for production cookie domain:', e);
             }
         }
     } else {
-        // Development settings for localhost
-        baseCookieOptions.secure = false; 
-        baseCookieOptions.sameSite = 'lax'; // Explicitly 'Lax' for dev too, generally safer
-        // DO NOT set domain for localhost
+        // Development settings for localhost (HTTP)
+        cookieOpts.secure = false; 
+        cookieOpts.sameSite = 'lax'; // Explicitly 'Lax' for dev. Browser default usually works but explicit is safer.
+        // DO NOT set domain for localhost; browser handles it.
     }
     
     const sessionTokenCookie: ResponseCookie = {
         name: 'session_token',
         value: token,
-        ...baseCookieOptions
-    } as ResponseCookie; // Added 'as ResponseCookie' to satisfy stricter type checking if baseCookieOptions is Partial
+        ...cookieOpts
+    } as ResponseCookie;
     
     console.log(`[API Password Login] Setting 'session_token' cookie for email ${email} with options: ${JSON.stringify(sessionTokenCookie)} (isProduction: ${isProduction})`);
     cookies().set(sessionTokenCookie);
 
-    const user = responseData.user || responseData.data;
+    // Return a success message, and optionally the user object and token if needed by client (though token is in cookie)
+    const user = responseData.user || responseData.data; // Accommodate different user object structures
     return NextResponse.json({ message: 'Login successful', user: user, accessToken: token }, { status: 200 });
 
   } catch (error: any) {
@@ -141,3 +141,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Internal server error during login process.', details: errorMessage }, { status: 500 });
   }
 }
+
+    

@@ -38,44 +38,47 @@ export async function GET(request: NextRequest) {
     }
     
     const isProduction = process.env.NODE_ENV === 'production';
-    const baseCookieOpts: Omit<ResponseCookie, 'name' | 'value'> = {
+    const cookieOpts: Partial<ResponseCookie> = {
       httpOnly: true,
       path: '/',
       maxAge: tokenSet.expires_in || 3600, // Use token expiry or default to 1 hour
     };
 
     if (isProduction) {
-        baseCookieOpts.secure = true;
-        baseCookieOpts.sameSite = 'lax';
+        cookieOpts.secure = true;
+        cookieOpts.sameSite = 'lax';
         if (process.env.APP_URL) {
             try {
                 const url = new URL(process.env.APP_URL);
                  if (url.hostname && url.hostname !== 'localhost') {
-                    baseCookieOpts.domain = url.hostname;
+                    cookieOpts.domain = url.hostname;
                 }
             } catch (e) {
                 console.error('[API OIDC Callback] Failed to parse APP_URL for production cookie domain:', e);
             }
         }
     } else {
-        // Development settings for localhost
-        baseCookieOpts.secure = false; 
-        baseCookieOpts.sameSite = 'lax';
+        // Development settings for localhost (HTTP)
+        cookieOpts.secure = false; 
+        cookieOpts.sameSite = 'lax';
         // DO NOT set domain for localhost
     }
     
     const idTokenCookie: ResponseCookie = {
         name: 'id_token',
         value: tokenSet.id_token,
-        ...baseCookieOpts
-    };
+        ...cookieOpts
+    } as ResponseCookie;
+
     const sessionTokenCookie: ResponseCookie = {
         name: 'session_token',
         value: tokenSet.access_token,
-        ...baseCookieOpts
-    };
+        ...cookieOpts
+    } as ResponseCookie;
 
+    console.log(`[API OIDC Callback] Setting 'id_token' cookie with options: ${JSON.stringify(idTokenCookie)}`);
     (await cookies()).set(idTokenCookie);
+    console.log(`[API OIDC Callback] Setting 'session_token' cookie with options: ${JSON.stringify(sessionTokenCookie)}`);
     (await cookies()).set(sessionTokenCookie);
     
     (await cookies()).delete('oidc_code_verifier');
@@ -88,6 +91,7 @@ export async function GET(request: NextRequest) {
     if (error instanceof Error) {
         errorMessage = error.message;
     }
+    // Clear all potentially problematic cookies on error
     (await cookies()).delete('oidc_code_verifier');
     (await cookies()).delete('oidc_nonce');
     (await cookies()).delete('id_token');
@@ -96,3 +100,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMessage)}`, errorRedirectAppUrl));
   }
 }
+
+    

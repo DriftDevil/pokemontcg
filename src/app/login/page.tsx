@@ -52,13 +52,15 @@ export default function LoginPage() {
         description: decodeURIComponent(error),
         variant: "destructive",
       });
+      // Clear the error from the URL
       router.replace('/login', { scroll: false }); 
     }
   }, [searchParams, router, toast]);
 
   const handleOidcLogin = () => {
     setIsSubmittingOidc(true);
-    window.location.assign("/api/auth/login"); // Use full page load for OIDC start
+    // For OIDC, full page redirect is generally required
+    window.location.assign("/api/auth/login"); 
   };
 
   const onPasswordSubmit: SubmitHandler<PasswordLoginInputs> = async (data) => {
@@ -72,12 +74,12 @@ export default function LoginPage() {
 
       const contentType = response.headers.get("content-type");
       if (response.ok && contentType && contentType.includes("application/json")) {
-        const responseData = await response.json(); // Only parse if truly JSON and OK
+        const responseData = await response.json(); 
         if (responseData.message === 'Login successful') {
             toast({ title: "Login Successful", description: "Redirecting to dashboard..." });
-            window.location.assign('/admin/dashboard'); // Full page load for reliable cookie setting
+            // Use router.push for client-side navigation
+            router.push('/admin/dashboard'); 
         } else {
-            // This case might not be hit if !response.ok handles API errors, but good for safety
             toast({ 
               title: responseData.message || "Login Failed", 
               description: responseData.details || "An issue occurred during login.", 
@@ -85,14 +87,13 @@ export default function LoginPage() {
             });
         }
       } else {
-        // Handle non-JSON responses or non-OK responses
         let errorDetails = "An unexpected error occurred. The server might be down or returned an invalid response.";
         try {
           const errorBodyText = await response.text();
           if (contentType && contentType.includes("application/json")) {
-            const parsedError = JSON.parse(errorBodyText); // If server sent JSON error
+            const parsedError = JSON.parse(errorBodyText); 
             errorDetails = parsedError.details || parsedError.message || errorBodyText;
-          } else { // HTML or other non-JSON error
+          } else { 
             console.error("Password login error: Server response was not JSON. Status:", response.status, "Body snippet:", errorBodyText.substring(0, 200));
             errorDetails = `Login failed (Status: ${response.status}). Please check credentials or contact support if the issue persists.`;
             if (errorBodyText.toLowerCase().includes("<!doctype html")) {
@@ -100,7 +101,6 @@ export default function LoginPage() {
             }
           }
         } catch (e) {
-          // Catch error from await response.text() or JSON.parse itself
           console.error("Password login response processing error:", e);
         }
         toast({ 
@@ -113,9 +113,9 @@ export default function LoginPage() {
        toast({ title: "Network Error", description: "Could not connect to the login service. Please check your internet connection and try again.", variant: "destructive" });
        console.error("Password login submit fetch/network error:", error);
     } finally {
-      // Only set to false if not redirecting, though with window.location.assign this might not always run
-      // or its effect might not be visible. If still on login page, means redirect didn't happen.
-      if (window.location.pathname.endsWith('/login')) {
+      // Check if still on login page before setting loading state to false.
+      // If router.push is successful, this component might unmount.
+      if (window.location.pathname === '/login' || window.location.pathname.startsWith('/login?')) {
          setIsSubmittingPassword(false);
       }
     }
@@ -207,3 +207,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    
