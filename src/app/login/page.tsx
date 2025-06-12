@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Gem, LogIn } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -29,7 +29,7 @@ const passwordLoginSchema = z.object({
 
 type PasswordLoginInputs = z.infer<typeof passwordLoginSchema>;
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -52,7 +52,6 @@ export default function LoginPage() {
         description: decodeURIComponent(error),
         variant: "destructive",
       });
-      // Clear the error from URL to prevent re-toast on refresh
       router.replace('/login', { scroll: false }); 
     }
   }, [searchParams, router, toast]);
@@ -69,16 +68,12 @@ export default function LoginPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
-        // No 'redirect: manual' or 'follow'. Let fetch handle it by default.
-        // The API route will now return JSON, not a redirect.
       });
 
       const responseData = await response.json();
 
       if (response.ok && responseData.success) {
         toast({ title: "Login Successful", description: "Redirecting to dashboard..." });
-        // The cookie should have been set by the browser from the API response's Set-Cookie header.
-        // Now, navigate client-side.
         router.push('/admin/dashboard'); 
       } else { 
         const errorDetails = responseData.details || responseData.message || "Login failed. Please check credentials or contact support.";
@@ -87,6 +82,7 @@ export default function LoginPage() {
           description: errorDetails, 
           variant: "destructive" 
         });
+        setIsSubmittingPassword(false);
       }
     } catch (error: any) {
       console.error("Password login submit - raw error object:", error);
@@ -105,12 +101,7 @@ export default function LoginPage() {
       }
       
       toast({ title, description, variant: "destructive" });
-    } finally {
-      // Check if still on login page before setting loading state to false.
-      // If router.push is successful, this component might unmount.
-      if (window.location.pathname === '/login' || window.location.pathname.startsWith('/login?')) {
-         setIsSubmittingPassword(false);
-      }
+      setIsSubmittingPassword(false);
     }
   };
   
@@ -200,4 +191,38 @@ export default function LoginPage() {
     </div>
   );
 }
-    
+
+export default function LoginPage() {
+  const fallbackContent = (
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-background to-secondary/30 p-4">
+      <Card className="w-full max-w-md shadow-2xl">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4">
+            <Gem className="h-16 w-16 text-primary animate-pulse" />
+          </div>
+          <CardTitle className="font-headline text-3xl">Loading Portal...</CardTitle>
+          <CardDescription>
+            Please wait while we prepare the login page.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6 py-12">
+          {/* Minimal skeleton for form inputs */}
+          <div className="h-10 bg-muted rounded animate-pulse w-full"></div>
+          <div className="h-10 bg-muted rounded animate-pulse w-full"></div>
+          <div className="h-10 bg-primary/50 rounded animate-pulse w-full mt-4"></div>
+        </CardContent>
+         <CardFooter className="flex flex-col items-center space-y-2 pt-6">
+            <p className="px-8 text-center text-xs text-muted-foreground h-8">
+              &nbsp; {/* Placeholder for footer text to maintain layout */}
+            </p>
+        </CardFooter>
+      </Card>
+    </div>
+  );
+
+  return (
+    <Suspense fallback={fallbackContent}>
+      <LoginContent />
+    </Suspense>
+  );
+}
