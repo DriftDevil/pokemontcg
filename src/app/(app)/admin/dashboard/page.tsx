@@ -7,9 +7,27 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import type { User as AdminUserPageType } from "@/app/(app)/admin/users/page";
 import { cookies } from 'next/headers';
 import DynamicSetReleaseChartWrapper from "@/components/admin/dashboard/dynamic-set-release-chart-wrapper";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
+
+// User structure based on openapi.yaml User schema
+interface ApiUser {
+  id: string;
+  email?: string;
+  name?: string;
+  preferredUsername?: string;
+  isAdmin?: boolean;
+  createdAt?: string; // ISO date string
+  lastSeen?: string;  // ISO date string
+  // Note: Avatar is not in the API user schema, will use placeholder
+}
+
+interface ApiUserListResponse {
+  data?: ApiUser[];
+  total?: number;
+}
 
 
 function getBaseUrl(): string {
@@ -29,7 +47,7 @@ async function fetchTotalCountFromPaginated(endpoint: string, sessionToken: stri
   const fetchUrl = `${baseUrl}/api/${endpoint}?limit=1`;
 
   console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Base URL: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
-  console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Session token for Authorization header: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
+  // console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Session token for Authorization header: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
   try {
     const fetchHeaders = new Headers();
@@ -124,17 +142,11 @@ async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]>
   }
 }
 
-interface ApiUserListResponse {
-  data?: AdminUserPageType[];
-  total?: number;
-}
-
 
 async function fetchTotalUsersCount(sessionToken: string | undefined): Promise<number> {
   const baseUrl = getBaseUrl();
   const fetchUrl = `${baseUrl}/api/users/all`;
-  console.log(`[AdminDashboardPage - fetchTotalUsersCount] Base URL: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
-  console.log(`[AdminDashboardPage - fetchTotalUsersCount] Session token for Authorization header: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
+  // console.log(`[AdminDashboardPage - fetchTotalUsersCount] Session token for Authorization header: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
   try {
     const fetchHeaders = new Headers();
@@ -170,11 +182,65 @@ async function fetchTotalUsersCount(sessionToken: string | undefined): Promise<n
   }
 }
 
+async function fetchRecentLiveUsers(sessionToken: string | undefined, count: number = 3): Promise<ApiUser[]> {
+  const baseUrl = getBaseUrl();
+  const fetchUrl = `${baseUrl}/api/users/all`;
+  // console.log(`[AdminDashboardPage - fetchRecentLiveUsers] Session token for Authorization header: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
+  
+  try {
+    const fetchHeaders = new Headers();
+    fetchHeaders.append('Content-Type', 'application/json');
+
+    if (sessionToken) {
+      fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
+    } else {
+      console.warn("[AdminDashboardPage - fetchRecentLiveUsers] Session token ABSENT. Cannot set Authorization header for /api/users/all.");
+      return [];
+    }
+
+    const response = await fetch(fetchUrl, {
+      method: 'GET',
+      headers: fetchHeaders,
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      console.error(`[AdminDashboardPage - fetchRecentLiveUsers] Failed to fetch users from ${fetchUrl}: ${response.status}`);
+      const errorBody = await response.text();
+      console.error(`[AdminDashboardPage - fetchRecentLiveUsers] Error body for ${fetchUrl}: ${errorBody}`);
+      return [];
+    }
+    const data: ApiUserListResponse = await response.json();
+    
+    if (!data.data || !Array.isArray(data.data)) {
+      console.error('[AdminDashboardPage - fetchRecentLiveUsers] User data received is not an array or missing:', data);
+      return [];
+    }
+
+    // Sort users: by lastSeen (desc), then by createdAt (desc) as fallback
+    const sortedUsers = data.data.sort((a, b) => {
+      const dateA = a.lastSeen ? new Date(a.lastSeen).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+      const dateB = b.lastSeen ? new Date(b.lastSeen).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+      return dateB - dateA; // Descending order
+    });
+
+    return sortedUsers.slice(0, count);
+
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch failed')) {
+      console.error(`[AdminDashboardPage - fetchRecentLiveUsers] NETWORK ERROR: Fetch failed for ${fetchUrl}.`, error);
+    } else {
+      console.error(`[AdminDashboardPage - fetchRecentLiveUsers] Error fetching users from ${fetchUrl}:`, error);
+    }
+    return [];
+  }
+}
+
+
 async function fetchApiRequests24h(sessionToken: string | undefined): Promise<number> {
   const baseUrl = getBaseUrl();
   const fetchUrl = `${baseUrl}/api/usage`;
-  console.log(`[AdminDashboardPage - fetchApiRequests24h] Base URL: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
-  console.log(`[AdminDashboardPage - fetchApiRequests24h] Session token for Authorization header: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
+  // console.log(`[AdminDashboardPage - fetchApiRequests24h] Session token for Authorization header: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
   try {
     const fetchHeaders = new Headers();
@@ -210,34 +276,32 @@ async function fetchApiRequests24h(sessionToken: string | undefined): Promise<nu
   }
 }
 
-const mockRecentUsers = [
-  { id: 'usr_1', name: 'Satoshi Tajiri', email: 'satoshi@poke.jp', preferredUsername: 'satoshi', isAdmin: true, createdAt: new Date().toISOString(), lastSeen: new Date().toISOString(), avatar: "https://placehold.co/40x40.png?text=ST" },
-  { id: 'usr_2', name: 'Ken Sugimori', email: 'ken@poke.jp', preferredUsername: 'ken', isAdmin: false, createdAt: new Date().toISOString(), lastSeen: new Date().toISOString(), avatar: "https://placehold.co/40x40.png?text=KS"},
-  { id: 'usr_3', name: 'Junichi Masuda', email: 'junichi@poke.jp', preferredUsername: 'junichi', isAdmin: false, createdAt: new Date().toISOString(), lastSeen: new Date().toISOString(), avatar: "https://placehold.co/40x40.png?text=JM"},
-];
-
+const getAvatarFallbackText = (user: ApiUser) => {
+    const name = user.name || user.preferredUsername;
+    if (name) {
+        return name.split(' ').map(n => n[0]).join('').toUpperCase() || (user.email ? user.email[0].toUpperCase() : 'U');
+    }
+    return user.email ? user.email[0].toUpperCase() : 'U';
+}
 
 export default async function AdminDashboardPage() {
-  const cookieStore = await cookies();
-  const allCookies = cookieStore.getAll();
-  console.log('[AdminDashboardPage - Render] All cookies available to Server Component at page top:', JSON.stringify(allCookies, null, 2));
-  
+  const cookieStore = cookies();
   const sessionToken = cookieStore.get('session_token')?.value;
-  console.log(`[AdminDashboardPage - Render] session_token value at page top: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
-
+  // console.log(`[AdminDashboardPage - Render] session_token value at page top: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
   const appUrlIsSet = !!process.env.APP_URL;
-  console.log(`[AdminDashboardPage - Render] APP_URL env var is set: ${appUrlIsSet}, Value: ${process.env.APP_URL}, NODE_ENV: ${process.env.NODE_ENV}`);
+  // console.log(`[AdminDashboardPage - Render] APP_URL env var is set: ${appUrlIsSet}, Value: ${process.env.APP_URL}, NODE_ENV: ${process.env.NODE_ENV}`);
   if (!appUrlIsSet && process.env.NODE_ENV !== 'development') {
       console.error("[AdminDashboardPage - Render] CRITICAL: APP_URL is not set in a non-development environment. Dashboard data fetching will likely fail.");
   }
 
-  const [totalCards, totalSets, setReleaseTimelineData, totalUsers, apiRequests24h] = await Promise.all([
+  const [totalCards, totalSets, setReleaseTimelineData, totalUsers, apiRequests24h, recentUsers] = await Promise.all([
     fetchTotalCountFromPaginated("cards", sessionToken),
     fetchTotalCountFromPaginated("sets", sessionToken),
-    fetchSetReleaseData(), // This one doesn't require auth currently
+    fetchSetReleaseData(), 
     fetchTotalUsersCount(sessionToken),
     fetchApiRequests24h(sessionToken),
+    fetchRecentLiveUsers(sessionToken, 3),
   ]);
 
   const setReleaseChartConfig = {
@@ -315,37 +379,52 @@ export default async function AdminDashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle className="font-headline">Recent Users</CardTitle>
-            <CardDescription>A quick glance at recently active or added users (mock data).</CardDescription>
+            <CardDescription>A quick glance at recently active or added users.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {mockRecentUsers.slice(0,3).map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.name || user.preferredUsername}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.isAdmin ? 'Admin' : 'User'}</TableCell>
-                    <TableCell>
-                       {/* Using a generic status for mock, actual status might not be directly in user object */}
-                      <Badge variant={'default'}
-                             className={cn(
-                                'border bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700'
-                              )}>
-                        Active
-                      </Badge>
-                    </TableCell>
+            {recentUsers.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {recentUsers.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-9 w-9">
+                             <AvatarImage 
+                                src={`https://placehold.co/40x40.png?text=${getAvatarFallbackText(user)}`} // API user has no avatar
+                                alt={user.name || user.preferredUsername || 'User'} 
+                                data-ai-hint="user avatar placeholder"
+                             />
+                            <AvatarFallback>{getAvatarFallbackText(user)}</AvatarFallback>
+                          </Avatar>
+                          <div className="font-medium">{user.name || user.preferredUsername || 'N/A'}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{user.email || 'N/A'}</TableCell>
+                      <TableCell>{user.isAdmin ? 'Admin' : 'User'}</TableCell>
+                      <TableCell>
+                        <Badge variant={'default'}
+                               className={cn(
+                                  'border bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700'
+                                )}>
+                          Active {/* Defaulting to Active as API user doesn't have explicit status */}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <p className="text-sm text-muted-foreground">No recent user data to display or API error.</p>
+            )}
              <div className="mt-4 text-right">
                 <Button variant="outline" asChild>
                     <Link href="/admin/users">Manage All Users</Link>
@@ -357,5 +436,3 @@ export default async function AdminDashboardPage() {
     </>
   );
 }
-
-    
