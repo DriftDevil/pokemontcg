@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+    <meta charset="utf-8">
+    <title>OAuth Redirect</title>
+    <style>
+        body { font-family: sans-serif; margin: 40px; text-align: center; }
+        .loader { border: 5px solid #f3f3f3; border-top: 5px solid #3498db; border-radius: 50%; width: 50px; height: 50px; animation: spin 2s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <h1>Processing OAuth2 redirect...</h1>
+    <div class="loader"></div>
+    <p>Please wait while we complete the authentication process.</p>
+    <script>
+        'use strict';
+        function run() {
+            var oauth2 = window.opener.swaggerUIRedirectOauth2;
+            var sentState = oauth2.state;
+            var redirectUrl = oauth2.redirectUrl;
+            var useCustomQueryParameters = oauth2.useCustomQueryParameters;
+            var isValidState = true; 
+
+            if(typeof oauth2 !== 'object') {
+                document.body.innerHTML = "<h1>Error: Swagger UI OAuth2 state not found.</h1><p>Please ensure you started the OAuth2 flow from the Swagger UI page.</p>";
+                return;
+            }
+
+            var hash = window.location.hash;
+            if (hash) {
+                var params = new URLSearchParams(hash.substring(1)); // Remove #
+                var code = params.get("code");
+                var error = params.get("error");
+                var state = params.get("state");
+
+                if (!state) { // state parameter is REQUIRED in the response
+                    isValidState = false;
+                }
+                if (sentState !== state) { // verify state matches
+                    isValidState = false;
+                }
+                
+                if (!isValidState) {
+                     oauth2.errCb({
+                        authId: oauth2.auth.name,
+                        source: "validation",
+                        level: "error",
+                        message: "State mismatch error. Potential CSRF attack."
+                    });
+                    window.close();
+                    return;
+                }
+
+                if (error) {
+                    oauth2.errCb({
+                        authId: oauth2.auth.name,
+                        source: "auth",
+                        level: "error",
+                        message: error
+                    });
+                    window.close();
+                    return;
+                }
+                
+                if (code) {
+                     oauth2.authActions.authorizeOauth2({auth: oauth2.auth, token: {code: code, state: state}, useCustomQueryParameters: useCustomQueryParameters});
+                     window.close();
+                     return;
+                }
+            }
+            
+            var queryParams = new URLSearchParams(window.location.search);
+            var queryCode = queryParams.get("code");
+            var queryError = queryParams.get("error");
+            var queryState = queryParams.get("state");
+
+            if(!queryState) {
+                isValidState = false;
+            }
+            if(sentState !== queryState) {
+                isValidState = false;
+            }
+
+            if (!isValidState) {
+                oauth2.errCb({
+                    authId: oauth2.auth.name,
+                    source: "validation",
+                    level: "error",
+                    message: "State mismatch error (query). Potential CSRF attack."
+                });
+                window.close();
+                return;
+            }
+
+            if (queryError) {
+                oauth2.errCb({
+                    authId: oauth2.auth.name,
+                    source: "auth",
+                    level: "error",
+                    message: queryError
+                });
+                window.close();
+                return;
+            }
+
+            if (queryCode) {
+                oauth2.authActions.authorizeOauth2({auth: oauth2.auth, token: {code: queryCode, state: queryState}, useCustomQueryParameters: useCustomQueryParameters});
+                window.close();
+                return;
+            }
+
+            oauth2.errCb({
+                authId: oauth2.auth.name,
+                source: "redirect",
+                level: "error",
+                message: "Authorization redirect failed. No code or error found in hash or query parameters."
+            });
+            window.close();
+        }
+
+        if (document.readyState === 'complete') {
+            run();
+        } else {
+            window.onload = run;
+        }
+    </script>
+</body>
+</html>
