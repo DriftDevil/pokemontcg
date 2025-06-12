@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Email and password are required.', details: 'Missing credentials in request.' }, { status: 400 });
     }
     
-    console.log(`[API Password Login] Attempting password login for email: ${email} to external API: ${currentExternalApiBaseUrl}/auth/local/login (Password NOT LOGGED)`);
+    console.log(`[API Password Login] Attempting password login for email: ${email} to external API: ${currentExternalApiBaseUrl}/auth/local/login`);
 
     const apiResponse = await fetch(`${currentExternalApiBaseUrl}/auth/local/login`, {
       method: 'POST',
@@ -74,14 +74,14 @@ export async function POST(request: NextRequest) {
             console.error(`[API Password Login] External API success response for email ${email} was not JSON. Content-Type: ${contentType}. Body: ${responseBodyText.substring(0,500)}...`);
             return NextResponse.json(
                 { message: 'Received invalid data format from authentication service despite success status.', details: 'The authentication service responded successfully but the data was not in the expected JSON format.' },
-                { status: 502 }
+                { status: 502 } // Bad Gateway
             );
         }
     } catch (e: any) {
         console.error(`[API Password Login] Error parsing successful external API response for email ${email} as JSON:`, e.message, `Body: ${responseBodyText.substring(0,500)}...`);
         return NextResponse.json(
             { message: 'Failed to parse response from authentication service.', details: 'The authentication service responded successfully but its data could not be processed.' },
-            { status: 502 }
+            { status: 502 } // Bad Gateway
         );
     }
 
@@ -92,9 +92,9 @@ export async function POST(request: NextRequest) {
     }
 
     const isProduction = process.env.NODE_ENV === 'production';
-    const appUrl = process.env.APP_URL;
-    const isSecureContext = isProduction && appUrl && appUrl.startsWith('https://');
-
+    const currentAppUrl = process.env.APP_URL; 
+    const isSecureContext = isProduction && currentAppUrl && currentAppUrl.startsWith('https://');
+    
     const cookieOpts: Partial<ResponseCookie> = {
       httpOnly: true,
       path: '/',
@@ -103,17 +103,16 @@ export async function POST(request: NextRequest) {
 
     if (isSecureContext) { // Production HTTPS
         cookieOpts.secure = true;
-        cookieOpts.sameSite = 'Lax'; // Lax is generally good for session cookies.
-        const appHostname = new URL(appUrl!).hostname;
-        if (appHostname && appHostname !== 'localhost') {
+        cookieOpts.sameSite = 'Lax'; 
+        const appHostname = new URL(currentAppUrl!).hostname;
+         if (appHostname && appHostname !== 'localhost') { // Don't set domain for localhost
             cookieOpts.domain = appHostname;
         }
     } else { // Development (HTTP) or non-secure production
         cookieOpts.secure = false;
-        // For development on HTTP localhost, omitting SameSite might allow the cookie to be set
-        // where 'Lax' was blocked due to the browser's interpretation of the POST response.
-        // The browser will likely default to 'Lax' if SameSite is omitted.
-        // cookieOpts.sameSite = 'Lax'; // This was being blocked
+        // For non-secure contexts (like http://localhost),
+        // omitting SameSite lets Next.js default to Lax.
+        // The redirect strategy is key to making Lax work here.
     }
     
     const sessionTokenCookie: ResponseCookie = {
@@ -122,11 +121,18 @@ export async function POST(request: NextRequest) {
         ...cookieOpts
     } as ResponseCookie;
     
-    console.log(`[API Password Login] Setting 'session_token' cookie for email ${email} with options: ${JSON.stringify(sessionTokenCookie)} (isSecureContext: ${isSecureContext})`);
-    cookies().set(sessionTokenCookie);
+    console.log(`[API Password Login] Preparing to set 'session_token' cookie for email ${email} with options: ${JSON.stringify(sessionTokenCookie)} (isSecureContext: ${isSecureContext}) and redirect.`);
 
-    const user = responseData.user || responseData.data;
-    return NextResponse.json({ message: 'Login successful', user: user, accessToken: token }, { status: 200 });
+    // Construct the redirect URL using the request's origin to be robust
+    const requestUrl = new URL(request.url);
+    const dashboardRedirectUrl = new URL('/admin/dashboard', requestUrl.origin);
+
+    const redirectResponse = NextResponse.redirect(dashboardRedirectUrl.toString(), 302);
+    // Set the cookie on the redirect response
+    redirectResponse.cookies.set(sessionTokenCookie);
+
+    console.log(`[API Password Login] Successfully processed login for ${email}. Redirecting to ${dashboardRedirectUrl.toString()} and setting cookie.`);
+    return redirectResponse;
 
   } catch (error: any) {
     console.error('[API Password Login] Internal error in POST handler:', error.message, error.stack);

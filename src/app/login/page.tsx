@@ -52,14 +52,12 @@ export default function LoginPage() {
         description: decodeURIComponent(error),
         variant: "destructive",
       });
-      // Clear the error from the URL
       router.replace('/login', { scroll: false }); 
     }
   }, [searchParams, router, toast]);
 
   const handleOidcLogin = () => {
     setIsSubmittingOidc(true);
-    // For OIDC, full page redirect is generally required
     window.location.assign("/api/auth/login"); 
   };
 
@@ -70,24 +68,18 @@ export default function LoginPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
+        // Default redirect: 'follow' is fine. Fetch will follow the 302 from server.
       });
 
-      const contentType = response.headers.get("content-type");
-      if (response.ok && contentType && contentType.includes("application/json")) {
-        const responseData = await response.json(); 
-        if (responseData.message === 'Login successful') {
-            toast({ title: "Login Successful", description: "Redirecting to dashboard..." });
-            // Use router.push for client-side navigation
-            router.push('/admin/dashboard'); 
-        } else {
-            toast({ 
-              title: responseData.message || "Login Failed", 
-              description: responseData.details || "An issue occurred during login.", 
-              variant: "destructive" 
-            });
-        }
-      } else {
-        let errorDetails = "An unexpected error occurred. The server might be down or returned an invalid response.";
+      // If the server responded with a 302 and fetch followed it successfully to the dashboard (which returns 200 OK)
+      if (response.ok && response.url.includes('/admin/dashboard')) {
+        toast({ title: "Login Successful", description: "Redirecting to dashboard..." });
+        // The cookie should have been set by the browser from the 302 response.
+        // Now, ensure the client-side navigation happens.
+        router.push('/admin/dashboard'); 
+      } else if (!response.ok) { // Handle explicit error responses from the API route (e.g., 400, 401, 500)
+        const contentType = response.headers.get("content-type");
+        let errorDetails = "Login failed. Please check credentials or contact support.";
         try {
           const errorBodyText = await response.text();
           if (contentType && contentType.includes("application/json")) {
@@ -95,8 +87,7 @@ export default function LoginPage() {
             errorDetails = parsedError.details || parsedError.message || errorBodyText;
           } else { 
             console.error("Password login error: Server response was not JSON. Status:", response.status, "Body snippet:", errorBodyText.substring(0, 200));
-            errorDetails = `Login failed (Status: ${response.status}). Please check credentials or contact support if the issue persists.`;
-            if (errorBodyText.toLowerCase().includes("<!doctype html")) {
+             if (errorBodyText.toLowerCase().includes("<!doctype html")) {
               errorDetails = `Login service returned an unexpected page. Please try again. (Status: ${response.status})`;
             }
           }
@@ -108,6 +99,10 @@ export default function LoginPage() {
           description: errorDetails, 
           variant: "destructive" 
         });
+      } else {
+        // Response was ok, but didn't redirect to dashboard (unexpected scenario)
+        console.warn("Login response was OK, but final URL was not dashboard:", response.url);
+        toast({ title: "Login Info", description: "Login processed, but an unexpected redirect issue occurred.", variant: "default" });
       }
     } catch (error) {
        toast({ title: "Network Error", description: "Could not connect to the login service. Please check your internet connection and try again.", variant: "destructive" });
@@ -207,5 +202,4 @@ export default function LoginPage() {
     </div>
   );
 }
-
     
