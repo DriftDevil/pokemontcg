@@ -4,7 +4,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import type { ResponseCookie } from 'next/dist/compiled/@edge-runtime/cookies';
 
-// Log the EXTERNAL_API_BASE_URL at module load time to check its availability.
 const MODULE_EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
 if (!MODULE_EXTERNAL_API_BASE_URL) {
   console.error('[API Password Login Module] CRITICAL: EXTERNAL_API_BASE_URL environment variable is not set AT MODULE LOAD. Password login WILL FAIL.');
@@ -27,7 +26,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Email and password are required.', details: 'Missing credentials in request.' }, { status: 400 });
     }
     
-    console.log(`[API Password Login] Attempting password login for email: ${email} to external API: ${currentExternalApiBaseUrl}/auth/local/login`);
+    console.log(`[API Password Login] Attempting password login for email: ${email} to external API: ${currentExternalApiBaseUrl}/auth/local/login (Password NOT LOGGED)`);
 
     const apiResponse = await fetch(`${currentExternalApiBaseUrl}/auth/local/login`, {
       method: 'POST',
@@ -93,30 +92,28 @@ export async function POST(request: NextRequest) {
     }
 
     const isProduction = process.env.NODE_ENV === 'production';
+    const appUrl = process.env.APP_URL;
+    const isSecureContext = isProduction && appUrl && appUrl.startsWith('https://');
+
     const cookieOpts: Partial<ResponseCookie> = {
       httpOnly: true,
       path: '/',
       maxAge: 60 * 60 * 24 * 7, // 7 days
     };
 
-    if (isProduction) {
+    if (isSecureContext) { // Production HTTPS
         cookieOpts.secure = true;
-        cookieOpts.sameSite = 'lax';
-        if (process.env.APP_URL) {
-            try {
-                const url = new URL(process.env.APP_URL);
-                if (url.hostname && url.hostname !== 'localhost') {
-                    cookieOpts.domain = url.hostname;
-                }
-            } catch (e) {
-                console.error('[API Password Login] Failed to parse APP_URL for production cookie domain:', e);
-            }
+        cookieOpts.sameSite = 'Lax'; // Lax is generally good for session cookies.
+        const appHostname = new URL(appUrl!).hostname;
+        if (appHostname && appHostname !== 'localhost') {
+            cookieOpts.domain = appHostname;
         }
-    } else {
-        // Development settings for localhost (HTTP)
-        cookieOpts.secure = false; 
-        cookieOpts.sameSite = 'lax'; // Explicitly 'Lax' for dev. Browser default usually works but explicit is safer.
-        // DO NOT set domain for localhost; browser handles it.
+    } else { // Development (HTTP) or non-secure production
+        cookieOpts.secure = false;
+        // For development on HTTP localhost, omitting SameSite might allow the cookie to be set
+        // where 'Lax' was blocked due to the browser's interpretation of the POST response.
+        // The browser will likely default to 'Lax' if SameSite is omitted.
+        // cookieOpts.sameSite = 'Lax'; // This was being blocked
     }
     
     const sessionTokenCookie: ResponseCookie = {
@@ -125,11 +122,10 @@ export async function POST(request: NextRequest) {
         ...cookieOpts
     } as ResponseCookie;
     
-    console.log(`[API Password Login] Setting 'session_token' cookie for email ${email} with options: ${JSON.stringify(sessionTokenCookie)} (isProduction: ${isProduction})`);
+    console.log(`[API Password Login] Setting 'session_token' cookie for email ${email} with options: ${JSON.stringify(sessionTokenCookie)} (isSecureContext: ${isSecureContext})`);
     cookies().set(sessionTokenCookie);
 
-    // Return a success message, and optionally the user object and token if needed by client (though token is in cookie)
-    const user = responseData.user || responseData.data; // Accommodate different user object structures
+    const user = responseData.user || responseData.data;
     return NextResponse.json({ message: 'Login successful', user: user, accessToken: token }, { status: 200 });
 
   } catch (error: any) {
@@ -141,5 +137,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Internal server error during login process.', details: errorMessage }, { status: 500 });
   }
 }
-
     

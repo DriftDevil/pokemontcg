@@ -38,30 +38,27 @@ export async function GET(request: NextRequest) {
     }
     
     const isProduction = process.env.NODE_ENV === 'production';
+    const currentAppUrl = process.env.APP_URL; // Use a separate var to check if APP_URL is HTTPS
+    const isSecureContext = isProduction && currentAppUrl && currentAppUrl.startsWith('https://');
+    
     const cookieOpts: Partial<ResponseCookie> = {
       httpOnly: true,
       path: '/',
       maxAge: tokenSet.expires_in || 3600, // Use token expiry or default to 1 hour
     };
 
-    if (isProduction) {
+    if (isSecureContext) { // Production HTTPS
         cookieOpts.secure = true;
-        cookieOpts.sameSite = 'lax';
-        if (process.env.APP_URL) {
-            try {
-                const url = new URL(process.env.APP_URL);
-                 if (url.hostname && url.hostname !== 'localhost') {
-                    cookieOpts.domain = url.hostname;
-                }
-            } catch (e) {
-                console.error('[API OIDC Callback] Failed to parse APP_URL for production cookie domain:', e);
-            }
+        cookieOpts.sameSite = 'Lax'; // OIDC callback is a redirect, Lax is usually fine. 'None' could be used if strictly cross-origin.
+        const appHostname = new URL(currentAppUrl!).hostname;
+         if (appHostname && appHostname !== 'localhost') {
+            cookieOpts.domain = appHostname;
         }
-    } else {
-        // Development settings for localhost (HTTP)
-        cookieOpts.secure = false; 
-        cookieOpts.sameSite = 'lax';
-        // DO NOT set domain for localhost
+    } else { // Development (HTTP) or non-secure production
+        cookieOpts.secure = false;
+        // For development on HTTP localhost, omitting SameSite might allow the cookie to be set
+        // where 'Lax' was blocked due to the browser's interpretation.
+        // cookieOpts.sameSite = 'Lax'; 
     }
     
     const idTokenCookie: ResponseCookie = {
@@ -76,9 +73,9 @@ export async function GET(request: NextRequest) {
         ...cookieOpts
     } as ResponseCookie;
 
-    console.log(`[API OIDC Callback] Setting 'id_token' cookie with options: ${JSON.stringify(idTokenCookie)}`);
+    console.log(`[API OIDC Callback] Setting 'id_token' cookie with options: ${JSON.stringify(idTokenCookie)} (isSecureContext: ${isSecureContext})`);
     (await cookies()).set(idTokenCookie);
-    console.log(`[API OIDC Callback] Setting 'session_token' cookie with options: ${JSON.stringify(sessionTokenCookie)}`);
+    console.log(`[API OIDC Callback] Setting 'session_token' cookie with options: ${JSON.stringify(sessionTokenCookie)} (isSecureContext: ${isSecureContext})`);
     (await cookies()).set(sessionTokenCookie);
     
     (await cookies()).delete('oidc_code_verifier');
@@ -91,7 +88,6 @@ export async function GET(request: NextRequest) {
     if (error instanceof Error) {
         errorMessage = error.message;
     }
-    // Clear all potentially problematic cookies on error
     (await cookies()).delete('oidc_code_verifier');
     (await cookies()).delete('oidc_nonce');
     (await cookies()).delete('id_token');
@@ -100,5 +96,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMessage)}`, errorRedirectAppUrl));
   }
 }
-
     
