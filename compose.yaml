@@ -6,11 +6,13 @@ services:
       # If you have build-time ARGs in your Dockerfile that need values from .env:
       # args:
       #   NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL} # Example build-time arg
-
-    ports:
+    container_name: pokemon
+    networks:
+      - huangtechhubnetwork
+    #ports:
       # Map host port 9002 to container port 9002.
       # Change host port (left side) if 9002 is already in use on your host.
-      - "9002:9002"
+      #- "9002:9002"
 
     # Load environment variables from .env file into the container at runtime.
     # These are available to your Next.js app (e.g., process.env.VARIABLE_NAME).
@@ -23,8 +25,14 @@ services:
     # The PORT environment variable tells `next start` which port to listen on inside the container.
     # This must match the EXPOSE directive in Dockerfile and the container port in the 'ports' mapping (right side).
     environment:
-      - PORT=9002
-    # restart: unless-stopped # Optional: for auto-restarting the container
+      PORT: 9002
+    restart: always # Optional: for auto-restarting the container
+    labels:
+      traefik.enable: true
+      traefik.http.routers.pokemon.rule: Host(`pokemon.huangtechhub.dev`)
+      traefik.http.routers.pokemon.entrypoints: websecure
+      traefik.http.services.pokemon.loadBalancer.server.port: 9002
+      #traefik.http.routers.pokemon.middlewares: authentik@file
 
     # --- DEVELOPMENT OVERRIDE (Example - manage via a separate docker-compose.dev.yaml or by uncommenting) ---
     # To use for development with live reload:
@@ -46,3 +54,7 @@ services:
     #   - PORT=9002 # Ensure dev server inside container runs on this port
       # Other dev-specific env vars can go here or in .env
       # Ensure APP_URL in .env is correct for Docker (e.g., http://localhost:9002)
+
+networks:
+  huangtechhubnetwork:
+    external: true
