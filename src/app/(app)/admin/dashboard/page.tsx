@@ -12,37 +12,37 @@ import { cookies } from 'next/headers';
 import DynamicSetReleaseChartWrapper from "@/components/admin/dashboard/dynamic-set-release-chart-wrapper";
 
 
-async function fetchTotalCountFromPaginated(endpoint: string): Promise<number> {
-  const APP_URL_ENV = process.env.APP_URL || "";
-  const baseUrl = APP_URL_ENV || 'http://localhost:' + (process.env.PORT || 9002);
+function getBaseUrl(): string {
+  const appUrlEnv = process.env.APP_URL;
+  if (appUrlEnv) {
+    console.log(`[AdminDashboardPage - getBaseUrl] Using APP_URL from environment: ${appUrlEnv}`);
+    return appUrlEnv;
+  }
+  const port = process.env.PORT || "9003";
+  const defaultUrl = `http://localhost:${port}`;
+  console.log(`[AdminDashboardPage - getBaseUrl] APP_URL not set. Defaulting to: ${defaultUrl} (PORT env: ${process.env.PORT})`);
+  return defaultUrl;
+}
+
+async function fetchTotalCountFromPaginated(endpoint: string, sessionToken: string | undefined): Promise<number> {
+  const baseUrl = getBaseUrl();
   const fetchUrl = `${baseUrl}/api/${endpoint}?limit=1`;
 
-  console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] APP_URL_ENV: '${APP_URL_ENV}', Base URL: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
-
-  if (!APP_URL_ENV && process.env.NODE_ENV === 'development') {
-    console.warn(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] APP_URL_ENV is not defined. Attempting fetch to ${fetchUrl}.`);
-  } else if (!APP_URL_ENV && process.env.NODE_ENV !== 'development') {
-    console.error(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] APP_URL_ENV is not defined. Fetch URL was: ${fetchUrl}. Critical error.`);
-    return 0;
-  }
+  console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Base URL: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
+  console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Session token being used: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
   try {
-    const cookieStore = await cookies();
-    const sessionToken = cookieStore.get('session_token')?.value;
-    console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Token from cookies(): ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
-
     const fetchHeaders = new Headers();
     if (sessionToken) {
       fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
       console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Forwarding token in Authorization header.`);
     } else {
-      console.warn(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Token ABSENT in cookies(). Cannot forward for ${endpoint}. This might lead to 401 if ${endpoint} requires auth.`);
+      console.warn(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Session token ABSENT. Cannot forward for ${endpoint}. This will likely lead to 401 if ${endpoint} requires auth.`);
     }
 
     const response = await fetch(fetchUrl, {
       headers: fetchHeaders,
       cache: 'no-store',
-      credentials: 'omit', 
     });
 
     if (!response.ok) {
@@ -76,17 +76,9 @@ interface PaginatedApiResponse<T> {
 }
 
 async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]> {
-  const APP_URL_ENV = process.env.APP_URL || "";
-  const baseUrl = APP_URL_ENV || 'http://localhost:' + (process.env.PORT || 9002);
+  const baseUrl = getBaseUrl();
   const fetchUrl = `${baseUrl}/api/sets?all=true&orderBy=-releaseDate`;
-  console.log(`[AdminDashboardPage - fetchSetReleaseData] APP_URL_ENV: '${APP_URL_ENV}', Base URL: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
-
-  if (!APP_URL_ENV && process.env.NODE_ENV === 'development') {
-    console.warn(`[AdminDashboardPage - fetchSetReleaseData] APP_URL_ENV is not defined. Attempting fetch to ${fetchUrl}.`);
-  } else if (!APP_URL_ENV && process.env.NODE_ENV !== 'development') {
-    console.error(`[AdminDashboardPage - fetchSetReleaseData] APP_URL_ENV is not defined. Fetch URL was: ${fetchUrl}. Critical error.`);
-    return [];
-  }
+  console.log(`[AdminDashboardPage - fetchSetReleaseData] Base URL: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
 
   try {
     const response = await fetch(fetchUrl, { cache: 'no-store' });
@@ -139,24 +131,13 @@ interface ApiUserListResponse {
 }
 
 
-async function fetchTotalUsersCount(): Promise<number> {
-  const APP_URL_ENV = process.env.APP_URL || "";
-  const baseUrl = APP_URL_ENV || 'http://localhost:' + (process.env.PORT || 9002);
+async function fetchTotalUsersCount(sessionToken: string | undefined): Promise<number> {
+  const baseUrl = getBaseUrl();
   const fetchUrl = `${baseUrl}/api/users/all`;
-  console.log(`[AdminDashboardPage - fetchTotalUsersCount] APP_URL_ENV: '${APP_URL_ENV}', Base URL: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
-
-  if (!APP_URL_ENV && process.env.NODE_ENV === 'development') {
-    console.warn(`[AdminDashboardPage - fetchTotalUsersCount] APP_URL_ENV is not defined. Attempting fetch to ${fetchUrl}.`);
-  } else if (!APP_URL_ENV && process.env.NODE_ENV !== 'development') {
-    console.error(`[AdminDashboardPage - fetchTotalUsersCount] APP_URL_ENV is not defined. Fetch URL was: ${fetchUrl}. Critical error.`);
-    return 0;
-  }
+  console.log(`[AdminDashboardPage - fetchTotalUsersCount] Base URL: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
+  console.log(`[AdminDashboardPage - fetchTotalUsersCount] Session token being used: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
   try {
-    const cookieStore = await cookies();
-    const sessionToken = cookieStore.get('session_token')?.value;
-    console.log(`[AdminDashboardPage - fetchTotalUsersCount] Token from cookies(): ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
-
     const fetchHeaders = new Headers();
     fetchHeaders.append('Content-Type', 'application/json');
 
@@ -164,14 +145,13 @@ async function fetchTotalUsersCount(): Promise<number> {
       fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
       console.log(`[AdminDashboardPage - fetchTotalUsersCount] Forwarding token in Authorization header for /api/users/all.`);
     } else {
-      console.warn("[AdminDashboardPage - fetchTotalUsersCount] Token ABSENT in cookies(). Cannot forward to /api/users/all. This might lead to 401.");
+      console.warn("[AdminDashboardPage - fetchTotalUsersCount] Session token ABSENT. Cannot forward to /api/users/all. This will likely lead to 401.");
     }
 
     const response = await fetch(fetchUrl, {
       method: 'GET',
       headers: fetchHeaders,
       cache: 'no-store',
-      credentials: 'omit',
     });
 
     if (!response.ok) {
@@ -192,24 +172,13 @@ async function fetchTotalUsersCount(): Promise<number> {
   }
 }
 
-async function fetchApiRequests24h(): Promise<number> {
-  const APP_URL_ENV = process.env.APP_URL || "";
-  const baseUrl = APP_URL_ENV || 'http://localhost:' + (process.env.PORT || 9002);
+async function fetchApiRequests24h(sessionToken: string | undefined): Promise<number> {
+  const baseUrl = getBaseUrl();
   const fetchUrl = `${baseUrl}/api/usage`;
-  console.log(`[AdminDashboardPage - fetchApiRequests24h] APP_URL_ENV: '${APP_URL_ENV}', Base URL: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
-
-  if (!APP_URL_ENV && process.env.NODE_ENV === 'development') {
-    console.warn(`[AdminDashboardPage - fetchApiRequests24h] APP_URL_ENV is not defined. Attempting fetch to ${fetchUrl}.`);
-  } else if (!APP_URL_ENV && process.env.NODE_ENV !== 'development') {
-     console.error(`[AdminDashboardPage - fetchApiRequests24h] APP_URL_ENV is not defined. Fetch URL was ${fetchUrl}. Critical error.`);
-     return 0;
-  }
+  console.log(`[AdminDashboardPage - fetchApiRequests24h] Base URL: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
+  console.log(`[AdminDashboardPage - fetchApiRequests24h] Session token being used: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
   try {
-    const cookieStore = await cookies();
-    const sessionToken = cookieStore.get('session_token')?.value;
-    console.log(`[AdminDashboardPage - fetchApiRequests24h] Token from cookies(): ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
-
     const fetchHeaders = new Headers();
     fetchHeaders.append('Content-Type', 'application/json');
 
@@ -217,14 +186,13 @@ async function fetchApiRequests24h(): Promise<number> {
       fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
       console.log(`[AdminDashboardPage - fetchApiRequests24h] Forwarding token in Authorization header for /api/usage.`);
     } else {
-      console.warn("[AdminDashboardPage - fetchApiRequests24h] Token ABSENT in cookies(). Cannot forward to /api/usage. This might lead to 401.");
+      console.warn("[AdminDashboardPage - fetchApiRequests24h] Session token ABSENT. Cannot forward to /api/usage. This will likely lead to 401.");
     }
 
     const response = await fetch(fetchUrl, {
       method: 'GET',
       headers: fetchHeaders,
       cache: 'no-store',
-      credentials: 'omit',
     });
 
     if (!response.ok) {
@@ -253,24 +221,26 @@ const mockRecentUsers = [
 
 
 export default async function AdminDashboardPage() {
-  const serverCookies = (await cookies()).getAll();
-  console.log('[AdminDashboardPage - Render] All cookies available to Server Component at page top:', JSON.stringify(serverCookies, null, 2));
-  const topLevelSessionToken = (await cookies()).get('session_token')?.value;
-  console.log(`[AdminDashboardPage - Render] session_token value at page top: ${topLevelSessionToken ? 'PRESENT' : 'ABSENT'}`);
+  const cookieStore = await cookies();
+  const allCookies = cookieStore.getAll();
+  console.log('[AdminDashboardPage - Render] All cookies available to Server Component at page top:', JSON.stringify(allCookies, null, 2));
+  
+  const sessionToken = cookieStore.get('session_token')?.value;
+  console.log(`[AdminDashboardPage - Render] session_token value at page top: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
 
   const appUrlIsSet = !!process.env.APP_URL;
-  console.log(`[AdminDashboardPage - Render] APP_URL env var is set: ${appUrlIsSet}, NODE_ENV: ${process.env.NODE_ENV}`);
+  console.log(`[AdminDashboardPage - Render] APP_URL env var is set: ${appUrlIsSet}, Value: ${process.env.APP_URL}, NODE_ENV: ${process.env.NODE_ENV}`);
   if (!appUrlIsSet && process.env.NODE_ENV !== 'development') {
       console.error("[AdminDashboardPage - Render] CRITICAL: APP_URL is not set in a non-development environment. Dashboard data fetching will likely fail.");
   }
 
   const [totalCards, totalSets, setReleaseTimelineData, totalUsers, apiRequests24h] = await Promise.all([
-    fetchTotalCountFromPaginated("cards"),
-    fetchTotalCountFromPaginated("sets"),
-    fetchSetReleaseData(),
-    fetchTotalUsersCount(),
-    fetchApiRequests24h(),
+    fetchTotalCountFromPaginated("cards", sessionToken),
+    fetchTotalCountFromPaginated("sets", sessionToken),
+    fetchSetReleaseData(), // This one doesn't require auth currently
+    fetchTotalUsersCount(sessionToken),
+    fetchApiRequests24h(sessionToken),
   ]);
 
   const setReleaseChartConfig = {
@@ -306,7 +276,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalCards.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">{(appUrlIsSet && totalCards > 0) || (process.env.NODE_ENV === 'development' && totalCards > 0) ? "Live data (via internal API)" : "No data / API error"}</p>
+            <p className="text-xs text-muted-foreground">{ (appUrlIsSet && totalCards >= 0) || (process.env.NODE_ENV === 'development' && totalCards >=0) ? "Live data (via internal API)" : "No data / API error"}</p>
           </CardContent>
         </Card>
         <Card>
@@ -316,7 +286,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalSets.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">{(appUrlIsSet && totalSets > 0) || (process.env.NODE_ENV === 'development' && totalSets > 0) ? "Live data (via internal API)" : "No data / API error"}</p>
+            <p className="text-xs text-muted-foreground">{ (appUrlIsSet && totalSets >= 0) || (process.env.NODE_ENV === 'development' && totalSets >=0) ? "Live data (via internal API)" : "No data / API error"}</p>
           </CardContent>
         </Card>
         <Card>
@@ -390,3 +360,5 @@ export default async function AdminDashboardPage() {
     </>
   );
 }
+
+    
