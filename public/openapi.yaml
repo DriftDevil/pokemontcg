@@ -1,4 +1,3 @@
-
 openapi: 3.1.0
 info:
   title: Pokémon TCG API
@@ -19,8 +18,6 @@ tags:
     description: Authentication endpoints
   - name: System
     description: System health and version information
-
-# Global security has been removed. Security is now defined per-path.
 
 paths:
   /v2/sets:
@@ -194,13 +191,8 @@ paths:
               schema:
                 type: object
                 properties:
-                  accessToken:
+                  accessToken: # Changed from 'token' to 'accessToken'
                     type: string
-                  email:
-                    type: string
-                  type:
-                    type: string
-                    example: Bearer
   /auth/local/set-password:
     post:
       summary: Set user password
@@ -255,7 +247,7 @@ paths:
             - openid
       responses:
         "200":
-          description: Synced user
+          description: Synced user # Consider adding a response schema if a user object is returned
   /user/cards/add:
     post:
       summary: Add a card to user collection
@@ -342,9 +334,6 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/User'
-                  total:
-                    type: integer
-                    description: Total number of users found.
   /usage:
     get:
       summary: Get API usage metrics (admin only)
@@ -359,7 +348,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiUsageMetrics'
+                type: object
+                properties:
+                  api_requests_24h:
+                    type: integer
+                  totalUsers:
+                    type: integer
   /version:
     get:
       summary: API version
@@ -433,10 +427,8 @@ components:
           type: boolean
         createdAt:
           type: string
-          format: date-time
         lastSeen:
           type: string
-          format: date-time
 
     UserWithAuthSource:
       type: object
@@ -556,47 +548,5 @@ components:
           type: integer
         version:
           type: string
-
-    EndpointUsage:
-      type: object
-      description: Usage statistics for a specific API endpoint.
-      properties:
-        path:
-          type: string
-          description: The API path.
-          example: /v2/sets
-        method:
-          type: string
-          description: The HTTP method.
-          example: GET
-        statusCode:
-          type: integer
-          description: The HTTP status code of the response.
-          example: 200
-        count:
-          type: integer
-          description: Number of times this endpoint was called.
-          example: 72
-        lastSeen:
-          type: string
-          format: date-time
-          description: The last time this endpoint was called.
-          example: "2025-06-10T13:37:17.783937Z"
-
-    ApiUsageMetrics:
-      type: object
-      description: Overall API usage metrics.
-      properties:
-        requestCountLast24h:
-          type: integer
-          description: Total number of API requests in the last 24 hours.
-        totalUsers:
-          type: integer
-          description: Total number of registered users.
-        topEndpoints:
-          type: array
-          items:
-            $ref: '#/components/schemas/EndpointUsage'
-          description: List of most frequently accessed endpoints.
 
     
