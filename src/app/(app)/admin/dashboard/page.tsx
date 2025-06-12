@@ -33,12 +33,19 @@ interface ApiUserListResponse {
 function getBaseUrl(): string {
   const appUrlEnv = process.env.APP_URL;
   if (appUrlEnv) {
-    console.log(`[AdminDashboardPage - getBaseUrl] Using APP_URL from environment: ${appUrlEnv}`);
-    return appUrlEnv;
+    try {
+      const parsedAppUrl = new URL(appUrlEnv);
+      const origin = parsedAppUrl.origin;
+      console.log(`[AdminDashboardPage - getBaseUrl] Using APP_URL from environment: ${appUrlEnv}. Derived origin for API calls: ${origin}`);
+      return origin;
+    } catch (error) {
+      console.error(`[AdminDashboardPage - getBaseUrl] Invalid APP_URL: ${appUrlEnv}. Error: ${error}. Falling back to localhost.`);
+      // Fallback to localhost if APP_URL is invalid
+    }
   }
   const port = process.env.PORT || "9002";
   const defaultUrl = `http://localhost:${port}`;
-  console.log(`[AdminDashboardPage - getBaseUrl] APP_URL not set. Defaulting to: ${defaultUrl} (PORT env: ${process.env.PORT})`);
+  console.log(`[AdminDashboardPage - getBaseUrl] APP_URL not set or invalid. Defaulting to: ${defaultUrl} (PORT env: ${process.env.PORT})`);
   return defaultUrl;
 }
 
@@ -46,7 +53,7 @@ async function fetchTotalCountFromPaginated(endpoint: string, sessionToken: stri
   const baseUrl = getBaseUrl();
   const fetchUrl = `${baseUrl}/api/${endpoint}?limit=1`;
 
-  console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Base URL: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
+  console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Base URL for internal API: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
   // console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Session token for Authorization header: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
   try {
@@ -95,7 +102,7 @@ interface PaginatedApiResponse<T> {
 async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]> {
   const baseUrl = getBaseUrl();
   const fetchUrl = `${baseUrl}/api/sets?all=true&orderBy=-releaseDate`;
-  console.log(`[AdminDashboardPage - fetchSetReleaseData] Base URL: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
+  console.log(`[AdminDashboardPage - fetchSetReleaseData] Base URL for internal API: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
 
   try {
     const response = await fetch(fetchUrl, { cache: 'no-store' });
@@ -292,7 +299,7 @@ export default async function AdminDashboardPage() {
   const appUrlIsSet = !!process.env.APP_URL;
   // console.log(`[AdminDashboardPage - Render] APP_URL env var is set: ${appUrlIsSet}, Value: ${process.env.APP_URL}, NODE_ENV: ${process.env.NODE_ENV}`);
   if (!appUrlIsSet && process.env.NODE_ENV !== 'development') {
-      console.error("[AdminDashboardPage - Render] CRITICAL: APP_URL is not set in a non-development environment. Dashboard data fetching will likely fail.");
+      console.warn("[AdminDashboardPage - Render] WARNING: APP_URL is not set in a non-development environment. Dashboard data fetching may rely on localhost defaults or fail if external access is needed for internal API calls.");
   }
 
   const [totalCards, totalSets, setReleaseTimelineData, totalUsers, apiRequests24h, recentUsers] = await Promise.all([
@@ -436,3 +443,4 @@ export default async function AdminDashboardPage() {
     </>
   );
 }
+
