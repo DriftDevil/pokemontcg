@@ -11,25 +11,23 @@ export async function GET() {
     const code_verifier = generators.codeVerifier();
     const code_challenge = generators.codeChallenge(code_verifier);
     const nonce = generators.nonce();
+    const state = generators.state(); // Generate state
 
     const appUrl = process.env.APP_URL || 'http://localhost:9002';
     const redirect_uri = `${appUrl}/api/auth/callback`;
 
-    (await cookies()).set('oidc_code_verifier', code_verifier, {
+    const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV === 'production' && appUrl.startsWith('https://'),
       path: '/',
-      sameSite: 'lax',
+      sameSite: (process.env.NODE_ENV === 'production' && appUrl.startsWith('https://')) ? 'lax' : undefined as 'lax' | 'strict' | 'none' | undefined,
       maxAge: 60 * 15, // 15 minutes
-    });
+    };
 
-    (await cookies()).set('oidc_nonce', nonce, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        path: '/',
-        sameSite: 'lax',
-        maxAge: 60 * 15, // 15 minutes
-    });
+    const cookieStore = cookies();
+    cookieStore.set('oidc_code_verifier', code_verifier, cookieOptions);
+    cookieStore.set('oidc_nonce', nonce, cookieOptions);
+    cookieStore.set('oidc_state', state, cookieOptions); // Store state in cookie
 
     const authorizationUrl = client.authorizationUrl({
       scope: 'openid email profile',
@@ -37,11 +35,17 @@ export async function GET() {
       code_challenge,
       code_challenge_method: 'S256',
       nonce,
+      state, // Pass state to authorization URL
     });
 
     return NextResponse.redirect(authorizationUrl);
   } catch (error) {
     console.error('Login route error:', error);
-    return NextResponse.json({ error: 'OIDC login initiation failed' }, { status: 500 });
+    let errorMessage = 'OIDC login initiation failed.';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    const errorRedirectAppUrl = process.env.APP_URL || 'http://localhost:9002';
+    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMessage)}`, errorRedirectAppUrl));
   }
 }

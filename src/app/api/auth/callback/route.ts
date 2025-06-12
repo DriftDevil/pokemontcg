@@ -10,14 +10,19 @@ export async function GET(request: NextRequest) {
     const client = await getOidcClient();
     const searchParams = request.nextUrl.searchParams;
     
-    const code_verifier = (await cookies()).get('oidc_code_verifier')?.value;
-    const nonce = (await cookies()).get('oidc_nonce')?.value;
+    const cookieStore = cookies();
+    const code_verifier = cookieStore.get('oidc_code_verifier')?.value;
+    const nonce = cookieStore.get('oidc_nonce')?.value;
+    const state = cookieStore.get('oidc_state')?.value; // Retrieve state from cookie
 
     if (!code_verifier) {
       throw new Error('Missing code_verifier cookie');
     }
     if (!nonce) {
         throw new Error('Missing nonce cookie');
+    }
+    if (!state) {
+        throw new Error('Missing state cookie');
     }
 
     const appUrl = process.env.APP_URL || 'http://localhost:9002';
@@ -28,6 +33,7 @@ export async function GET(request: NextRequest) {
     const tokenSet = await client.callback(redirect_uri, params, { 
       code_verifier,
       nonce,
+      state, // Pass retrieved state for verification
     });
 
     if (!tokenSet.id_token) {
@@ -41,44 +47,44 @@ export async function GET(request: NextRequest) {
     const isProduction = process.env.NODE_ENV === 'production';
     const isSecureContext = isProduction && currentAppUrl.startsWith('https://');
     
-    const cookieOpts: Partial<ResponseCookie> = {
+    const baseCookieOpts: Partial<ResponseCookie> = {
       httpOnly: true,
       path: '/',
       maxAge: tokenSet.expires_in || 3600, // Use token expiry or default to 1 hour
     };
 
     if (isSecureContext) { // Production HTTPS
-        cookieOpts.secure = true;
-        cookieOpts.sameSite = 'lax'; // Corrected: "Lax" to "lax"
-        // For production on a single hostname, explicitly setting domain is usually not needed,
-        // and omitting it makes the cookie a "host-only" cookie.
-    } else { // Development (HTTP) or non-secure production (like http://localhost)
-        cookieOpts.secure = false;
-        // For localhost HTTP, omit SameSite attribute. Next.js defaults to 'Lax',
-        // but omitting can sometimes bypass browser blocking issues if the default 'Lax'
-        // is problematic for POST + fetch.
-        // If we were to set it explicitly, it would be 'lax'.
+        baseCookieOpts.secure = true;
+        baseCookieOpts.sameSite = 'lax';
+    } else { // Development (HTTP) or non-secure production
+        baseCookieOpts.secure = false;
+        // For localhost HTTP, omitting SameSite (which means browser defaults to Lax)
+        // or explicitly setting to 'lax' if Next.js doesn't default.
+        // If Next.js defaults to Lax, explicitly setting 'undefined' might be needed if 'Lax' is still blocked by browser for POST->fetch.
+        // Given the previous issues with POST and SameSite=Lax, let's try omitting it for non-secure contexts explicitly.
+        baseCookieOpts.sameSite = undefined;
     }
     
     const idTokenCookie: ResponseCookie = {
         name: 'id_token',
         value: tokenSet.id_token,
-        ...cookieOpts
+        ...baseCookieOpts
     } as ResponseCookie;
 
     const sessionTokenCookie: ResponseCookie = {
         name: 'session_token',
         value: tokenSet.access_token,
-        ...cookieOpts
+        ...baseCookieOpts
     } as ResponseCookie;
 
     console.log(`[API OIDC Callback] Setting 'id_token' cookie with options: ${JSON.stringify(idTokenCookie)} (isSecureContext: ${isSecureContext})`);
-    (await cookies()).set(idTokenCookie);
+    cookieStore.set(idTokenCookie);
     console.log(`[API OIDC Callback] Setting 'session_token' cookie with options: ${JSON.stringify(sessionTokenCookie)} (isSecureContext: ${isSecureContext})`);
-    (await cookies()).set(sessionTokenCookie);
+    cookieStore.set(sessionTokenCookie);
     
-    (await cookies()).delete('oidc_code_verifier');
-    (await cookies()).delete('oidc_nonce');
+    cookieStore.delete('oidc_code_verifier');
+    cookieStore.delete('oidc_nonce');
+    cookieStore.delete('oidc_state'); // Delete state cookie
 
     return NextResponse.redirect(new URL('/admin/dashboard', appUrl));
   } catch (error) {
@@ -87,12 +93,13 @@ export async function GET(request: NextRequest) {
     if (error instanceof Error) {
         errorMessage = error.message;
     }
-    (await cookies()).delete('oidc_code_verifier');
-    (await cookies()).delete('oidc_nonce');
-    (await cookies()).delete('id_token');
-    (await cookies()).delete('session_token');
+    const cookieStore = cookies();
+    cookieStore.delete('oidc_code_verifier');
+    cookieStore.delete('oidc_nonce');
+    cookieStore.delete('oidc_state');
+    cookieStore.delete('id_token');
+    cookieStore.delete('session_token');
     const errorRedirectAppUrl = process.env.APP_URL || 'http://localhost:9002';
     return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMessage)}`, errorRedirectAppUrl));
   }
 }
-    
