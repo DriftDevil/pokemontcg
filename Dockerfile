@@ -1,54 +1,47 @@
-# Stage 1: Build the application
-FROM node:20 AS builder
-
+# Dockerfile
+# Stage 1: Builder
+FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Copy package.json and package-lock.json
-COPY package.json package-lock.json* ./
-
-# Install dependencies
-RUN npm install
+# Copy package files and install dependencies
+COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
+RUN if [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
+    elif [ -f package-lock.json ]; then npm ci; \
+    elif [ -f pnpm-lock.yaml ]; then yarn global add pnpm && pnpm i --frozen-lockfile; \
+    else echo "Lockfile not found." && exit 1; fi
 
 # Copy the rest of the application code
-# Ensure all necessary files for the build are copied
+# This will copy public/openapi.yaml to /app/public/openapi.yaml
+# It will NOT copy a root openapi.yaml to /app/openapi.yaml if it doesn't exist in the build context root
 COPY . .
 
 # Build the Next.js application
-# Runtime environment variables (like API keys or APP_URL for runtime use)
-# should be provided when running the container, not necessarily at build time,
-# unless they are needed to bake values into the static build (e.g., via NEXT_PUBLIC_).
 RUN npm run build
 
-# Stage 2: Production image
-FROM node:20-alpine
-
+# Stage 2: Production
+FROM node:20-alpine AS production
 WORKDIR /app
 
 ENV NODE_ENV production
+ENV PORT 9002
 
 # Create a non-root user and group
-RUN addgroup --system nextjs && adduser --system --ingroup nextjs nextjs
+RUN addgroup -S nextjs && adduser -S nextjs -G nextjs
 
-# Copy package.json and package-lock.json (or yarn.lock if used) from builder
-COPY --from=builder /app/package.json /app/package-lock.json* ./
-
-# Install production dependencies
-RUN npm install --omit=dev
-
-# Copy built assets from the builder stage
-COPY --from=builder --chown=nextjs:nextjs /app/.next ./.next
+# Copy necessary files from the builder stage
+# /app/public in builder (which contains openapi.yaml) is copied to ./public in production
 COPY --from=builder --chown=nextjs:nextjs /app/public ./public
+COPY --from=builder --chown=nextjs:nextjs /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/next.config.ts ./next.config.ts
-COPY --from=builder /app/openapi.yaml ./openapi.yaml
+# The following line is removed as /app/openapi.yaml does not exist in the builder stage's root
+# if openapi.yaml was removed from the project root.
+# The openapi.yaml file is correctly served from the ./public directory.
 
-# Change ownership of the app directory to the non-root user
+# Set the user for the production image
 USER nextjs
 
-# Expose the port the app runs on.
-# The PORT environment variable will be used by `next start`.
-# Defaulting to 9002 as per your current setup for consistency.
-EXPOSE 9002
+EXPOSE ${PORT}
 
-# Start the Next.js application in production mode.
-# `next start` respects the PORT environment variable.
 CMD ["npm", "start"]
