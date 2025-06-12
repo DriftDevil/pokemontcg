@@ -18,7 +18,7 @@ function getBaseUrl(): string {
     console.log(`[AdminDashboardPage - getBaseUrl] Using APP_URL from environment: ${appUrlEnv}`);
     return appUrlEnv;
   }
-  const port = process.env.PORT || "9003";
+  const port = process.env.PORT || "9002";
   const defaultUrl = `http://localhost:${port}`;
   console.log(`[AdminDashboardPage - getBaseUrl] APP_URL not set. Defaulting to: ${defaultUrl} (PORT env: ${process.env.PORT})`);
   return defaultUrl;
