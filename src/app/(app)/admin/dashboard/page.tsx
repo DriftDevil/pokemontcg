@@ -29,15 +29,14 @@ async function fetchTotalCountFromPaginated(endpoint: string, sessionToken: stri
   const fetchUrl = `${baseUrl}/api/${endpoint}?limit=1`;
 
   console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Base URL: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
-  console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Session token being used: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
+  console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Session token for Authorization header: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
   try {
     const fetchHeaders = new Headers();
     if (sessionToken) {
       fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
-      console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Forwarding token in Authorization header.`);
     } else {
-      console.warn(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Session token ABSENT. Cannot forward for ${endpoint}. This will likely lead to 401 if ${endpoint} requires auth.`);
+      console.warn(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Session token ABSENT. Cannot set Authorization header for ${endpoint}.`);
     }
 
     const response = await fetch(fetchUrl, {
@@ -135,7 +134,7 @@ async function fetchTotalUsersCount(sessionToken: string | undefined): Promise<n
   const baseUrl = getBaseUrl();
   const fetchUrl = `${baseUrl}/api/users/all`;
   console.log(`[AdminDashboardPage - fetchTotalUsersCount] Base URL: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
-  console.log(`[AdminDashboardPage - fetchTotalUsersCount] Session token being used: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
+  console.log(`[AdminDashboardPage - fetchTotalUsersCount] Session token for Authorization header: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
   try {
     const fetchHeaders = new Headers();
@@ -143,9 +142,8 @@ async function fetchTotalUsersCount(sessionToken: string | undefined): Promise<n
 
     if (sessionToken) {
       fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
-      console.log(`[AdminDashboardPage - fetchTotalUsersCount] Forwarding token in Authorization header for /api/users/all.`);
     } else {
-      console.warn("[AdminDashboardPage - fetchTotalUsersCount] Session token ABSENT. Cannot forward to /api/users/all. This will likely lead to 401.");
+      console.warn("[AdminDashboardPage - fetchTotalUsersCount] Session token ABSENT. Cannot set Authorization header for /api/users/all.");
     }
 
     const response = await fetch(fetchUrl, {
@@ -176,7 +174,7 @@ async function fetchApiRequests24h(sessionToken: string | undefined): Promise<nu
   const baseUrl = getBaseUrl();
   const fetchUrl = `${baseUrl}/api/usage`;
   console.log(`[AdminDashboardPage - fetchApiRequests24h] Base URL: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
-  console.log(`[AdminDashboardPage - fetchApiRequests24h] Session token being used: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
+  console.log(`[AdminDashboardPage - fetchApiRequests24h] Session token for Authorization header: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
   try {
     const fetchHeaders = new Headers();
@@ -184,9 +182,8 @@ async function fetchApiRequests24h(sessionToken: string | undefined): Promise<nu
 
     if (sessionToken) {
       fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
-      console.log(`[AdminDashboardPage - fetchApiRequests24h] Forwarding token in Authorization header for /api/usage.`);
     } else {
-      console.warn("[AdminDashboardPage - fetchApiRequests24h] Session token ABSENT. Cannot forward to /api/usage. This will likely lead to 401.");
+      console.warn("[AdminDashboardPage - fetchApiRequests24h] Session token ABSENT. Cannot set Authorization header for /api/usage.");
     }
 
     const response = await fetch(fetchUrl, {

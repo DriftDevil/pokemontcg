@@ -42,11 +42,11 @@ export async function GET(request: NextRequest) {
       httpOnly: true,
       path: '/',
       maxAge: tokenSet.expires_in || 3600, // Use token expiry or default to 1 hour
-      secure: isProduction,
     };
 
     if (isProduction) {
-        baseCookieOptions.sameSite = 'lax'; // Or 'strict'
+        baseCookieOptions.secure = true;
+        baseCookieOptions.sameSite = 'lax';
         if (process.env.APP_URL) {
             try {
                 const url = new URL(process.env.APP_URL);
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
         }
     } else {
         // Development settings for localhost
-        // Explicitly omitting sameSite for localhost, secure is false by default via isProduction
+        baseCookieOptions.secure = false; 
     }
     
     const idTokenCookieOptions = { ...baseCookieOptions };
@@ -80,6 +80,7 @@ export async function GET(request: NextRequest) {
     (await cookies()).delete('oidc_nonce');
     (await cookies()).delete('id_token');
     (await cookies()).delete('session_token');
-    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMessage)}`, process.env.APP_URL || 'http://localhost:9002'));
+    const errorRedirectAppUrl = process.env.APP_URL || 'http://localhost:9002';
+    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMessage)}`, errorRedirectAppUrl));
   }
 }
