@@ -74,14 +74,14 @@ export async function POST(request: NextRequest) {
             console.error(`[API Password Login] External API success response for email ${email} was not JSON. Content-Type: ${contentType}. Body: ${responseBodyText.substring(0,500)}...`);
             return NextResponse.json(
                 { success: false, message: 'Received invalid data format from authentication service despite success status.', details: 'The authentication service responded successfully but the data was not in the expected JSON format.' },
-                { status: 502 } // Bad Gateway
+                { status: 502 } 
             );
         }
     } catch (e: any) {
         console.error(`[API Password Login] Error parsing successful external API response for email ${email} as JSON:`, e.message, `Body: ${responseBodyText.substring(0,500)}...`);
         return NextResponse.json(
             { success: false, message: 'Failed to parse response from authentication service.', details: 'The authentication service responded successfully but its data could not be processed.' },
-            { status: 502 } // Bad Gateway
+            { status: 502 } 
         );
     }
 
@@ -92,34 +92,50 @@ export async function POST(request: NextRequest) {
     }
 
     const currentAppUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || '9002'}`;
-    const isProduction = process.env.NODE_ENV === 'production';
-    const isSecureContext = isProduction && currentAppUrl.startsWith('https://');
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const appUrlIsHttps = currentAppUrl.startsWith('https://');
     
-    const cookieOpts: Partial<ResponseCookie> = {
+    let cookieSecure: boolean;
+    let cookieSameSite: 'lax' | 'none' | 'strict' | undefined;
+
+    if (isDevelopment) {
+        cookieSecure = true; // Must be true for SameSite=None
+        cookieSameSite = 'none';
+        if (!appUrlIsHttps) {
+            console.warn(
+                `[API Password Login] WARNING: Cookie 'session_token' configured with SameSite=None and Secure=true for development, but APP_URL (${currentAppUrl}) is not HTTPS. ` +
+                "This cookie may be rejected by the browser. Ensure your development setup uses HTTPS."
+            );
+        }
+    } else { // Production or other environments
+        if (appUrlIsHttps) {
+            cookieSecure = true;
+            cookieSameSite = 'lax';
+        } else {
+            cookieSecure = false;
+            cookieSameSite = 'lax';
+            console.warn(
+                `[API Password Login] WARNING: APP_URL (${currentAppUrl}) is not HTTPS in a non-development environment. ` +
+                "Cookie 'session_token' will be sent with Secure=false and SameSite=lax."
+            );
+        }
+    }
+    
+    const cookieOpts: Omit<ResponseCookie, 'name' | 'value'> = { // Omit name/value for base options object
       httpOnly: true,
       path: '/',
       maxAge: 60 * 60 * 24 * 7, // 7 days
+      secure: cookieSecure,
+      sameSite: cookieSameSite,
     };
-
-    if (isSecureContext) { // Production HTTPS
-        cookieOpts.secure = true;
-        cookieOpts.sameSite = 'lax'; // Corrected: "Lax" to "lax"
-        // For production on a single hostname, explicitly setting domain is usually not needed
-        // and omitting it makes the cookie a "host-only" cookie.
-    } else { // Development (HTTP) or non-secure production (like http://localhost)
-        cookieOpts.secure = false;
-        // For localhost HTTP, omit SameSite attribute. Next.js defaults to 'Lax',
-        // but omitting can sometimes bypass browser blocking issues if the default 'Lax'
-        // is problematic for POST + fetch.
-    }
-    
+        
     const sessionTokenCookie: ResponseCookie = {
         name: 'session_token',
         value: token,
-        ...cookieOpts
-    } as ResponseCookie;
+        ...cookieOpts, 
+    };
     
-    console.log(`[API Password Login] Preparing to set 'session_token' cookie for email ${email} with options: ${JSON.stringify(cookieOpts)} (isSecureContext: ${isSecureContext}) and returning success JSON.`);
+    console.log(`[API Password Login] Preparing to set 'session_token' cookie for email ${email} with options: ${JSON.stringify(cookieOpts)} (isDevelopment: ${isDevelopment}, appUrlIsHttps: ${appUrlIsHttps}) and returning success JSON.`);
     
     const response = NextResponse.json({ success: true, message: "Login successful" });
     response.cookies.set(sessionTokenCookie);
@@ -136,4 +152,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, message: 'Internal server error during login process.', details: errorMessage }, { status: 500 });
   }
 }
-    

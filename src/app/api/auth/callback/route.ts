@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     const cookieStore = cookies();
     const code_verifier = cookieStore.get('oidc_code_verifier')?.value;
     const nonce = cookieStore.get('oidc_nonce')?.value;
-    const state = cookieStore.get('oidc_state')?.value; // Retrieve state from cookie
+    const state = cookieStore.get('oidc_state')?.value; 
 
     if (!code_verifier) {
       throw new Error('Missing code_verifier cookie');
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     const tokenSet = await client.callback(redirect_uri, params, { 
       code_verifier,
       nonce,
-      state, // Pass retrieved state for verification
+      state, 
     });
 
     if (!tokenSet.id_token) {
@@ -44,26 +44,42 @@ export async function GET(request: NextRequest) {
     }
     
     const currentAppUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || '9002'}`;
-    const isProduction = process.env.NODE_ENV === 'production';
-    const isSecureContext = isProduction && currentAppUrl.startsWith('https://');
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const appUrlIsHttps = currentAppUrl.startsWith('https://');
+
+    let cookieSecure: boolean;
+    let cookieSameSite: 'lax' | 'none' | 'strict' | undefined;
+
+    if (isDevelopment) {
+        cookieSecure = true; // Must be true for SameSite=None
+        cookieSameSite = 'none';
+        if (!appUrlIsHttps) {
+            console.warn(
+                `[API OIDC Callback] WARNING: Cookies (id_token, session_token) configured with SameSite=None and Secure=true for development, but APP_URL (${currentAppUrl}) is not HTTPS. ` +
+                "These cookies may be rejected by the browser. Ensure your development setup uses HTTPS."
+            );
+        }
+    } else { // Production or other environments
+        if (appUrlIsHttps) {
+            cookieSecure = true;
+            cookieSameSite = 'lax';
+        } else {
+            cookieSecure = false;
+            cookieSameSite = 'lax'; // Default to Lax for non-secure production, though not ideal.
+            console.warn(
+                `[API OIDC Callback] WARNING: APP_URL (${currentAppUrl}) is not HTTPS in a non-development environment. ` +
+                "Cookies (id_token, session_token) will be sent with Secure=false and SameSite=lax."
+            );
+        }
+    }
     
     const baseCookieOpts: Partial<ResponseCookie> = {
       httpOnly: true,
       path: '/',
-      maxAge: tokenSet.expires_in || 3600, // Use token expiry or default to 1 hour
+      maxAge: tokenSet.expires_in || 3600, 
+      secure: cookieSecure,
+      sameSite: cookieSameSite,
     };
-
-    if (isSecureContext) { // Production HTTPS
-        baseCookieOpts.secure = true;
-        baseCookieOpts.sameSite = 'lax';
-    } else { // Development (HTTP) or non-secure production
-        baseCookieOpts.secure = false;
-        // For localhost HTTP, omitting SameSite (which means browser defaults to Lax)
-        // or explicitly setting to 'lax' if Next.js doesn't default.
-        // If Next.js defaults to Lax, explicitly setting 'undefined' might be needed if 'Lax' is still blocked by browser for POST->fetch.
-        // Given the previous issues with POST and SameSite=Lax, let's try omitting it for non-secure contexts explicitly.
-        baseCookieOpts.sameSite = undefined;
-    }
     
     const idTokenCookie: ResponseCookie = {
         name: 'id_token',
@@ -77,14 +93,14 @@ export async function GET(request: NextRequest) {
         ...baseCookieOpts
     } as ResponseCookie;
 
-    console.log(`[API OIDC Callback] Setting 'id_token' cookie with options: ${JSON.stringify(idTokenCookie)} (isSecureContext: ${isSecureContext})`);
+    console.log(`[API OIDC Callback] Setting 'id_token' cookie with options: ${JSON.stringify(idTokenCookie)} (isDevelopment: ${isDevelopment}, appUrlIsHttps: ${appUrlIsHttps})`);
     cookieStore.set(idTokenCookie);
-    console.log(`[API OIDC Callback] Setting 'session_token' cookie with options: ${JSON.stringify(sessionTokenCookie)} (isSecureContext: ${isSecureContext})`);
+    console.log(`[API OIDC Callback] Setting 'session_token' cookie with options: ${JSON.stringify(sessionTokenCookie)} (isDevelopment: ${isDevelopment}, appUrlIsHttps: ${appUrlIsHttps})`);
     cookieStore.set(sessionTokenCookie);
     
     cookieStore.delete('oidc_code_verifier');
     cookieStore.delete('oidc_nonce');
-    cookieStore.delete('oidc_state'); // Delete state cookie
+    cookieStore.delete('oidc_state');
 
     return NextResponse.redirect(new URL('/admin/dashboard', appUrl));
   } catch (error) {
