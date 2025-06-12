@@ -27,10 +27,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Email and password are required.', details: 'Missing credentials in request.' }, { status: 400 });
     }
 
-    const externalApiUrl = `${currentExternalApiBaseUrl}/auth/local/login`;
-    console.log(`[API Password Login] Attempting password login to external API: ${externalApiUrl}`);
+    // Avoid logging the password.
+    console.log(`[API Password Login] Attempting password login for email: ${email} to external API: ${currentExternalApiBaseUrl}/auth/local/login`);
 
-    const apiResponse = await fetch(externalApiUrl, {
+    const apiResponse = await fetch(`${currentExternalApiBaseUrl}/auth/local/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -53,15 +53,15 @@ export async function POST(request: NextRequest) {
           errorDetails = `External API returned status ${apiResponse.status} with non-JSON body: ${responseBodyText.substring(0, 200)}...`;
         }
       } else if (responseBodyText && responseBodyText.toLowerCase().includes('<html')) {
-        errorDetails = `External API returned an HTML page (status ${apiResponse.status}). URL: ${externalApiUrl}. Check API configuration or if the external API is down.`;
-        console.warn(`[API Password Login] External API returned HTML: ${responseBodyText.substring(0, 200)}...`);
+        errorDetails = `External API returned an HTML page (status ${apiResponse.status}). URL: ${currentExternalApiBaseUrl}/auth/local/login. Check API configuration or if the external API is down.`;
+        console.warn(`[API Password Login] External API returned HTML for email ${email}: ${responseBodyText.substring(0, 200)}...`);
       } else if (responseBodyText) {
         errorDetails = `External API request failed with status ${apiResponse.status}. Response: ${responseBodyText.substring(0, 500)}`;
       } else {
-        errorDetails = `External API request failed with status ${apiResponse.status} and an empty response body. URL: ${externalApiUrl}.`;
+        errorDetails = `External API request failed with status ${apiResponse.status} and an empty response body. URL: ${currentExternalApiBaseUrl}/auth/local/login.`;
       }
       
-      console.error(`[API Password Login] External API login failed: ${apiResponse.status}`, errorDetails);
+      console.error(`[API Password Login] External API login failed for email ${email}: ${apiResponse.status}`, errorDetails);
       return NextResponse.json(
         { message: 'Login failed at external API.', details: errorDetails },
         { status: apiResponse.status }
@@ -73,14 +73,14 @@ export async function POST(request: NextRequest) {
         if (contentType && contentType.includes("application/json")) {
             responseData = JSON.parse(responseBodyText);
         } else {
-            console.error(`[API Password Login] External API success response was not JSON. Content-Type: ${contentType}. Body: ${responseBodyText.substring(0,500)}...`);
+            console.error(`[API Password Login] External API success response for email ${email} was not JSON. Content-Type: ${contentType}. Body: ${responseBodyText.substring(0,500)}...`);
             return NextResponse.json(
                 { message: 'Received invalid data format from authentication service despite success status.', details: 'The authentication service responded successfully but the data was not in the expected JSON format.' },
                 { status: 502 }
             );
         }
     } catch (e: any) {
-        console.error('[API Password Login] Error parsing successful external API response as JSON:', e.message, `Body: ${responseBodyText.substring(0,500)}...`);
+        console.error(`[API Password Login] Error parsing successful external API response for email ${email} as JSON:`, e.message, `Body: ${responseBodyText.substring(0,500)}...`);
         return NextResponse.json(
             { message: 'Failed to parse response from authentication service.', details: 'The authentication service responded successfully but its data could not be processed.' },
             { status: 502 }
@@ -89,13 +89,12 @@ export async function POST(request: NextRequest) {
 
     const token = responseData.accessToken;
     if (!token) {
-      console.error('[API Password Login] accessToken not found in external API response. Received:', responseData);
+      console.error(`[API Password Login] accessToken not found in external API response for email ${email}. Received:`, responseData);
       return NextResponse.json({ message: 'Authentication service did not provide an accessToken.', details: 'Check server logs for the full response from the authentication service.' }, { status: 500 });
     }
 
     const isProduction = process.env.NODE_ENV === 'production';
-    // Use Omit to ensure all properties of ResponseCookie (except name and value) are considered.
-    const baseCookieOptions: Omit<ResponseCookie, 'name' | 'value'> = {
+    const baseCookieOptions: Partial<ResponseCookie> = {
       httpOnly: true,
       path: '/',
       maxAge: 60 * 60 * 24 * 7, // 7 days
@@ -103,11 +102,10 @@ export async function POST(request: NextRequest) {
 
     if (isProduction) {
         baseCookieOptions.secure = true;
-        baseCookieOptions.sameSite = 'lax';
+        baseCookieOptions.sameSite = 'lax'; // 'lax' is a good default for production
         if (process.env.APP_URL) {
             try {
                 const url = new URL(process.env.APP_URL);
-                // Only set domain if APP_URL is a full URL with a valid hostname (not localhost for production)
                 if (url.hostname && url.hostname !== 'localhost') {
                     baseCookieOptions.domain = url.hostname;
                 }
@@ -117,21 +115,20 @@ export async function POST(request: NextRequest) {
         }
     } else {
         // Development settings for localhost
-        baseCookieOptions.secure = false; // Allow cookie over HTTP for localhost
-        baseCookieOptions.sameSite = 'lax'; // Good default for development too
-        // DO NOT set domain for localhost, let the browser handle it.
+        baseCookieOptions.secure = false; 
+        baseCookieOptions.sameSite = 'lax'; // Explicitly 'Lax' for dev too, generally safer
+        // DO NOT set domain for localhost
     }
     
     const sessionTokenCookie: ResponseCookie = {
         name: 'session_token',
         value: token,
         ...baseCookieOptions
-    };
+    } as ResponseCookie; // Added 'as ResponseCookie' to satisfy stricter type checking if baseCookieOptions is Partial
     
-    console.log(`[API Password Login] Setting 'session_token' cookie with options: ${JSON.stringify(sessionTokenCookie)} (isProduction: ${isProduction})`);
+    console.log(`[API Password Login] Setting 'session_token' cookie for email ${email} with options: ${JSON.stringify(sessionTokenCookie)} (isProduction: ${isProduction})`);
     cookies().set(sessionTokenCookie);
 
-    // Also include the token in the response body, as some clients might prefer to handle it directly.
     const user = responseData.user || responseData.data;
     return NextResponse.json({ message: 'Login successful', user: user, accessToken: token }, { status: 200 });
 
