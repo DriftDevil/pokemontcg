@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # If you have build-time ARGs in your Dockerfile that need values from .env:
+      # args:
+      #   NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL} # Example build-time arg
+
+    ports:
+      # Map host port 9002 to container port 9002.
+      # Change host port (left side) if 9002 is already in use on your host.
+      - "9002:9002"
+
+    # Load environment variables from .env file into the container at runtime.
+    # These are available to your Next.js app (e.g., process.env.VARIABLE_NAME).
+    env_file:
+      - .env
+
+    # --- PRODUCTION SETTINGS (default) ---
+    # The Dockerfile's CMD ["npm", "start"] will be used.
+    # NODE_ENV=production is set in the Dockerfile's production stage.
+    # The PORT environment variable tells `next start` which port to listen on inside the container.
+    # This must match the EXPOSE directive in Dockerfile and the container port in the 'ports' mapping (right side).
+    environment:
+      - PORT=9002
+    # restart: unless-stopped # Optional: for auto-restarting the container
+
+    # --- DEVELOPMENT OVERRIDE (Example - manage via a separate docker-compose.dev.yaml or by uncommenting) ---
+    # To use for development with live reload:
+    # 1. Ensure your .env file has development-specific variables if needed.
+    # 2. Uncomment the 'volumes' and 'command' sections below.
+    # 3. If your Dockerfile's production stage sets NODE_ENV=production, you might need to
+    #    override it here or use a development-specific Dockerfile stage.
+    # 4. Run: docker-compose up --build
+    #
+    # volumes:
+    #   # Mount your local source code into the container, excluding node_modules and .next
+    #   # to use the ones built/installed inside the container.
+    #   - .:/app
+    #   - /app/node_modules
+    #   - /app/.next
+    # command: npm run dev # Override default CMD to run the dev server
+    # environment: # Add or override environment variables for development
+    #   - NODE_ENV=development
+    #   - PORT=9002 # Ensure dev server inside container runs on this port
+      # Other dev-specific env vars can go here or in .env
+      # Ensure APP_URL in .env is correct for Docker (e.g., http://localhost:9002)
