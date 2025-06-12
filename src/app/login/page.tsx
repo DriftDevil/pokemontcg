@@ -52,14 +52,13 @@ export default function LoginPage() {
         description: decodeURIComponent(error),
         variant: "destructive",
       });
+      // Clear the error from URL to prevent re-toast on refresh
       router.replace('/login', { scroll: false }); 
     }
   }, [searchParams, router, toast]);
 
   const handleOidcLogin = () => {
     setIsSubmittingOidc(true);
-    // For OIDC, we redirect the entire window to the /api/auth/login route
-    // which then redirects to the OIDC provider.
     window.location.assign("/api/auth/login"); 
   };
 
@@ -70,59 +69,34 @@ export default function LoginPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
-        // Default redirect: 'follow' is crucial here.
-        // Fetch will follow the 302 from server.
+        // No 'redirect: manual' or 'follow'. Let fetch handle it by default.
+        // The API route will now return JSON, not a redirect.
       });
 
-      // After fetch follows the redirect, response.url will be the *final* URL.
-      // response.ok will be true if the final URL returns a 2xx status.
-      if (response.ok && response.url.includes('/admin/dashboard')) {
+      const responseData = await response.json();
+
+      if (response.ok && responseData.success) {
         toast({ title: "Login Successful", description: "Redirecting to dashboard..." });
-        // The cookie should have been set by the browser from the 302 response's Set-Cookie header.
-        // Now, ensure the client-side navigation matches the browser's state.
-        router.push('/admin/dashboard'); // Ensures SPA navigation and history update.
-      } else if (!response.ok) { 
-        // This handles cases where the /api/auth/password-login route itself returned an error (e.g., 400, 401, 500)
-        // OR if the redirect target (/admin/dashboard) returned an error.
-        const contentType = response.headers.get("content-type");
-        let errorDetails = "Login failed. Please check credentials or contact support.";
-        try {
-          const errorBodyText = await response.text();
-          if (contentType && contentType.includes("application/json")) {
-            const parsedError = JSON.parse(errorBodyText); 
-            errorDetails = parsedError.details || parsedError.message || errorBodyText;
-          } else { 
-            console.error("Password login error: Server response was not JSON. Status:", response.status, "Final URL:", response.url, "Body snippet:", errorBodyText.substring(0, 200));
-            if (errorBodyText.toLowerCase().includes("<!doctype html")) {
-              errorDetails = `Login service returned an unexpected page. Please try again. (Status: ${response.status})`;
-            } else {
-              errorDetails = `Login failed with status ${response.status}. Unexpected response format.`;
-            }
-          }
-        } catch (e) {
-          console.error("Password login response processing error:", e);
-        }
+        // The cookie should have been set by the browser from the API response's Set-Cookie header.
+        // Now, navigate client-side.
+        router.push('/admin/dashboard'); 
+      } else { 
+        const errorDetails = responseData.details || responseData.message || "Login failed. Please check credentials or contact support.";
         toast({ 
           title: "Login Failed", 
           description: errorDetails, 
           variant: "destructive" 
         });
-      } else {
-        // Response was ok, but didn't redirect to dashboard (unexpected scenario for password login)
-        console.warn("Login response was OK, but final URL was not dashboard:", response.url);
-        toast({ title: "Login Info", description: "Login processed, but an unexpected redirect issue occurred.", variant: "default" });
       }
     } catch (error: any) {
-      let title = "Login Error";
-      let description = "An unexpected error occurred. Please try again.";
-      
-      // Enhanced logging for "Failed to fetch"
       console.error("Password login submit - raw error object:", error);
       if (error.name) console.error(`Error name: ${error.name}`);
       if (error.message) console.error(`Error message: ${error.message}`);
       if (error.stack) console.error(`Error stack: ${error.stack}`);
 
-
+      let title = "Login Error";
+      let description = "An unexpected error occurred. Please try again.";
+      
       if (error instanceof TypeError && error.message.toLowerCase().includes('failed to fetch')) {
         title = "Network Connection Error";
         description = "Could not connect to the login service. Please ensure the server is running and check your network connection and server logs.";

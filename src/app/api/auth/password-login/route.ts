@@ -16,14 +16,14 @@ export async function POST(request: NextRequest) {
 
   if (!currentExternalApiBaseUrl) {
     console.error('[API Password Login POST] Critical: EXTERNAL_API_BASE_URL is not set at request time. Password login cannot function.');
-    return NextResponse.json({ message: 'API endpoint not configured.', details: 'Server configuration error: EXTERNAL_API_BASE_URL not set.' }, { status: 500 });
+    return NextResponse.json({ success: false, message: 'API endpoint not configured.', details: 'Server configuration error: EXTERNAL_API_BASE_URL not set.' }, { status: 500 });
   }
 
   try {
     const { email, password } = await request.json();
 
     if (!email || !password) {
-      return NextResponse.json({ message: 'Email and password are required.', details: 'Missing credentials in request.' }, { status: 400 });
+      return NextResponse.json({ success: false, message: 'Email and password are required.', details: 'Missing credentials in request.' }, { status: 400 });
     }
     
     console.log(`[API Password Login] Attempting password login for email: ${email} to external API: ${currentExternalApiBaseUrl}/auth/local/login`);
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       
       console.error(`[API Password Login] External API login failed for email ${email}: ${apiResponse.status}`, errorDetails);
       return NextResponse.json(
-        { message: 'Login failed at external API.', details: errorDetails },
+        { success: false, message: 'Login failed at external API.', details: errorDetails },
         { status: apiResponse.status }
       );
     }
@@ -73,14 +73,14 @@ export async function POST(request: NextRequest) {
         } else {
             console.error(`[API Password Login] External API success response for email ${email} was not JSON. Content-Type: ${contentType}. Body: ${responseBodyText.substring(0,500)}...`);
             return NextResponse.json(
-                { message: 'Received invalid data format from authentication service despite success status.', details: 'The authentication service responded successfully but the data was not in the expected JSON format.' },
+                { success: false, message: 'Received invalid data format from authentication service despite success status.', details: 'The authentication service responded successfully but the data was not in the expected JSON format.' },
                 { status: 502 } // Bad Gateway
             );
         }
     } catch (e: any) {
         console.error(`[API Password Login] Error parsing successful external API response for email ${email} as JSON:`, e.message, `Body: ${responseBodyText.substring(0,500)}...`);
         return NextResponse.json(
-            { message: 'Failed to parse response from authentication service.', details: 'The authentication service responded successfully but its data could not be processed.' },
+            { success: false, message: 'Failed to parse response from authentication service.', details: 'The authentication service responded successfully but its data could not be processed.' },
             { status: 502 } // Bad Gateway
         );
     }
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
     const token = responseData.accessToken;
     if (!token) {
       console.error(`[API Password Login] accessToken not found in external API response for email ${email}. Received:`, responseData);
-      return NextResponse.json({ message: 'Authentication service did not provide an accessToken.', details: 'Check server logs for the full response from the authentication service.' }, { status: 500 });
+      return NextResponse.json({ success: false, message: 'Authentication service did not provide an accessToken.', details: 'Check server logs for the full response from the authentication service.' }, { status: 500 });
     }
 
     const isProduction = process.env.NODE_ENV === 'production';
@@ -105,14 +105,14 @@ export async function POST(request: NextRequest) {
         cookieOpts.secure = true;
         cookieOpts.sameSite = 'Lax'; 
         const appHostname = new URL(currentAppUrl!).hostname;
-         if (appHostname && appHostname !== 'localhost') { // Don't set domain for localhost
+         if (appHostname && appHostname.toLowerCase() !== 'localhost') {
             cookieOpts.domain = appHostname;
         }
-    } else { // Development (HTTP) or non-secure production
+    } else { // Development (HTTP) or non-secure production (like http://localhost)
         cookieOpts.secure = false;
-        // For non-secure contexts (like http://localhost),
-        // omitting SameSite lets Next.js default to Lax.
-        // The redirect strategy is key to making Lax work here.
+        // For http://localhost, omitting SameSite can sometimes be more permissive.
+        // Browsers often default to 'Lax' but might behave differently if not explicitly set.
+        // Explicitly setting to 'Lax' caused issues, so we are omitting it for localhost HTTP.
     }
     
     const sessionTokenCookie: ResponseCookie = {
@@ -121,18 +121,12 @@ export async function POST(request: NextRequest) {
         ...cookieOpts
     } as ResponseCookie;
     
-    console.log(`[API Password Login] Preparing to set 'session_token' cookie for email ${email} with options: ${JSON.stringify(sessionTokenCookie)} (isSecureContext: ${isSecureContext}) and redirect.`);
+    console.log(`[API Password Login] Preparing to set 'session_token' cookie for email ${email} with options: ${JSON.stringify(cookieOpts)} (isSecureContext: ${isSecureContext}) and returning success JSON.`);
+    
+    (await cookies()).set(sessionTokenCookie);
 
-    // Construct the redirect URL using the request's origin to be robust
-    const requestUrl = new URL(request.url);
-    const dashboardRedirectUrl = new URL('/admin/dashboard', requestUrl.origin);
-
-    const redirectResponse = NextResponse.redirect(dashboardRedirectUrl.toString(), 302);
-    // Set the cookie on the redirect response
-    redirectResponse.cookies.set(sessionTokenCookie);
-
-    console.log(`[API Password Login] Successfully processed login for ${email}. Redirecting to ${dashboardRedirectUrl.toString()} and setting cookie.`);
-    return redirectResponse;
+    console.log(`[API Password Login] Successfully processed login for ${email}. Returning JSON success response.`);
+    return NextResponse.json({ success: true, message: "Login successful" });
 
   } catch (error: any) {
     console.error('[API Password Login] Internal error in POST handler:', error.message, error.stack);
@@ -140,7 +134,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error) {
         errorMessage = error.message;
     }
-    return NextResponse.json({ message: 'Internal server error during login process.', details: errorMessage }, { status: 500 });
+    return NextResponse.json({ success: false, message: 'Internal server error during login process.', details: errorMessage }, { status: 500 });
   }
 }
     
