@@ -78,7 +78,7 @@ h1, h2, h3, h4, h5, h6 {
     --secondary-foreground: 166 33% 90%;
 
     --muted: 200 34% 20%;
-    --muted-foreground: 166 33% 65%;
+    --muted-foreground: 166 33% 75%; /* Made lighter for better contrast (was 65%) */
 
     --accent: 166 56% 59%; /* Lighter Teal for accent */
     --accent-foreground: 200 34% 5%;
@@ -92,7 +92,7 @@ h1, h2, h3, h4, h5, h6 {
 
     /* Sidebar specific colors for dark mode */
     --sidebar-background: 200 34% 18%; /* Slightly lighter dark for sidebar */
-    --sidebar-foreground: 166 33% 80%; 
+    --sidebar-foreground: 166 33% 80%;
     --sidebar-primary: 166 56% 49%;
     --sidebar-primary-foreground: 200 34% 5%;
     --sidebar-accent: 166 56% 59%;
@@ -121,6 +121,7 @@ h1, h2, h3, h4, h5, h6 {
 @layer utilities {
   .dark .swagger-ui {
     background-color: hsl(var(--card)); /* Base background for swagger-ui content */
+    color: hsl(var(--foreground)); /* General text color for swagger */
   }
   .dark .swagger-ui .topbar {
     background-color: hsl(var(--muted));
@@ -149,7 +150,7 @@ h1, h2, h3, h4, h5, h6 {
   .dark .swagger-ui .info .base-url,
   .dark .swagger-ui .info .link,
   .dark .swagger-ui .info a {
-    color: hsl(var(--muted-foreground)); /* Slightly brighter muted for description */
+    color: hsl(var(--muted-foreground)); /* Uses the now brighter muted-foreground */
   }
   .dark .swagger-ui .info a:hover {
     color: hsl(var(--primary));
@@ -195,7 +196,7 @@ h1, h2, h3, h4, h5, h6 {
   .dark .swagger-ui .opblock-summary-description {
     color: hsl(var(--card-foreground));
   }
-  .dark .swagger-ui .opblock-summary-path {
+  .dark .swagger-ui .opblock-summary-path { /* Path itself, not the method color */
     color: hsl(var(--card-foreground));
   }
    .dark .swagger-ui .opblock-summary-path__deprecated {
@@ -207,12 +208,12 @@ h1, h2, h3, h4, h5, h6 {
     border-bottom-color: hsl(var(--border));
   }
   .dark .swagger-ui .opblock .opblock-section-header h4 {
-    color: hsl(var(--muted-foreground));
+    color: hsl(var(--foreground)); /* Was muted-foreground, made brighter */
   }
   .dark .swagger-ui .opblock-description-wrapper p,
   .dark .swagger-ui .response-col_description__inner p,
   .dark .swagger-ui .parameter__description {
-    color: hsl(var(--muted-foreground));
+    color: hsl(var(--muted-foreground)); /* Uses the now brighter muted-foreground */
   }
   .dark .swagger-ui .responses-table td,
   .dark .swagger-ui .responses-table th {
@@ -226,16 +227,23 @@ h1, h2, h3, h4, h5, h6 {
   .dark .swagger-ui .models {
     background-color: hsl(var(--card));
     border-color: hsl(var(--border));
+    color: hsl(var(--card-foreground)); /* Ensure text in models section is readable */
   }
   .dark .swagger-ui .model-container .model-title,
   .dark .swagger-ui .models .model-title,
   .dark .swagger-ui .model {
     color: hsl(var(--card-foreground));
   }
-  .dark .swagger-ui .model .prop .prop-type,
+   .dark .swagger-ui .model .prop .prop-type {
+     color: hsl(var(--accent)); /* Using accent for type for some highlight */
+   }
   .dark .swagger-ui .model .prop .prop-name {
-     color: hsl(var(--muted-foreground));
+     color: hsl(var(--card-foreground)); /* Property name */
   }
+   .dark .swagger-ui .prop-format { /* Data type format (e.g., date-time) */
+     color: hsl(var(--secondary-foreground));
+   }
+
   .dark .swagger-ui table thead tr th,
   .dark .swagger-ui table thead tr td {
     border-color: hsl(var(--border));
@@ -305,38 +313,47 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   /* Method specific button colors - ensure good contrast */
-  .dark .swagger-ui .opblock.opblock-get .opblock-summary-method { color: #61affe !important; }
+  /* These colors are for the method text itself (GET, POST, etc.). The summary path/description next to them should be readable. */
+  .dark .swagger-ui .opblock.opblock-get .opblock-summary-method { color: #61affe !important; } /* Light Blue */
   .dark .swagger-ui .opblock.opblock-get .opblock-summary-path a.nostyle,
+  .dark .swagger-ui .opblock.opblock-get .opblock-summary-path, /* Added path itself */
   .dark .swagger-ui .opblock.opblock-get .opblock-summary-description { color: hsl(var(--card-foreground)) !important; }
 
-  .dark .swagger-ui .opblock.opblock-post .opblock-summary-method { color: #49cc90 !important; }
+  .dark .swagger-ui .opblock.opblock-post .opblock-summary-method { color: #49cc90 !important; } /* Green */
   .dark .swagger-ui .opblock.opblock-post .opblock-summary-path a.nostyle,
+  .dark .swagger-ui .opblock.opblock-post .opblock-summary-path,
   .dark .swagger-ui .opblock.opblock-post .opblock-summary-description { color: hsl(var(--card-foreground)) !important; }
 
-  .dark .swagger-ui .opblock.opblock-put .opblock-summary-method { color: #fca130 !important; }
+  .dark .swagger-ui .opblock.opblock-put .opblock-summary-method { color: #fca130 !important; } /* Orange */
   .dark .swagger-ui .opblock.opblock-put .opblock-summary-path a.nostyle,
+  .dark .swagger-ui .opblock.opblock-put .opblock-summary-path,
   .dark .swagger-ui .opblock.opblock-put .opblock-summary-description { color: hsl(var(--card-foreground)) !important; }
 
-  .dark .swagger-ui .opblock.opblock-delete .opblock-summary-method { color: #f93e3e !important; }
+  .dark .swagger-ui .opblock.opblock-delete .opblock-summary-method { color: #f93e3e !important; } /* Red */
   .dark .swagger-ui .opblock.opblock-delete .opblock-summary-path a.nostyle,
+  .dark .swagger-ui .opblock.opblock-delete .opblock-summary-path,
   .dark .swagger-ui .opblock.opblock-delete .opblock-summary-description { color: hsl(var(--card-foreground)) !important; }
 
-  .dark .swagger-ui .opblock.opblock-patch .opblock-summary-method { color: #50e3c2 !important; }
+  .dark .swagger-ui .opblock.opblock-patch .opblock-summary-method { color: #50e3c2 !important; } /* Teal/Turquoise */
   .dark .swagger-ui .opblock.opblock-patch .opblock-summary-path a.nostyle,
+  .dark .swagger-ui .opblock.opblock-patch .opblock-summary-path,
   .dark .swagger-ui .opblock.opblock-patch .opblock-summary-description { color: hsl(var(--card-foreground)) !important; }
 
-  .dark .swagger-ui .opblock.opblock-options .opblock-summary-method { color: #d393e0 !important; }
+  .dark .swagger-ui .opblock.opblock-options .opblock-summary-method { color: #d393e0 !important; } /* Purple */
   .dark .swagger-ui .opblock.opblock-options .opblock-summary-path a.nostyle,
+  .dark .swagger-ui .opblock.opblock-options .opblock-summary-path,
   .dark .swagger-ui .opblock.opblock-options .opblock-summary-description { color: hsl(var(--card-foreground)) !important; }
   
-  .dark .swagger-ui .opblock.opblock-head .opblock-summary-method { color: #c0ca33 !important; }
+  .dark .swagger-ui .opblock.opblock-head .opblock-summary-method { color: #c0ca33 !important; } /* Lime Green */
   .dark .swagger-ui .opblock.opblock-head .opblock-summary-path a.nostyle,
+  .dark .swagger-ui .opblock.opblock-head .opblock-summary-path,
   .dark .swagger-ui .opblock.opblock-head .opblock-summary-description { color: hsl(var(--card-foreground)) !important; }
 
   .dark .swagger-ui .opblock-deprecated .opblock-summary-method,
   .dark .swagger-ui .opblock-deprecated .opblock-summary-path,
   .dark .swagger-ui .opblock-deprecated .opblock-summary-description {
     color: hsl(var(--muted-foreground)) !important; /* Override to make deprecated less prominent */
+    text-decoration: line-through;
   }
   .dark .swagger-ui .opblock-deprecated .opblock-summary {
     opacity: 0.7;
@@ -344,3 +361,4 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+    
