@@ -37,8 +37,8 @@ export async function GET(request: NextRequest) {
         throw new Error('Access token not found in token set');
     }
     
+    const currentAppUrl = process.env.APP_URL;
     const isProduction = process.env.NODE_ENV === 'production';
-    const currentAppUrl = process.env.APP_URL; // Use a separate var to check if APP_URL is HTTPS
     const isSecureContext = isProduction && currentAppUrl && currentAppUrl.startsWith('https://');
     
     const cookieOpts: Partial<ResponseCookie> = {
@@ -49,16 +49,11 @@ export async function GET(request: NextRequest) {
 
     if (isSecureContext) { // Production HTTPS
         cookieOpts.secure = true;
-        cookieOpts.sameSite = 'Lax'; // OIDC callback is a redirect, Lax is usually fine. 'None' could be used if strictly cross-origin.
-        const appHostname = new URL(currentAppUrl!).hostname;
-         if (appHostname && appHostname !== 'localhost') {
-            cookieOpts.domain = appHostname;
-        }
+        cookieOpts.sameSite = 'Lax';
+        // For production on a single hostname, explicitly setting domain is usually not needed.
     } else { // Development (HTTP) or non-secure production
         cookieOpts.secure = false;
-        // For development on HTTP localhost, omitting SameSite might allow the cookie to be set
-        // where 'Lax' was blocked due to the browser's interpretation.
-        // cookieOpts.sameSite = 'Lax'; 
+        // For localhost HTTP, omitting SameSite attribute as it was causing issues previously.
     }
     
     const idTokenCookie: ResponseCookie = {

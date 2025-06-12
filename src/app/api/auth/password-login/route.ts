@@ -91,8 +91,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Authentication service did not provide an accessToken.', details: 'Check server logs for the full response from the authentication service.' }, { status: 500 });
     }
 
-    const isProduction = process.env.NODE_ENV === 'production';
     const currentAppUrl = process.env.APP_URL; 
+    const isProduction = process.env.NODE_ENV === 'production';
     const isSecureContext = isProduction && currentAppUrl && currentAppUrl.startsWith('https://');
     
     const cookieOpts: Partial<ResponseCookie> = {
@@ -103,16 +103,13 @@ export async function POST(request: NextRequest) {
 
     if (isSecureContext) { // Production HTTPS
         cookieOpts.secure = true;
-        cookieOpts.sameSite = 'Lax'; 
-        const appHostname = new URL(currentAppUrl!).hostname;
-         if (appHostname && appHostname.toLowerCase() !== 'localhost') {
-            cookieOpts.domain = appHostname;
-        }
+        cookieOpts.sameSite = 'Lax';
+        // For production on a single hostname, explicitly setting domain is usually not needed
+        // and omitting it makes the cookie a "host-only" cookie.
     } else { // Development (HTTP) or non-secure production (like http://localhost)
         cookieOpts.secure = false;
-        // For http://localhost, omitting SameSite can sometimes be more permissive.
-        // Browsers often default to 'Lax' but might behave differently if not explicitly set.
-        // Explicitly setting to 'Lax' caused issues, so we are omitting it for localhost HTTP.
+        // For localhost HTTP, omitting SameSite attribute as it was causing issues with POST + fetch
+        // Browsers might default to Lax, but this explicit omission helped previously.
     }
     
     const sessionTokenCookie: ResponseCookie = {
