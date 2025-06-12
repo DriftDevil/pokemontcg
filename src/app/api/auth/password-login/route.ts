@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Email and password are required.', details: 'Missing credentials in request.' }, { status: 400 });
     }
     
-    console.log(`[API Password Login] Attempting password login for email: ${email} to external API: ${currentExternalApiBaseUrl}/auth/local/login`);
+    console.log(`[API Password Login] Attempting password login for email: ${email} to external API: ${currentExternalApiBaseUrl}/auth/local/login (Password NOT logged)`);
 
     const apiResponse = await fetch(`${currentExternalApiBaseUrl}/auth/local/login`, {
       method: 'POST',
@@ -91,9 +91,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Authentication service did not provide an accessToken.', details: 'Check server logs for the full response from the authentication service.' }, { status: 500 });
     }
 
-    const currentAppUrl = process.env.APP_URL; 
+    const currentAppUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || '9002'}`;
     const isProduction = process.env.NODE_ENV === 'production';
-    const isSecureContext = isProduction && currentAppUrl && currentAppUrl.startsWith('https://');
+    const isSecureContext = isProduction && currentAppUrl.startsWith('https://');
     
     const cookieOpts: Partial<ResponseCookie> = {
       httpOnly: true,
@@ -103,13 +103,14 @@ export async function POST(request: NextRequest) {
 
     if (isSecureContext) { // Production HTTPS
         cookieOpts.secure = true;
-        cookieOpts.sameSite = 'Lax';
+        cookieOpts.sameSite = 'lax'; // Corrected: "Lax" to "lax"
         // For production on a single hostname, explicitly setting domain is usually not needed
         // and omitting it makes the cookie a "host-only" cookie.
     } else { // Development (HTTP) or non-secure production (like http://localhost)
         cookieOpts.secure = false;
-        // For localhost HTTP, omitting SameSite attribute as it was causing issues with POST + fetch
-        // Browsers might default to Lax, but this explicit omission helped previously.
+        // For localhost HTTP, omit SameSite attribute. Next.js defaults to 'Lax',
+        // but omitting can sometimes bypass browser blocking issues if the default 'Lax'
+        // is problematic for POST + fetch.
     }
     
     const sessionTokenCookie: ResponseCookie = {
@@ -120,10 +121,11 @@ export async function POST(request: NextRequest) {
     
     console.log(`[API Password Login] Preparing to set 'session_token' cookie for email ${email} with options: ${JSON.stringify(cookieOpts)} (isSecureContext: ${isSecureContext}) and returning success JSON.`);
     
-    (await cookies()).set(sessionTokenCookie);
+    const response = NextResponse.json({ success: true, message: "Login successful" });
+    response.cookies.set(sessionTokenCookie);
 
-    console.log(`[API Password Login] Successfully processed login for ${email}. Returning JSON success response.`);
-    return NextResponse.json({ success: true, message: "Login successful" });
+    console.log(`[API Password Login] Successfully processed login for ${email}. Returning JSON success response with Set-Cookie header.`);
+    return response;
 
   } catch (error: any) {
     console.error('[API Password Login] Internal error in POST handler:', error.message, error.stack);

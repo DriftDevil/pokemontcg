@@ -37,9 +37,9 @@ export async function GET(request: NextRequest) {
         throw new Error('Access token not found in token set');
     }
     
-    const currentAppUrl = process.env.APP_URL;
+    const currentAppUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || '9002'}`;
     const isProduction = process.env.NODE_ENV === 'production';
-    const isSecureContext = isProduction && currentAppUrl && currentAppUrl.startsWith('https://');
+    const isSecureContext = isProduction && currentAppUrl.startsWith('https://');
     
     const cookieOpts: Partial<ResponseCookie> = {
       httpOnly: true,
@@ -49,11 +49,15 @@ export async function GET(request: NextRequest) {
 
     if (isSecureContext) { // Production HTTPS
         cookieOpts.secure = true;
-        cookieOpts.sameSite = 'Lax';
-        // For production on a single hostname, explicitly setting domain is usually not needed.
-    } else { // Development (HTTP) or non-secure production
+        cookieOpts.sameSite = 'lax'; // Corrected: "Lax" to "lax"
+        // For production on a single hostname, explicitly setting domain is usually not needed,
+        // and omitting it makes the cookie a "host-only" cookie.
+    } else { // Development (HTTP) or non-secure production (like http://localhost)
         cookieOpts.secure = false;
-        // For localhost HTTP, omitting SameSite attribute as it was causing issues previously.
+        // For localhost HTTP, omit SameSite attribute. Next.js defaults to 'Lax',
+        // but omitting can sometimes bypass browser blocking issues if the default 'Lax'
+        // is problematic for POST + fetch.
+        // If we were to set it explicitly, it would be 'lax'.
     }
     
     const idTokenCookie: ResponseCookie = {
