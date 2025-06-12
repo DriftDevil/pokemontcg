@@ -20,9 +20,7 @@ tags:
   - name: System
     description: System health and version information
 
-security:
-  - oauth2: [openid, profile, email]
-  - localAuth: []
+# Global security has been removed. Security is now defined per-path.
 
 paths:
   /v2/sets:
