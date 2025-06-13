@@ -35,11 +35,12 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
   try {
     const response = await fetch(externalUrl, {
-      method: 'DELETE',
+      method: 'DELETE', // Changed from POST to DELETE
       headers: {
         'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json', // Usually not needed for DELETE but can be included
+        'Content-Type': 'application/json', // Usually not strictly needed for DELETE without body, but often included
       },
+      // Body is typically not sent with DELETE requests when ID is in path
     });
 
     // If the external API returns no content on successful delete (e.g., 204 No Content)
