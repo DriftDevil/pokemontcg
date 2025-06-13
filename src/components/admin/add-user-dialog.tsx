@@ -32,12 +32,12 @@ const addUserSchema = z.object({
 export type AddUserFormInputs = z.infer<typeof addUserSchema>;
 
 interface AddUserDialogProps {
-  sessionToken: string | undefined;
+  // sessionToken prop removed
   onUserAdded: () => void; // Callback to refresh user list
   children: React.ReactNode; // To use as DialogTrigger
 }
 
-export default function AddUserDialog({ sessionToken, onUserAdded, children }: AddUserDialogProps) {
+export default function AddUserDialog({ onUserAdded, children }: AddUserDialogProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const {
@@ -50,21 +50,15 @@ export default function AddUserDialog({ sessionToken, onUserAdded, children }: A
   });
 
   const onSubmit: SubmitHandler<AddUserFormInputs> = async (data) => {
-    if (!sessionToken) {
-      toast({
-        title: "Authentication Error",
-        description: "Session token is missing. Please log in again.",
-        variant: "destructive",
-      });
-      return;
-    }
+    // Removed client-side sessionToken check.
+    // The /api/users/add route will handle authentication using the HttpOnly cookie.
 
     try {
       const response = await fetch('/api/users/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionToken}`,
+          // Authorization header removed; HttpOnly cookie will be sent by the browser.
         },
         body: JSON.stringify(data),
       });
@@ -80,9 +74,13 @@ export default function AddUserDialog({ sessionToken, onUserAdded, children }: A
         reset();
         setOpen(false);
       } else {
+        let description = result.message || result.details || "An unknown error occurred.";
+        if (response.status === 401) {
+            description = "Unauthorized. Your session may have expired. Please log in again.";
+        }
         toast({
           title: "Failed to Add User",
-          description: result.message || result.details || "An unknown error occurred.",
+          description: description,
           variant: "destructive",
         });
       }

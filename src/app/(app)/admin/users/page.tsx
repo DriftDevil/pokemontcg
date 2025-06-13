@@ -65,54 +65,19 @@ export default function AdminUsersPage() {
   const { toast } = useToast();
   const [users, setUsers] = useState<DisplayUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [sessionToken, setSessionToken] = useState<string | undefined>(undefined);
-
-  const fetchSessionToken = useCallback(async () => {
-    try {
-      // This assumes you have an endpoint to get session info or you parse it from cookies client-side
-      // For simplicity, trying to get it from a hypothetical /api/auth/session or similar
-      // A more direct way if running client-side is to have /api/auth/user return it or read secure cookie if possible
-      // For now, let's assume a client-side accessible way to get the token or it's passed
-      // This part is tricky without knowing how session_token is managed for client-side API calls to *other* API routes
-      // Let's try fetching it from a cookie if available (document.cookie) - NOT ideal for httpOnly
-      // A better approach is an API route that returns the token or uses it implicitly.
-      // Since other pages use `cookies()` from `next/headers`, this page should ideally be a Server Component
-      // or have a client-side fetch that can access the token securely.
-      // For now, this component will be client-side and try to get the token if possible, or rely on it being passed.
-      // This is a placeholder for robust client-side token retrieval.
-      // We will attempt to fetch the user's session which should contain the token if httpOnly is not strictly enforced or handled by an intermediate API call
-      
-      // Attempt to read cookie (less secure if not HttpOnly, but for client component use)
-      const cookieValue = document.cookie
-        .split('; ')
-        .find(row => row.startsWith('session_token='))
-        ?.split('=')[1];
-      setSessionToken(cookieValue);
-    } catch (e) {
-      console.warn("Could not retrieve session token client-side for AddUserDialog", e);
-    }
-  }, []);
+  // sessionToken state removed - no longer needed client-side for this page's primary data fetch
 
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
-    const currentSessionToken = document.cookie
-        .split('; ')
-        .find(row => row.startsWith('session_token='))
-        ?.split('=')[1];
-
-    if (!currentSessionToken) {
-      toast({ title: "Authentication Error", description: "Session token not found. Please log in.", variant: "destructive" });
-      setIsLoading(false);
-      setUsers([]); // Clear users if no token
-      return;
-    }
+    // Removed client-side token fetching. The HttpOnly cookie will be sent by the browser.
+    // The /api/users/all route handler will use it.
 
     const baseUrl = getBaseUrl();
     const fetchUrl = `${baseUrl}/api/users/all`;
 
     try {
       const fetchHeaders = new Headers();
-      fetchHeaders.append('Authorization', `Bearer ${currentSessionToken}`);
+      // No Authorization header needed here; browser sends HttpOnly cookie.
       fetchHeaders.append('Content-Type', 'application/json');
 
       const response = await fetch(fetchUrl, {
@@ -123,8 +88,20 @@ export default function AdminUsersPage() {
 
       if (!response.ok) {
         const errorBody = await response.text();
+        let description = `Error: ${response.status}.`;
+        if (response.status === 401) {
+            description = "Unauthorized. Please log in again to view users.";
+        } else if (errorBody) {
+            try {
+                const parsedError = JSON.parse(errorBody);
+                description = parsedError.message || parsedError.details || errorBody;
+            } catch (e) {
+                description = errorBody;
+            }
+        }
+        
         console.error(`[AdminUsersPage - fetchUsers] Failed to fetch users from ${fetchUrl}: ${response.status}`, errorBody);
-        toast({ title: "Failed to load users", description: `Error: ${response.status}. ${errorBody}`, variant: "destructive" });
+        toast({ title: "Failed to load users", description, variant: "destructive" });
         setUsers([]); // Clear users on error
         return;
       }
@@ -169,24 +146,18 @@ export default function AdminUsersPage() {
     }
   }, [toast]);
 
-  useEffect(() => {
-    fetchSessionToken(); // Get token first
-  }, [fetchSessionToken]);
 
   useEffect(() => {
-    // Fetch users only after sessionToken state might have been updated
-    // Or if you ensure fetchUsers correctly gets the token internally
     fetchUsers();
-  }, [fetchUsers]); // sessionToken dependency removed, fetchUsers now gets it
+  }, [fetchUsers]);
 
   const handleUserAdded = () => {
-    fetchUsers(); // Re-fetch users after one is added
-    // Alternatively, router.refresh() if you want a full server-side data refresh
-    // router.refresh();
+    fetchUsers(); 
   };
   
   const PageActions = (
-    <AddUserDialog sessionToken={sessionToken} onUserAdded={handleUserAdded}>
+    // sessionToken prop removed from AddUserDialog
+    <AddUserDialog onUserAdded={handleUserAdded}>
       <Button>
         <UserPlus className="mr-2 h-4 w-4" />
         Add New User
@@ -225,14 +196,14 @@ export default function AdminUsersPage() {
         icon={UsersIcon}
         actions={PageActions}
       />
-      {users.length > 0 || !isLoading ? ( // Render table even if empty after loading, to show filters
+      {users.length > 0 || !isLoading ? ( 
         <UsersTableClient initialUsers={users} />
       ) : (
         <div className="text-center py-12 text-muted-foreground">
           <UsersIcon className="mx-auto h-12 w-12 mb-4" />
           <h3 className="text-xl font-semibold mb-2">No Users Found</h3>
           <p>Either no users exist, or there was an issue fetching user data.</p>
-          {!sessionToken && <p className="mt-2 text-sm">It seems you might not be fully authenticated to view users.</p>}
+          {/* Removed sessionToken check as it's not reliably readable client-side for HttpOnly cookies */}
         </div>
       )}
     </>
