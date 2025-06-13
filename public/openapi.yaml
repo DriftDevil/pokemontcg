@@ -285,7 +285,73 @@ paths:
             - openid
       responses:
         "200":
-          description: Synced user # Consider adding a response schema if a user object is returned
+          description: Synced user 
+  /user/add:
+    post:
+      summary: Add a new user (admin only)
+      description: >
+        Adds a new user to the system. This endpoint supports both local-auth users
+        (with a password) and OIDC-only users (without a password). Only admins can access this.
+      tags:
+        - Users
+      security:
+        - localJWT: []
+        - oidcJWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, name]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: johndoe@example.com
+                name:
+                  type: string
+                  example: John Doe
+                preferredUsername:
+                  type: string
+                  example: johndoe
+                password:
+                  type: string
+                  format: password
+                  description: Optional. Leave empty to create an OIDC-only user.
+                isAdmin:
+                  type: boolean
+                  default: false
+      responses:
+        '201':
+          description: User successfully created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  email:
+                    type: string
+                  name:
+                    type: string
+                  preferredUsername:
+                    type: string
+                    nullable: true
+                  isAdmin:
+                    type: boolean
+        '400':
+          description: Invalid request body
+        '401':
+          description: Unauthorized (not authenticated)
+        '403':
+          description: Forbidden (not an admin)
+        '409':
+          description: User already exists
+        '500':
+          description: Internal server error
   /user/cards/add:
     post:
       summary: Add a card to user collection
