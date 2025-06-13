@@ -99,19 +99,26 @@ export async function POST(request: NextRequest) {
     let cookieSameSite: 'lax' | 'none' | 'strict' | undefined;
 
     if (isDevelopment) {
-        cookieSecure = true; // Must be true for SameSite=None
+      if (appUrlIsHttps) {
+        // HTTPS Development: SameSite=None and Secure=true is viable
+        cookieSecure = true;
         cookieSameSite = 'none';
-        if (!appUrlIsHttps) {
-            console.warn(
-                `[API Password Login] WARNING: Cookie 'session_token' configured with SameSite=None and Secure=true for development, but APP_URL (${currentAppUrl}) is not HTTPS. ` +
-                "This cookie may be rejected by the browser. Ensure your development setup uses HTTPS."
-            );
-        }
+        console.log(`[API Password Login] Development (HTTPS): Setting 'session_token' cookie with SameSite=None; Secure=true.`);
+      } else {
+        // HTTP Development: SameSite=None requires Secure=true, which won't work. Fallback to Lax.
+        cookieSecure = false;
+        cookieSameSite = 'lax';
+        console.warn(
+            `[API Password Login] WARNING: Development (HTTP - APP_URL: ${currentAppUrl}). ` +
+            "Cannot use SameSite=None for 'session_token' cookie as it requires Secure=true. Falling back to SameSite=Lax; Secure=false."
+        );
+      }
     } else { // Production or other environments
         if (appUrlIsHttps) {
             cookieSecure = true;
-            cookieSameSite = 'lax';
+            cookieSameSite = 'lax'; // Secure default for production
         } else {
+            // HTTP Production (not recommended)
             cookieSecure = false;
             cookieSameSite = 'lax';
             console.warn(
@@ -121,7 +128,7 @@ export async function POST(request: NextRequest) {
         }
     }
     
-    const cookieOpts: Omit<ResponseCookie, 'name' | 'value'> = { // Omit name/value for base options object
+    const cookieOpts: Omit<ResponseCookie, 'name' | 'value'> = {
       httpOnly: true,
       path: '/',
       maxAge: 60 * 60 * 24 * 7, // 7 days
@@ -135,7 +142,7 @@ export async function POST(request: NextRequest) {
         ...cookieOpts, 
     };
     
-    console.log(`[API Password Login] Preparing to set 'session_token' cookie for email ${email} with options: ${JSON.stringify(cookieOpts)} (isDevelopment: ${isDevelopment}, appUrlIsHttps: ${appUrlIsHttps}) and returning success JSON.`);
+    console.log(`[API Password Login] Preparing to set 'session_token' cookie for email ${email} with options: ${JSON.stringify(cookieOpts)}`);
     
     const response = NextResponse.json({ success: true, message: "Login successful" });
     response.cookies.set(sessionTokenCookie);

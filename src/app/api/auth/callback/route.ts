@@ -51,21 +51,28 @@ export async function GET(request: NextRequest) {
     let cookieSameSite: 'lax' | 'none' | 'strict' | undefined;
 
     if (isDevelopment) {
-        cookieSecure = true; // Must be true for SameSite=None
+      if (appUrlIsHttps) {
+        // HTTPS Development: SameSite=None and Secure=true is viable
+        cookieSecure = true;
         cookieSameSite = 'none';
-        if (!appUrlIsHttps) {
-            console.warn(
-                `[API OIDC Callback] WARNING: Cookies (id_token, session_token) configured with SameSite=None and Secure=true for development, but APP_URL (${currentAppUrl}) is not HTTPS. ` +
-                "These cookies may be rejected by the browser. Ensure your development setup uses HTTPS."
-            );
-        }
+        console.log(`[API OIDC Callback] Development (HTTPS): Setting cookies with SameSite=None; Secure=true.`);
+      } else {
+        // HTTP Development: SameSite=None requires Secure=true, which won't work. Fallback to Lax.
+        cookieSecure = false;
+        cookieSameSite = 'lax';
+        console.warn(
+            `[API OIDC Callback] WARNING: Development (HTTP - APP_URL: ${currentAppUrl}). ` +
+            "Cannot use SameSite=None as it requires Secure=true. Falling back to SameSite=Lax; Secure=false for cookies (id_token, session_token)."
+        );
+      }
     } else { // Production or other environments
         if (appUrlIsHttps) {
             cookieSecure = true;
-            cookieSameSite = 'lax';
+            cookieSameSite = 'lax'; // Secure default for production
         } else {
+            // HTTP Production (not recommended)
             cookieSecure = false;
-            cookieSameSite = 'lax'; // Default to Lax for non-secure production, though not ideal.
+            cookieSameSite = 'lax';
             console.warn(
                 `[API OIDC Callback] WARNING: APP_URL (${currentAppUrl}) is not HTTPS in a non-development environment. ` +
                 "Cookies (id_token, session_token) will be sent with Secure=false and SameSite=lax."
@@ -93,9 +100,9 @@ export async function GET(request: NextRequest) {
         ...baseCookieOpts
     } as ResponseCookie;
 
-    console.log(`[API OIDC Callback] Setting 'id_token' cookie with options: ${JSON.stringify(idTokenCookie)} (isDevelopment: ${isDevelopment}, appUrlIsHttps: ${appUrlIsHttps})`);
+    console.log(`[API OIDC Callback] Setting 'id_token' cookie with options: ${JSON.stringify(idTokenCookie)}`);
     cookieStore.set(idTokenCookie);
-    console.log(`[API OIDC Callback] Setting 'session_token' cookie with options: ${JSON.stringify(sessionTokenCookie)} (isDevelopment: ${isDevelopment}, appUrlIsHttps: ${appUrlIsHttps})`);
+    console.log(`[API OIDC Callback] Setting 'session_token' cookie with options: ${JSON.stringify(sessionTokenCookie)}`);
     cookieStore.set(sessionTokenCookie);
     
     cookieStore.delete('oidc_code_verifier');
