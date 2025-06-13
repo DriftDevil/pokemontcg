@@ -25,7 +25,7 @@ import { UserPlus } from "lucide-react";
 const addUserSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(8, { message: "Password must be at least 8 characters." }),
-  name: z.string().optional(),
+  name: z.string().min(1, { message: "Full name is required." }),
   preferredUsername: z.string().min(3, { message: "Preferred username must be at least 3 characters."}).optional(),
   isAdmin: z.boolean().default(false),
 });
@@ -59,7 +59,7 @@ export default function AddUserDialog({ onUserAdded, children }: AddUserDialogPr
   const onSubmit: SubmitHandler<AddUserFormInputs> = async (data) => {
     // Filter out empty optional fields so they are not sent as empty strings
     const payload: Partial<AddUserFormInputs> = { ...data };
-    if (!payload.name) delete payload.name;
+    // name is now required, so no need to delete if empty
     if (!payload.preferredUsername) delete payload.preferredUsername;
 
     try {
@@ -123,7 +123,7 @@ export default function AddUserDialog({ onUserAdded, children }: AddUserDialogPr
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-4">
           <div>
-            <Label htmlFor="name-add">Full Name (Optional)</Label>
+            <Label htmlFor="name-add">Full Name</Label>
             <Controller
                 name="name"
                 control={control}
