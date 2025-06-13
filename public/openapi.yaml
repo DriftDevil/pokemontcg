@@ -352,6 +352,35 @@ paths:
           description: User already exists
         '500':
           description: Internal server error
+  /user/remove:
+    post:
+      summary: Remove a user (admin only)
+      description: >
+        Removes an existing user from the system. Only authenticated admin users are allowed
+        to perform this action. You can specify the user by email or ID.
+      tags:
+        - Users
+      security:
+        - localJWT: []
+        - oidcJWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              oneOf:
+                - required: [email]
+                - required: [id]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: johndoe@example.com
+                id:
+                  type: string
+                  format: uuid
+                  example: 21f5f4f9-322d-4f8a-9e5b-a9284d416b12
   /user/cards/add:
     post:
       summary: Add a card to user collection
