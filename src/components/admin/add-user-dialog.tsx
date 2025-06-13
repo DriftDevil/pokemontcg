@@ -26,42 +26,49 @@ const addUserSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(8, { message: "Password must be at least 8 characters." }),
   name: z.string().optional(),
+  preferredUsername: z.string().min(3, { message: "Preferred username must be at least 3 characters."}).optional(),
   isAdmin: z.boolean().default(false),
 });
 
 export type AddUserFormInputs = z.infer<typeof addUserSchema>;
 
 interface AddUserDialogProps {
-  onUserAdded: () => void; 
-  children: React.ReactNode; 
+  onUserAdded: () => void;
+  children: React.ReactNode;
 }
 
 export default function AddUserDialog({ onUserAdded, children }: AddUserDialogProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const {
-    control, // Added control
+    control,
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<AddUserFormInputs>({
     resolver: zodResolver(addUserSchema),
-    defaultValues: { // Added defaultValues
+    defaultValues: {
       email: '',
       password: '',
       name: '',
+      preferredUsername: '',
       isAdmin: false,
     }
   });
 
   const onSubmit: SubmitHandler<AddUserFormInputs> = async (data) => {
+    // Filter out empty optional fields so they are not sent as empty strings
+    const payload: Partial<AddUserFormInputs> = { ...data };
+    if (!payload.name) delete payload.name;
+    if (!payload.preferredUsername) delete payload.preferredUsername;
+
     try {
       const response = await fetch('/api/users/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
 
       const result = await response.json();
@@ -71,7 +78,7 @@ export default function AddUserDialog({ onUserAdded, children }: AddUserDialogPr
           title: "User Added",
           description: `User ${result.data?.email || data.email} has been successfully added.`,
         });
-        onUserAdded(); 
+        onUserAdded();
         reset();
         setOpen(false);
       } else {
@@ -99,7 +106,7 @@ export default function AddUserDialog({ onUserAdded, children }: AddUserDialogPr
     <Dialog open={open} onOpenChange={(isOpen) => {
       setOpen(isOpen);
       if (!isOpen) {
-        reset(); 
+        reset();
       }
     }}>
       <DialogTrigger asChild>
@@ -120,16 +127,25 @@ export default function AddUserDialog({ onUserAdded, children }: AddUserDialogPr
             <Controller
                 name="name"
                 control={control}
-                render={({ field }) => <Input id="name-add" {...field} disabled={isSubmitting} />}
+                render={({ field }) => <Input id="name-add" {...field} placeholder="e.g. John Doe" disabled={isSubmitting} />}
             />
             {errors.name && <p className="text-xs text-destructive mt-1">{errors.name.message}</p>}
+          </div>
+          <div>
+            <Label htmlFor="preferredUsername-add">Preferred Username (Optional)</Label>
+            <Controller
+                name="preferredUsername"
+                control={control}
+                render={({ field }) => <Input id="preferredUsername-add" {...field} placeholder="e.g. johndoe" disabled={isSubmitting} />}
+            />
+            {errors.preferredUsername && <p className="text-xs text-destructive mt-1">{errors.preferredUsername.message}</p>}
           </div>
           <div>
             <Label htmlFor="email-add">Email Address</Label>
              <Controller
                 name="email"
                 control={control}
-                render={({ field }) => <Input id="email-add" type="email" {...field} disabled={isSubmitting} />}
+                render={({ field }) => <Input id="email-add" type="email" {...field} placeholder="user@example.com" disabled={isSubmitting} />}
             />
             {errors.email && <p className="text-xs text-destructive mt-1">{errors.email.message}</p>}
           </div>
@@ -138,7 +154,7 @@ export default function AddUserDialog({ onUserAdded, children }: AddUserDialogPr
             <Controller
                 name="password"
                 control={control}
-                render={({ field }) => <Input id="password-add" type="password" {...field} disabled={isSubmitting} />}
+                render={({ field }) => <Input id="password-add" type="password" {...field} placeholder="••••••••" disabled={isSubmitting} />}
             />
             {errors.password && <p className="text-xs text-destructive mt-1">{errors.password.message}</p>}
           </div>
@@ -160,7 +176,7 @@ export default function AddUserDialog({ onUserAdded, children }: AddUserDialogPr
             </Label>
           </div>
           {errors.isAdmin && <p className="text-xs text-destructive mt-1">{errors.isAdmin.message}</p>}
-        
+
           <DialogFooter className="pt-4">
             <DialogClose asChild>
               <Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button>
