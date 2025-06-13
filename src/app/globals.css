@@ -194,14 +194,13 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   /* Ensure path and description in summary are light in dark mode */
-  .dark .swagger-ui .opblock-summary-path,
-  .dark .swagger-ui .opblock-summary-path a.nostyle,
-  .dark .swagger-ui .opblock-summary-path a.nostyle span { /* Target inner span too */
+  .dark .swagger-ui .opblock-summary .opblock-summary-path,
+  .dark .swagger-ui .opblock-summary .opblock-summary-path a.nostyle,
+  .dark .swagger-ui .opblock-summary .opblock-summary-path a.nostyle span,
+  .dark .swagger-ui .opblock-summary .opblock-summary-description {
     color: hsl(var(--card-foreground)) !important;
   }
-  .dark .swagger-ui .opblock-summary-description {
-    color: hsl(var(--card-foreground)) !important;
-  }
+  
   .dark .swagger-ui .opblock-summary-path__deprecated {
     color: hsl(var(--destructive)) !important; /* Keep deprecated distinct */
     text-decoration: line-through;
