@@ -1,7 +1,7 @@
 # Dockerfile
 # Stage 1: Builder
 FROM node:20-alpine AS builder
-ENV NODE_ENV production # Ensure build runs in production mode
+ENV NODE_ENV production
 WORKDIR /app
 
 # Copy package files and install dependencies
@@ -12,8 +12,6 @@ RUN if [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
     else echo "Lockfile not found." && exit 1; fi
 
 # Copy the rest of the application code
-# This will copy public/openapi.yaml to /app/public/openapi.yaml
-# It will NOT copy a root openapi.yaml to /app/openapi.yaml if it doesn't exist in the build context root
 COPY . .
 
 # Build the Next.js application
@@ -31,13 +29,15 @@ RUN addgroup -S nextjs && adduser -S nextjs -G nextjs
 
 # Copy necessary files from the builder stage for standalone output
 COPY --from=builder --chown=nextjs:nextjs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nextjs /app/public ./public
 COPY --from=builder --chown=nextjs:nextjs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nextjs /app/public ./public
+# The openapi.yaml is in public, so it's covered by the line above.
 
 # Set the user for the production image
 USER nextjs
 
 EXPOSE ${PORT}
 
-# CMD ["npm", "start"] # Old command
-CMD ["node", "server.js"] # Command for standalone output
+# Command to run the standalone server
+ENTRYPOINT ["node"]
+CMD ["server.js"]

@@ -20,7 +20,7 @@ services:
       - .env
 
     # --- PRODUCTION SETTINGS (default) ---
-    # The Dockerfile's CMD ["npm", "start"] will be used.
+    # The Dockerfile's ENTRYPOINT ["node"] and CMD ["server.js"] will be used.
     # NODE_ENV=production is set in the Dockerfile's production stage.
     # The PORT environment variable tells `next start` which port to listen on inside the container.
     # This must match the EXPOSE directive in Dockerfile and the container port in the 'ports' mapping (right side).
@@ -58,3 +58,4 @@ services:
 networks:
   huangtechhubnetwork:
     external: true
+
