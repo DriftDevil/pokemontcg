@@ -193,15 +193,20 @@ h1, h2, h3, h4, h5, h6 {
      background-color: hsl(var(--muted));
   }
 
+  /* Ensure path and description in summary are light in dark mode */
+  .dark .swagger-ui .opblock-summary-path,
+  .dark .swagger-ui .opblock-summary-path a.nostyle,
+  .dark .swagger-ui .opblock-summary-path a.nostyle span { /* Target inner span too */
+    color: hsl(var(--card-foreground)) !important;
+  }
   .dark .swagger-ui .opblock-summary-description {
-    color: hsl(var(--card-foreground));
+    color: hsl(var(--card-foreground)) !important;
   }
-  .dark .swagger-ui .opblock-summary-path { /* Path itself, not the method color */
-    color: hsl(var(--card-foreground));
+  .dark .swagger-ui .opblock-summary-path__deprecated {
+    color: hsl(var(--destructive)) !important; /* Keep deprecated distinct */
+    text-decoration: line-through;
   }
-   .dark .swagger-ui .opblock-summary-path__deprecated {
-    color: hsl(var(--destructive));
-  }
+
   .dark .swagger-ui .opblock .opblock-section-header {
     background: hsl(var(--muted));
     border-top-color: hsl(var(--border));
@@ -313,46 +318,25 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   /* Method specific button colors - ensure good contrast */
-  /* These colors are for the method text itself (GET, POST, etc.). The summary path/description next to them should be readable. */
+  /* These colors are for the method text itself (GET, POST, etc.). */
   .dark .swagger-ui .opblock.opblock-get .opblock-summary-method { color: #61affe !important; } /* Light Blue */
-  .dark .swagger-ui .opblock.opblock-get .opblock-summary-path a.nostyle,
-  .dark .swagger-ui .opblock.opblock-get .opblock-summary-path, /* Added path itself */
-  .dark .swagger-ui .opblock.opblock-get .opblock-summary-description { color: hsl(var(--card-foreground)) !important; }
-
   .dark .swagger-ui .opblock.opblock-post .opblock-summary-method { color: #49cc90 !important; } /* Green */
-  .dark .swagger-ui .opblock.opblock-post .opblock-summary-path a.nostyle,
-  .dark .swagger-ui .opblock.opblock-post .opblock-summary-path,
-  .dark .swagger-ui .opblock.opblock-post .opblock-summary-description { color: hsl(var(--card-foreground)) !important; }
-
   .dark .swagger-ui .opblock.opblock-put .opblock-summary-method { color: #fca130 !important; } /* Orange */
-  .dark .swagger-ui .opblock.opblock-put .opblock-summary-path a.nostyle,
-  .dark .swagger-ui .opblock.opblock-put .opblock-summary-path,
-  .dark .swagger-ui .opblock.opblock-put .opblock-summary-description { color: hsl(var(--card-foreground)) !important; }
-
   .dark .swagger-ui .opblock.opblock-delete .opblock-summary-method { color: #f93e3e !important; } /* Red */
-  .dark .swagger-ui .opblock.opblock-delete .opblock-summary-path a.nostyle,
-  .dark .swagger-ui .opblock.opblock-delete .opblock-summary-path,
-  .dark .swagger-ui .opblock.opblock-delete .opblock-summary-description { color: hsl(var(--card-foreground)) !important; }
-
   .dark .swagger-ui .opblock.opblock-patch .opblock-summary-method { color: #50e3c2 !important; } /* Teal/Turquoise */
-  .dark .swagger-ui .opblock.opblock-patch .opblock-summary-path a.nostyle,
-  .dark .swagger-ui .opblock.opblock-patch .opblock-summary-path,
-  .dark .swagger-ui .opblock.opblock-patch .opblock-summary-description { color: hsl(var(--card-foreground)) !important; }
-
   .dark .swagger-ui .opblock.opblock-options .opblock-summary-method { color: #d393e0 !important; } /* Purple */
-  .dark .swagger-ui .opblock.opblock-options .opblock-summary-path a.nostyle,
-  .dark .swagger-ui .opblock.opblock-options .opblock-summary-path,
-  .dark .swagger-ui .opblock.opblock-options .opblock-summary-description { color: hsl(var(--card-foreground)) !important; }
-  
   .dark .swagger-ui .opblock.opblock-head .opblock-summary-method { color: #c0ca33 !important; } /* Lime Green */
-  .dark .swagger-ui .opblock.opblock-head .opblock-summary-path a.nostyle,
-  .dark .swagger-ui .opblock.opblock-head .opblock-summary-path,
-  .dark .swagger-ui .opblock.opblock-head .opblock-summary-description { color: hsl(var(--card-foreground)) !important; }
 
-  .dark .swagger-ui .opblock-deprecated .opblock-summary-method,
-  .dark .swagger-ui .opblock-deprecated .opblock-summary-path,
-  .dark .swagger-ui .opblock-deprecated .opblock-summary-description {
+  .dark .swagger-ui .opblock-deprecated .opblock-summary-method {
     color: hsl(var(--muted-foreground)) !important; /* Override to make deprecated less prominent */
+    text-decoration: line-through;
+  }
+  /* Keep path and description for deprecated less prominent as well */
+  .dark .swagger-ui .opblock-deprecated .opblock-summary-path,
+  .dark .swagger-ui .opblock-deprecated .opblock-summary-path a.nostyle,
+  .dark .swagger-ui .opblock-deprecated .opblock-summary-path a.nostyle span,
+  .dark .swagger-ui .opblock-deprecated .opblock-summary-description {
+    color: hsl(var(--muted-foreground)) !important;
     text-decoration: line-through;
   }
   .dark .swagger-ui .opblock-deprecated .opblock-summary {
