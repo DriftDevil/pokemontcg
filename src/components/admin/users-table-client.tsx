@@ -104,12 +104,12 @@ export default function UsersTableClient({ initialUsers }: UsersTableClientProps
     return user.email && user.email !== 'N/A' ? user.email[0].toUpperCase() : 'U';
   }
 
-  const viewUser = (userId: string) => alert(\`View user: \${userId} (Not implemented)\`);
-  const editUser = (userId: string) => alert(\`Edit user: \${userId} (Not implemented)\`);
+  const viewUser = (userId: string) => alert('View user: ' + userId + ' (Not implemented)');
+  const editUser = (userId: string) => alert('Edit user: ' + userId + ' (Not implemented)');
   const deleteUser = (userId: string) => {
-    if(confirm(\`Are you sure you want to delete user \${userId}? (This is a mock client-side delete for now)\`)) {
+    if(confirm('Are you sure you want to delete user ' + userId + '? (This is a mock client-side delete for now)')) {
       // Mock delete: setUsers(prevUsers => prevUsers.filter(u => u.id !== userId));
-      alert(\`Delete user: \${userId} (Not implemented on backend)\`);
+      alert('Delete user: ' + userId + ' (Not implemented on backend)');
     }
   };
 
