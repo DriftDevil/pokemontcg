@@ -3,6 +3,7 @@
 FROM node:20-alpine AS builder
 ENV NODE_ENV production
 WORKDIR /app
+ENV NODE_PATH ./src
 
 # Copy package files and install dependencies
 COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
@@ -27,17 +28,15 @@ ENV PORT 9002
 # Create a non-root user and group
 RUN addgroup -S nextjs && adduser -S nextjs -G nextjs
 
-# Copy necessary files from the builder stage for standalone output
+# Copy necessary files from the builder stage
+COPY --from=builder --chown=nextjs:nextjs /app/public ./public
 COPY --from=builder --chown=nextjs:nextjs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nextjs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nextjs /app/public ./public
-# The openapi.yaml is in public, so it's covered by the line above.
 
 # Set the user for the production image
 USER nextjs
 
 EXPOSE ${PORT}
 
-# Command to run the standalone server
 ENTRYPOINT ["node"]
 CMD ["server.js"]
