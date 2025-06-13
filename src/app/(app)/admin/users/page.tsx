@@ -1,25 +1,24 @@
 
-"use client"; // Required for useState, useEffect, useRouter
+"use client"; 
 
 import React, { useState, useEffect, useCallback } from 'react';
 import PageHeader from "@/components/page-header";
 import UsersTableClient from "@/components/admin/users-table-client";
 import { Users as UsersIcon, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useRouter } from 'next/navigation'; // For router.refresh()
+// useRouter is not directly used for refresh here, using useCallback for fetchUsers
 import { useToast } from "@/hooks/use-toast";
 import AddUserDialog from '@/components/admin/add-user-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 
-// Structure of user data from the API (matches openapi.yaml User schema)
 interface ApiUser {
   id: string;
   email?: string;
   name?: string;
   preferredUsername?: string;
   isAdmin?: boolean;
-  createdAt?: string; // ISO date string
-  lastSeen?: string;  // ISO date string
+  createdAt?: string; 
+  lastSeen?: string;  
 }
 
 interface ApiUserListResponse {
@@ -27,15 +26,14 @@ interface ApiUserListResponse {
   total?: number;
 }
 
-// Structure of user data as expected by the UsersTableClient component
 export interface DisplayUser {
   id: string;
-  name: string; // Combined from name or preferredUsername
+  name: string; 
   email: string;
-  role: string;  // e.g., "Admin", "User"
-  status: string; // e.g., "Active", "Inactive" (defaulting to Active for now)
-  lastLogin: string | null; // ISO date string, or null
-  avatar: string; // URL for avatar
+  role: string;  
+  status: string; 
+  lastLogin: string | null; 
+  avatar: string; 
 }
 
 function getBaseUrl(): string {
@@ -48,7 +46,6 @@ function getBaseUrl(): string {
       console.error(`[AdminUsersPage - getBaseUrl] Invalid APP_URL: ${appUrlEnv}. Error: ${error}. Falling back to relative paths or current origin.`);
     }
   }
-  // Fallback for client-side if NEXT_PUBLIC_APP_URL is not set
   return typeof window !== 'undefined' ? window.location.origin : '';
 }
 
@@ -61,23 +58,17 @@ const getAvatarFallbackText = (user: Pick<ApiUser, 'name' | 'preferredUsername' 
 }
 
 export default function AdminUsersPage() {
-  const router = useRouter();
   const { toast } = useToast();
   const [users, setUsers] = useState<DisplayUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  // sessionToken state removed - no longer needed client-side for this page's primary data fetch
 
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
-    // Removed client-side token fetching. The HttpOnly cookie will be sent by the browser.
-    // The /api/users/all route handler will use it.
-
     const baseUrl = getBaseUrl();
     const fetchUrl = `${baseUrl}/api/users/all`;
 
     try {
       const fetchHeaders = new Headers();
-      // No Authorization header needed here; browser sends HttpOnly cookie.
       fetchHeaders.append('Content-Type', 'application/json');
 
       const response = await fetch(fetchUrl, {
@@ -102,7 +93,7 @@ export default function AdminUsersPage() {
         
         console.error(`[AdminUsersPage - fetchUsers] Failed to fetch users from ${fetchUrl}: ${response.status}`, errorBody);
         toast({ title: "Failed to load users", description, variant: "destructive" });
-        setUsers([]); // Clear users on error
+        setUsers([]); 
         return;
       }
 
@@ -151,13 +142,12 @@ export default function AdminUsersPage() {
     fetchUsers();
   }, [fetchUsers]);
 
-  const handleUserAdded = () => {
+  const handleUserAddedOrDeleted = () => {
     fetchUsers(); 
   };
   
   const PageActions = (
-    // sessionToken prop removed from AddUserDialog
-    <AddUserDialog onUserAdded={handleUserAdded}>
+    <AddUserDialog onUserAdded={handleUserAddedOrDeleted}>
       <Button>
         <UserPlus className="mr-2 h-4 w-4" />
         Add New User
@@ -165,7 +155,7 @@ export default function AdminUsersPage() {
     </AddUserDialog>
   );
 
-  if (isLoading) {
+  if (isLoading && users.length === 0) { // Show skeleton only on initial load
     return (
       <>
         <PageHeader
@@ -197,13 +187,12 @@ export default function AdminUsersPage() {
         actions={PageActions}
       />
       {users.length > 0 || !isLoading ? ( 
-        <UsersTableClient initialUsers={users} />
+        <UsersTableClient initialUsers={users} onUserDeleted={handleUserAddedOrDeleted} />
       ) : (
         <div className="text-center py-12 text-muted-foreground">
           <UsersIcon className="mx-auto h-12 w-12 mb-4" />
           <h3 className="text-xl font-semibold mb-2">No Users Found</h3>
           <p>Either no users exist, or there was an issue fetching user data.</p>
-          {/* Removed sessionToken check as it's not reliably readable client-side for HttpOnly cookies */}
         </div>
       )}
     </>
