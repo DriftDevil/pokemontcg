@@ -295,8 +295,9 @@ paths:
       tags:
         - Users
       security:
-        - localJWT: []
-        - oidcJWT: []
+        - localAuth: []
+        - oauth2:
+            - openid
       requestBody:
         required: true
         content:
@@ -357,7 +358,9 @@ paths:
       summary: Delete a user by ID
       tags: [Users]
       security:
-        - bearerAuth: []
+        - localAuth: []
+        - oauth2:
+            - openid
       parameters:
         - name: id
           in: path
@@ -391,7 +394,9 @@ paths:
       summary: Delete a user by email or ID
       tags: [Users]
       security:
-        - bearerAuth: []
+        - localAuth: []
+        - oauth2:
+            - openid
       requestBody:
         required: true
         content:
@@ -729,5 +734,3 @@ components:
           type: integer
         version:
           type: string
-
-    
