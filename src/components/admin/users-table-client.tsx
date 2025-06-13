@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import type { User } from '@/app/(app)/admin/users/page';
+import type { DisplayUser as User } from '@/app/(app)/admin/users/page'; // Use DisplayUser as User
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -23,14 +23,19 @@ type SortKey = keyof User | '';
 type SortDirection = 'asc' | 'desc';
 
 export default function UsersTableClient({ initialUsers }: UsersTableClientProps) {
-  const [users, setUsers] = useState<User[]>(initialUsers);
+  const [users, setUsers] = useState<User[]>(initialUsers); // Users are now DisplayUser
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all'); // Status filter will work on the default "Active" status for now
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 10; // Increased items per page
+
+  React.useEffect(() => {
+    setUsers(initialUsers); // Update users if initialUsers prop changes
+    setCurrentPage(1); // Reset to first page on new data
+  }, [initialUsers]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -43,8 +48,8 @@ export default function UsersTableClient({ initialUsers }: UsersTableClientProps
 
   const filteredAndSortedUsers = useMemo(() => {
     let filtered = users.filter(user =>
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase())
+      (user.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (user.email?.toLowerCase() || '').includes(searchTerm.toLowerCase())
     );
 
     if (roleFilter !== 'all') {
@@ -59,13 +64,17 @@ export default function UsersTableClient({ initialUsers }: UsersTableClientProps
         const valA = a[sortKey as keyof User];
         const valB = b[sortKey as keyof User];
         
+        if (sortKey === 'lastLogin') {
+          const dateA = valA ? new Date(valA as string).getTime() : 0;
+          const dateB = valB ? new Date(valB as string).getTime() : 0;
+          return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+        }
         if (typeof valA === 'string' && typeof valB === 'string') {
           return sortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
         }
         if (typeof valA === 'number' && typeof valB === 'number') {
           return sortDirection === 'asc' ? valA - valB : valB - valA;
         }
-        // For dates or other types, extend this logic
         return 0;
       });
     }
@@ -80,19 +89,27 @@ export default function UsersTableClient({ initialUsers }: UsersTableClientProps
   const totalPages = Math.ceil(filteredAndSortedUsers.length / itemsPerPage);
 
   const getStatusBadgeVariant = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'active': return 'bg-green-100 text-green-800 border-green-300';
-      case 'inactive': return 'bg-slate-100 text-slate-800 border-slate-300';
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      default: return 'secondary';
+    switch (status?.toLowerCase()) {
+      case 'active': return 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700';
+      // Add other statuses if they become available from API
+      default: return 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-700/30 dark:text-slate-300 dark:border-slate-500';
     }
   };
   
-  const viewUser = (userId: string) => alert(`View user: ${userId}`);
-  const editUser = (userId: string) => alert(`Edit user: ${userId}`);
+  const getAvatarFallbackTextClient = (user: User) => {
+    const name = user.name;
+    if (name && name !== 'N/A') {
+        return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0,2) || (user.email && user.email !== 'N/A' ? user.email[0].toUpperCase() : 'U');
+    }
+    return user.email && user.email !== 'N/A' ? user.email[0].toUpperCase() : 'U';
+  }
+
+  const viewUser = (userId: string) => alert(`View user: ${userId} (Not implemented)`);
+  const editUser = (userId: string) => alert(`Edit user: ${userId} (Not implemented)`);
   const deleteUser = (userId: string) => {
-    if(confirm(`Are you sure you want to delete user ${userId}?`)) {
-      setUsers(prevUsers => prevUsers.filter(u => u.id !== userId));
+    if(confirm(`Are you sure you want to delete user ${userId}? (This is a mock client-side delete for now)`)) {
+      // Mock delete: setUsers(prevUsers => prevUsers.filter(u => u.id !== userId));
+      alert(`Delete user: ${userId} (Not implemented on backend)`);
     }
   };
 
@@ -108,26 +125,24 @@ export default function UsersTableClient({ initialUsers }: UsersTableClientProps
         />
         <div className="flex gap-2 flex-wrap sm:ml-auto">
           <Select value={roleFilter} onValueChange={(value) => {setRoleFilter(value); setCurrentPage(1);}}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className="w-full sm:w-[160px]">
               <SelectValue placeholder="Filter by role" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Roles</SelectItem>
-              <SelectItem value="Super Admin">Super Admin</SelectItem>
               <SelectItem value="Admin">Admin</SelectItem>
-              <SelectItem value="Editor">Editor</SelectItem>
-              <SelectItem value="Viewer">Viewer</SelectItem>
+              <SelectItem value="User">User</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={statusFilter} onValueChange={(value) => {setStatusFilter(value); setCurrentPage(1);}}>
-            <SelectTrigger className="w-[160px]">
+          <Select value={statusFilter} onValueChange={(value) => {setStatusFilter(value); setCurrentPage(1);}} disabled> {/* Disabled until API provides status */}
+            <SelectTrigger className="w-full sm:w-[160px]">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="Active">Active</SelectItem>
-              <SelectItem value="Inactive">Inactive</SelectItem>
-              <SelectItem value="Pending">Pending</SelectItem>
+              {/* <SelectItem value="Inactive">Inactive</SelectItem> */}
+              {/* <SelectItem value="Pending">Pending</SelectItem> */}
             </SelectContent>
           </Select>
         </div>
@@ -137,7 +152,13 @@ export default function UsersTableClient({ initialUsers }: UsersTableClientProps
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>User</TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort('name')}
+              >
+                User
+                {sortKey === 'name' && <ArrowUpDown className="ml-2 h-4 w-4 inline" />}
+              </TableHead>
               <TableHead
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('role')}
@@ -146,17 +167,17 @@ export default function UsersTableClient({ initialUsers }: UsersTableClientProps
                 {sortKey === 'role' && <ArrowUpDown className="ml-2 h-4 w-4 inline" />}
               </TableHead>
               <TableHead
-                className="cursor-pointer hover:bg-muted/50"
+                className="cursor-pointer hover:bg-muted/50 hidden md:table-cell"
                 onClick={() => handleSort('status')}
               >
                 Status
                 {sortKey === 'status' && <ArrowUpDown className="ml-2 h-4 w-4 inline" />}
               </TableHead>
               <TableHead
-                className="cursor-pointer hover:bg-muted/50 hidden md:table-cell"
+                className="cursor-pointer hover:bg-muted/50 hidden lg:table-cell"
                 onClick={() => handleSort('lastLogin')}
               >
-                Last Login
+                Last Seen
                 {sortKey === 'lastLogin' && <ArrowUpDown className="ml-2 h-4 w-4 inline" />}
               </TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -167,9 +188,13 @@ export default function UsersTableClient({ initialUsers }: UsersTableClientProps
               <TableRow key={user.id}>
                 <TableCell>
                   <div className="flex items-center gap-3">
-                    <Avatar>
-                      <AvatarImage src={user.avatar} alt={user.name} data-ai-hint="user avatar" />
-                      <AvatarFallback>{user.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                    <Avatar className="h-9 w-9">
+                      <AvatarImage 
+                        src={user.avatar} 
+                        alt={user.name} 
+                        data-ai-hint="user avatar placeholder"
+                      />
+                      <AvatarFallback>{getAvatarFallbackTextClient(user)}</AvatarFallback>
                     </Avatar>
                     <div>
                       <div className="font-medium">{user.name}</div>
@@ -178,13 +203,13 @@ export default function UsersTableClient({ initialUsers }: UsersTableClientProps
                   </div>
                 </TableCell>
                 <TableCell>{user.role}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={cn("border", getStatusBadgeVariant(user.status))}>
+                <TableCell className="hidden md:table-cell">
+                  <Badge variant={'outline'} className={cn("border", getStatusBadgeVariant(user.status))}>
                     {user.status}
                   </Badge>
                 </TableCell>
-                <TableCell className="hidden md:table-cell">
-                  {user.lastLogin ? format(parseISO(user.lastLogin), 'MMM d, yyyy HH:mm') : 'N/A'}
+                <TableCell className="hidden lg:table-cell">
+                  {user.lastLogin ? format(parseISO(user.lastLogin), 'MMM d, yyyy, p') : 'N/A'}
                 </TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
@@ -199,11 +224,11 @@ export default function UsersTableClient({ initialUsers }: UsersTableClientProps
                       <DropdownMenuItem onClick={() => viewUser(user.id)}>
                         <Eye className="mr-2 h-4 w-4" /> View Details
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => editUser(user.id)}>
+                      <DropdownMenuItem onClick={() => editUser(user.id)} disabled>
                         <Edit3 className="mr-2 h-4 w-4" /> Edit User
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onClick={() => deleteUser(user.id)}>
+                      <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onClick={() => deleteUser(user.id)} disabled>
                         <Trash2 className="mr-2 h-4 w-4" /> Delete User
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -213,8 +238,8 @@ export default function UsersTableClient({ initialUsers }: UsersTableClientProps
             ))}
              {paginatedUsers.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center h-24">
-                  No users found.
+                <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                  No users match your current filters.
                 </TableCell>
               </TableRow>
             )}
@@ -225,7 +250,7 @@ export default function UsersTableClient({ initialUsers }: UsersTableClientProps
       {totalPages > 1 && (
         <div className="flex items-center justify-between pt-2">
           <div className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages}
+            Page {currentPage} of {totalPages} ({filteredAndSortedUsers.length} users total)
           </div>
           <div className="flex gap-2">
             <Button
