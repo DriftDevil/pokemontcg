@@ -16,7 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useForm, type SubmitHandler } from "react-hook-form";
+import { useForm, type SubmitHandler, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
@@ -26,39 +26,40 @@ const addUserSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(8, { message: "Password must be at least 8 characters." }),
   name: z.string().optional(),
-  isAdmin: z.boolean().default(false).optional(),
+  isAdmin: z.boolean().default(false),
 });
 
 export type AddUserFormInputs = z.infer<typeof addUserSchema>;
 
 interface AddUserDialogProps {
-  // sessionToken prop removed
-  onUserAdded: () => void; // Callback to refresh user list
-  children: React.ReactNode; // To use as DialogTrigger
+  onUserAdded: () => void; 
+  children: React.ReactNode; 
 }
 
 export default function AddUserDialog({ onUserAdded, children }: AddUserDialogProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const {
-    register,
+    control, // Added control
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<AddUserFormInputs>({
     resolver: zodResolver(addUserSchema),
+    defaultValues: { // Added defaultValues
+      email: '',
+      password: '',
+      name: '',
+      isAdmin: false,
+    }
   });
 
   const onSubmit: SubmitHandler<AddUserFormInputs> = async (data) => {
-    // Removed client-side sessionToken check.
-    // The /api/users/add route will handle authentication using the HttpOnly cookie.
-
     try {
       const response = await fetch('/api/users/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Authorization header removed; HttpOnly cookie will be sent by the browser.
         },
         body: JSON.stringify(data),
       });
@@ -70,7 +71,7 @@ export default function AddUserDialog({ onUserAdded, children }: AddUserDialogPr
           title: "User Added",
           description: `User ${result.data?.email || data.email} has been successfully added.`,
         });
-        onUserAdded(); // Trigger refresh
+        onUserAdded(); 
         reset();
         setOpen(false);
       } else {
@@ -98,7 +99,7 @@ export default function AddUserDialog({ onUserAdded, children }: AddUserDialogPr
     <Dialog open={open} onOpenChange={(isOpen) => {
       setOpen(isOpen);
       if (!isOpen) {
-        reset(); // Reset form when dialog is closed
+        reset(); 
       }
     }}>
       <DialogTrigger asChild>
@@ -116,21 +117,44 @@ export default function AddUserDialog({ onUserAdded, children }: AddUserDialogPr
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-4">
           <div>
             <Label htmlFor="name-add">Full Name (Optional)</Label>
-            <Input id="name-add" {...register("name")} disabled={isSubmitting} />
+            <Controller
+                name="name"
+                control={control}
+                render={({ field }) => <Input id="name-add" {...field} disabled={isSubmitting} />}
+            />
             {errors.name && <p className="text-xs text-destructive mt-1">{errors.name.message}</p>}
           </div>
           <div>
             <Label htmlFor="email-add">Email Address</Label>
-            <Input id="email-add" type="email" {...register("email")} disabled={isSubmitting} />
+             <Controller
+                name="email"
+                control={control}
+                render={({ field }) => <Input id="email-add" type="email" {...field} disabled={isSubmitting} />}
+            />
             {errors.email && <p className="text-xs text-destructive mt-1">{errors.email.message}</p>}
           </div>
           <div>
             <Label htmlFor="password-add">Password</Label>
-            <Input id="password-add" type="password" {...register("password")} disabled={isSubmitting} />
+            <Controller
+                name="password"
+                control={control}
+                render={({ field }) => <Input id="password-add" type="password" {...field} disabled={isSubmitting} />}
+            />
             {errors.password && <p className="text-xs text-destructive mt-1">{errors.password.message}</p>}
           </div>
           <div className="flex items-center space-x-2">
-            <Checkbox id="isAdmin-add" {...register("isAdmin")} disabled={isSubmitting} />
+            <Controller
+              name="isAdmin"
+              control={control}
+              render={({ field }) => (
+                <Checkbox
+                  id="isAdmin-add"
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  disabled={isSubmitting}
+                />
+              )}
+            />
             <Label htmlFor="isAdmin-add" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
               Grant Administrator Privileges
             </Label>
