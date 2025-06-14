@@ -38,7 +38,6 @@ export async function POST(request: NextRequest) {
     let responseData;
 
     if (!apiResponse.ok) {
-      // ... (error handling for external API remains the same)
       let errorDetails: string;
       const contentType = apiResponse.headers.get("content-type");
 
@@ -90,26 +89,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Authentication service did not provide an accessToken.', details: 'Check server logs for the full response from the authentication service.' }, { status: 500 });
     }
 
-    // Determine cookie security settings
     const appUrlFromEnv = process.env.APP_URL;
-    const effectiveAppUrl = appUrlFromEnv || `http://localhost:${process.env.PORT || '9002'}`;
-    const isDevelopment = process.env.NODE_ENV === 'development';
+    const defaultDevAppUrl = `http://localhost:${process.env.PORT || '9002'}`;
+    const effectiveAppUrl = appUrlFromEnv || defaultDevAppUrl;
     
-    let cookieSecure: boolean;
-    const cookieSameSite = 'lax'; // Use Lax as a robust default
+    const cookieSecure = effectiveAppUrl.startsWith('https://');
+    const cookieSameSite = 'lax';
 
-    if (isDevelopment) {
-      cookieSecure = effectiveAppUrl.startsWith('https://');
-      console.log(`[API Password Login - Dev] Effective APP_URL: ${effectiveAppUrl}. Setting 'session_token' cookie: Secure=${cookieSecure}, SameSite=${cookieSameSite}.`);
-    } else {
-      if (effectiveAppUrl.startsWith('http://')) {
-        cookieSecure = false;
-        console.warn(`[API Password Login - Non-Dev] WARNING: Effective APP_URL (${effectiveAppUrl}) is HTTP. 'session_token' cookie will be insecure.`);
-      } else {
-        cookieSecure = true;
-      }
-      console.log(`[API Password Login - Non-Dev] Effective APP_URL: ${effectiveAppUrl}. Setting 'session_token' cookie: Secure=${cookieSecure}, SameSite=${cookieSameSite}.`);
+    console.log(`[API Password Login] Effective APP_URL for 'session_token' cookie: ${effectiveAppUrl}. Setting cookie: Secure=${cookieSecure}, SameSite=${cookieSameSite}.`);
+    if (process.env.NODE_ENV !== 'development' && !cookieSecure && appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
+        console.warn(`[API Password Login - Non-Dev] WARNING: APP_URL (${appUrlFromEnv}) is HTTP. 'session_token' cookie will be insecure.`);
     }
+
 
     const cookieOpts: Omit<ResponseCookie, 'name' | 'value'> = {
       httpOnly: true,

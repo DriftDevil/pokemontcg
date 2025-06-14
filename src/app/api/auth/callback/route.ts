@@ -35,23 +35,15 @@ export async function GET(request: NextRequest) {
     if (!tokenSet.id_token) throw new Error('ID token not found in token set');
     if (!tokenSet.access_token) throw new Error('Access token not found in token set');
 
-    // Determine cookie security settings
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    let cookieSecure: boolean;
+    // Determine cookie security settings based on the effective URL scheme
+    const cookieSecure = callback_uri_base.startsWith('https://');
     const cookieSameSite = 'lax'; // Use Lax as a robust default
 
-    if (isDevelopment) {
-      cookieSecure = callback_uri_base.startsWith('https://');
-      console.log(`[API OIDC Callback - Dev] Effective APP_URL for session cookies: ${callback_uri_base}. Setting cookies: Secure=${cookieSecure}, SameSite=${cookieSameSite}.`);
-    } else {
-      if (appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
-        cookieSecure = false;
-        console.warn(`[API OIDC Callback - Non-Dev] WARNING: APP_URL (${appUrlFromEnv}) is HTTP. Session cookies will be insecure.`);
-      } else {
-        cookieSecure = true;
-      }
-      console.log(`[API OIDC Callback - Non-Dev] APP_URL: ${appUrlFromEnv || 'Not Set (assuming HTTPS)'}. Setting session cookies: Secure=${cookieSecure}, SameSite=${cookieSameSite}.`);
+    console.log(`[API OIDC Callback] Effective APP_URL for session cookies: ${callback_uri_base}. Setting cookies: Secure=${cookieSecure}, SameSite=${cookieSameSite}.`);
+    if (process.env.NODE_ENV !== 'development' && !cookieSecure && appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
+      console.warn(`[API OIDC Callback - Non-Dev] WARNING: APP_URL (${appUrlFromEnv}) is HTTP. Session cookies will be insecure.`);
     }
+
 
     const baseCookieOpts: Partial<ResponseCookie> = {
       httpOnly: true,

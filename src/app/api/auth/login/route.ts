@@ -15,29 +15,17 @@ export async function GET() {
     const state = generators.state();
 
     const appUrlFromEnv = process.env.APP_URL;
-    // Default to http://localhost:PORT for redirect_uri if APP_URL is not set in dev
     const defaultDevAppUrl = `http://localhost:${process.env.PORT || '9002'}`;
     const redirect_uri_base = appUrlFromEnv || defaultDevAppUrl;
     const redirect_uri = `${redirect_uri_base}/api/auth/callback`;
 
-    // Determine cookie security settings
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    let cookieSecure: boolean;
-    const cookieSameSite = 'lax'; // Use Lax as a robust default
+    // Determine cookie security settings based on the effective URL scheme
+    const cookieSecure = redirect_uri_base.startsWith('https://');
+    const cookieSameSite = 'lax'; 
 
-    if (isDevelopment) {
-      // In dev, cookies are secure only if the effective URL (APP_URL or default) starts with https
-      cookieSecure = redirect_uri_base.startsWith('https://');
-      console.log(`[API OIDC Login - Dev] Effective APP_URL for OIDC state cookies: ${redirect_uri_base}. Setting cookies: Secure=${cookieSecure}, SameSite=${cookieSameSite}.`);
-    } else {
-      // In non-dev (production), cookies are secure unless APP_URL explicitly starts with http:// (misconfiguration)
-      if (appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
-        cookieSecure = false;
-        console.warn(`[API OIDC Login - Non-Dev] WARNING: APP_URL (${appUrlFromEnv}) is HTTP. OIDC state cookies will be insecure.`);
-      } else {
-        cookieSecure = true; // Default to secure for production
-      }
-      console.log(`[API OIDC Login - Non-Dev] APP_URL: ${appUrlFromEnv || 'Not Set (assuming HTTPS)'}. Setting OIDC state cookies: Secure=${cookieSecure}, SameSite=${cookieSameSite}.`);
+    console.log(`[API OIDC Login] Effective APP_URL for OIDC state cookies: ${redirect_uri_base}. Setting cookies: Secure=${cookieSecure}, SameSite=${cookieSameSite}.`);
+    if (process.env.NODE_ENV !== 'development' && !cookieSecure && appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
+      console.warn(`[API OIDC Login - Non-Dev] WARNING: APP_URL (${appUrlFromEnv}) is HTTP. OIDC state cookies will be insecure.`);
     }
 
     const cookieOptions: Omit<ResponseCookie, 'name' | 'value'> = {
