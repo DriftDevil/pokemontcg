@@ -30,9 +30,7 @@ export async function POST(request: NextRequest) {
 
     const apiResponse = await fetch(`${currentExternalApiBaseUrl}/auth/local/login`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
 
@@ -40,6 +38,7 @@ export async function POST(request: NextRequest) {
     let responseData;
 
     if (!apiResponse.ok) {
+      // ... (error handling for external API remains the same)
       let errorDetails: string;
       const contentType = apiResponse.headers.get("content-type");
 
@@ -91,54 +90,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Authentication service did not provide an accessToken.', details: 'Check server logs for the full response from the authentication service.' }, { status: 500 });
     }
 
+    // Determine cookie security settings
     const appUrlFromEnv = process.env.APP_URL;
+    const effectiveAppUrl = appUrlFromEnv || `http://localhost:${process.env.PORT || '9002'}`;
     const isDevelopment = process.env.NODE_ENV === 'development';
+    
     let cookieSecure: boolean;
-    let cookieSameSite: 'lax' | 'none' | 'strict' | undefined;
+    const cookieSameSite = 'lax'; // Use Lax as a robust default
 
     if (isDevelopment) {
-      if (appUrlFromEnv && appUrlFromEnv.startsWith('https://localhost')) {
-        cookieSecure = true;
-        cookieSameSite = 'none';
-        console.log(`[API Password Login] Development (HTTPS localhost APP_URL): Setting 'session_token' cookie with SameSite=None; Secure=true.`);
-      } else if ((appUrlFromEnv && appUrlFromEnv.startsWith('http://localhost')) || !appUrlFromEnv) {
+      cookieSecure = effectiveAppUrl.startsWith('https://');
+      console.log(`[API Password Login - Dev] Effective APP_URL: ${effectiveAppUrl}. Setting 'session_token' cookie: Secure=${cookieSecure}, SameSite=${cookieSameSite}.`);
+    } else {
+      if (effectiveAppUrl.startsWith('http://')) {
         cookieSecure = false;
-        cookieSameSite = 'lax';
-        const effectiveAppUrl = appUrlFromEnv || `http://localhost:${process.env.PORT || '9002'}`;
-        console.log(`[API Password Login] Development (HTTP localhost APP_URL: ${effectiveAppUrl}): Setting 'session_token' cookie with SameSite=Lax; Secure=false.`);
-      } else if (appUrlFromEnv && appUrlFromEnv.startsWith('https://')) {
-        cookieSecure = true;
-        cookieSameSite = 'lax';
-        console.log(`[API Password Login] Development (HTTPS non-localhost APP_URL: ${appUrlFromEnv}): Setting 'session_token' cookie with SameSite=Lax; Secure=true.`);
-      } else if (appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
-        cookieSecure = false;
-        cookieSameSite = 'lax';
-        console.log(`[API Password Login] Development (HTTP non-localhost APP_URL: ${appUrlFromEnv}): Setting 'session_token' cookie with SameSite=Lax; Secure=false.`);
-      } else {
-        cookieSecure = false;
-        cookieSameSite = 'lax';
-        console.log(`[API Password Login] Development (Fallback/Unknown APP_URL): Setting 'session_token' cookie with SameSite=Lax; Secure=false.`);
-      }
-    } else { // Production or other environments
-      if (appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
-        cookieSecure = false;
-        cookieSameSite = 'lax';
-        console.warn(
-            `[API Password Login] WARNING: APP_URL (${appUrlFromEnv}) is HTTP in a non-development environment. ` +
-            "Cookie 'session_token' will be insecure. This is NOT recommended."
-        );
+        console.warn(`[API Password Login - Non-Dev] WARNING: Effective APP_URL (${effectiveAppUrl}) is HTTP. 'session_token' cookie will be insecure.`);
       } else {
         cookieSecure = true;
-        cookieSameSite = 'lax';
-        if (!appUrlFromEnv || !appUrlFromEnv.startsWith('https://')) {
-             console.log(
-                `[API Password Login] Non-development: APP_URL is not explicitly HTTPS or not set. `+
-                `Setting 'session_token' cookie with SameSite=Lax; Secure=true. Ensure APP_URL matches public HTTPS URL.`
-            );
-        } else {
-             console.log(`[API Password Login] Non-development (HTTPS APP_URL: ${appUrlFromEnv}): Setting 'session_token' cookie with SameSite=Lax; Secure=true.`);
-        }
       }
+      console.log(`[API Password Login - Non-Dev] Effective APP_URL: ${effectiveAppUrl}. Setting 'session_token' cookie: Secure=${cookieSecure}, SameSite=${cookieSameSite}.`);
     }
 
     const cookieOpts: Omit<ResponseCookie, 'name' | 'value'> = {
@@ -153,7 +123,7 @@ export async function POST(request: NextRequest) {
         name: 'session_token',
         value: token,
         ...cookieOpts,
-    };
+    } as ResponseCookie;
 
     const response = NextResponse.json({ success: true, message: "Login successful" });
     response.cookies.set(sessionTokenCookie);
@@ -164,9 +134,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('[API Password Login] Internal error in POST handler:', error.message, error.stack);
     let errorMessage = 'An unexpected error occurred during password login.';
-    if (error instanceof Error) {
-        errorMessage = error.message;
-    }
+    if (error instanceof Error) errorMessage = error.message;
     return NextResponse.json({ success: false, message: 'Internal server error during login process.', details: errorMessage }, { status: 500 });
   }
 }

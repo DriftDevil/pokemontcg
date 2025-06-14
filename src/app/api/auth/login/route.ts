@@ -15,55 +15,29 @@ export async function GET() {
     const state = generators.state();
 
     const appUrlFromEnv = process.env.APP_URL;
-    const redirect_uri = `${appUrlFromEnv || 'http://localhost:9002'}/api/auth/callback`;
+    // Default to http://localhost:PORT for redirect_uri if APP_URL is not set in dev
+    const defaultDevAppUrl = `http://localhost:${process.env.PORT || '9002'}`;
+    const redirect_uri_base = appUrlFromEnv || defaultDevAppUrl;
+    const redirect_uri = `${redirect_uri_base}/api/auth/callback`;
 
+    // Determine cookie security settings
     const isDevelopment = process.env.NODE_ENV === 'development';
     let cookieSecure: boolean;
-    let cookieSameSite: 'lax' | 'none' | 'strict' | undefined;
+    const cookieSameSite = 'lax'; // Use Lax as a robust default
 
     if (isDevelopment) {
-      if (appUrlFromEnv && appUrlFromEnv.startsWith('https://localhost')) {
-        cookieSecure = true;
-        cookieSameSite = 'none';
-        console.log(`[API OIDC Login] Development (HTTPS localhost APP_URL): Setting OIDC state cookies with SameSite=None; Secure=true.`);
-      } else if ((appUrlFromEnv && appUrlFromEnv.startsWith('http://localhost')) || !appUrlFromEnv) {
+      // In dev, cookies are secure only if the effective URL (APP_URL or default) starts with https
+      cookieSecure = redirect_uri_base.startsWith('https://');
+      console.log(`[API OIDC Login - Dev] Effective APP_URL for OIDC state cookies: ${redirect_uri_base}. Setting cookies: Secure=${cookieSecure}, SameSite=${cookieSameSite}.`);
+    } else {
+      // In non-dev (production), cookies are secure unless APP_URL explicitly starts with http:// (misconfiguration)
+      if (appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
         cookieSecure = false;
-        cookieSameSite = 'lax';
-        const effectiveAppUrl = appUrlFromEnv || `http://localhost:${process.env.PORT || '9002'}`;
-        console.log(`[API OIDC Login] Development (HTTP localhost APP_URL: ${effectiveAppUrl}): Setting OIDC state cookies with SameSite=Lax; Secure=false.`);
-      } else if (appUrlFromEnv && appUrlFromEnv.startsWith('https://')) {
-        cookieSecure = true;
-        cookieSameSite = 'lax';
-        console.log(`[API OIDC Login] Development (HTTPS non-localhost APP_URL: ${appUrlFromEnv}): Setting OIDC state cookies with SameSite=Lax; Secure=true.`);
-      } else if (appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
-        cookieSecure = false;
-        cookieSameSite = 'lax';
-        console.log(`[API OIDC Login] Development (HTTP non-localhost APP_URL: ${appUrlFromEnv}): Setting OIDC state cookies with SameSite=Lax; Secure=false.`);
-      } else { // Fallback for safety, though covered by !appUrlFromEnv in http://localhost case
-        cookieSecure = false;
-        cookieSameSite = 'lax';
-        console.log(`[API OIDC Login] Development (Fallback/Unknown APP_URL): Setting OIDC state cookies with SameSite=Lax; Secure=false.`);
+        console.warn(`[API OIDC Login - Non-Dev] WARNING: APP_URL (${appUrlFromEnv}) is HTTP. OIDC state cookies will be insecure.`);
+      } else {
+        cookieSecure = true; // Default to secure for production
       }
-    } else { // Production or other environments
-        if (appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
-            cookieSecure = false;
-            cookieSameSite = 'lax';
-            console.warn(
-                `[API OIDC Login] WARNING: APP_URL (${appUrlFromEnv}) is HTTP in a non-development environment. ` +
-                "OIDC state cookies will be insecure. This is NOT recommended."
-            );
-        } else {
-            cookieSecure = true;
-            cookieSameSite = 'lax';
-             if (!appUrlFromEnv || !appUrlFromEnv.startsWith('https://')) {
-                console.log(
-                    `[API OIDC Login] Non-development: APP_URL is not explicitly HTTPS or not set. `+
-                    `Setting OIDC state cookies with SameSite=Lax; Secure=true. Ensure APP_URL matches public HTTPS URL.`
-                );
-            } else {
-                console.log(`[API OIDC Login] Non-development (HTTPS APP_URL): Setting OIDC state cookies with SameSite=Lax; Secure=true.`);
-            }
-        }
+      console.log(`[API OIDC Login - Non-Dev] APP_URL: ${appUrlFromEnv || 'Not Set (assuming HTTPS)'}. Setting OIDC state cookies: Secure=${cookieSecure}, SameSite=${cookieSameSite}.`);
     }
 
     const cookieOptions: Omit<ResponseCookie, 'name' | 'value'> = {
@@ -95,7 +69,7 @@ export async function GET() {
     if (error instanceof Error) {
       errorMessage = error.message;
     }
-    const errorRedirectAppUrl = process.env.APP_URL || 'http://localhost:9002';
+    const errorRedirectAppUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || '9002'}`;
     return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMessage)}`, errorRedirectAppUrl));
   }
 }

@@ -15,18 +15,14 @@ export async function GET(request: NextRequest) {
     const nonce = cookieStore.get('oidc_nonce')?.value;
     const state = cookieStore.get('oidc_state')?.value;
 
-    if (!code_verifier) {
-      throw new Error('Missing code_verifier cookie');
-    }
-    if (!nonce) {
-        throw new Error('Missing nonce cookie');
-    }
-    if (!state) {
-        throw new Error('Missing state cookie');
-    }
+    if (!code_verifier) throw new Error('Missing code_verifier cookie');
+    if (!nonce) throw new Error('Missing nonce cookie');
+    if (!state) throw new Error('Missing state cookie');
 
     const appUrlFromEnv = process.env.APP_URL;
-    const redirect_uri = `${appUrlFromEnv || 'http://localhost:9002'}/api/auth/callback`;
+    const defaultDevAppUrl = `http://localhost:${process.env.PORT || '9002'}`;
+    const callback_uri_base = appUrlFromEnv || defaultDevAppUrl;
+    const redirect_uri = `${callback_uri_base}/api/auth/callback`;
 
     const params = client.callbackParams(request.url);
 
@@ -36,81 +32,37 @@ export async function GET(request: NextRequest) {
       state,
     });
 
-    if (!tokenSet.id_token) {
-        throw new Error('ID token not found in token set');
-    }
-    if (!tokenSet.access_token) {
-        throw new Error('Access token not found in token set');
-    }
+    if (!tokenSet.id_token) throw new Error('ID token not found in token set');
+    if (!tokenSet.access_token) throw new Error('Access token not found in token set');
 
+    // Determine cookie security settings
     const isDevelopment = process.env.NODE_ENV === 'development';
     let cookieSecure: boolean;
-    let cookieSameSite: 'lax' | 'none' | 'strict' | undefined;
+    const cookieSameSite = 'lax'; // Use Lax as a robust default
 
     if (isDevelopment) {
-      if (appUrlFromEnv && appUrlFromEnv.startsWith('https://localhost')) {
-        cookieSecure = true;
-        cookieSameSite = 'none';
-        console.log(`[API OIDC Callback] Development (HTTPS localhost APP_URL): Setting session cookies with SameSite=None; Secure=true.`);
-      } else if ((appUrlFromEnv && appUrlFromEnv.startsWith('http://localhost')) || !appUrlFromEnv) {
-        cookieSecure = false;
-        cookieSameSite = 'lax';
-        const effectiveAppUrl = appUrlFromEnv || `http://localhost:${process.env.PORT || '9002'}`;
-        console.log(`[API OIDC Callback] Development (HTTP localhost APP_URL: ${effectiveAppUrl}): Setting session cookies with SameSite=Lax; Secure=false.`);
-      } else if (appUrlFromEnv && appUrlFromEnv.startsWith('https://')) {
-        cookieSecure = true;
-        cookieSameSite = 'lax';
-        console.log(`[API OIDC Callback] Development (HTTPS non-localhost APP_URL: ${appUrlFromEnv}): Setting session cookies with SameSite=Lax; Secure=true.`);
-      } else if (appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
-        cookieSecure = false;
-        cookieSameSite = 'lax';
-        console.log(`[API OIDC Callback] Development (HTTP non-localhost APP_URL: ${appUrlFromEnv}): Setting session cookies with SameSite=Lax; Secure=false.`);
-      } else {
-        cookieSecure = false;
-        cookieSameSite = 'lax';
-        console.log(`[API OIDC Callback] Development (Fallback/Unknown APP_URL): Setting session cookies with SameSite=Lax; Secure=false.`);
-      }
-    } else { // Production or other environments
+      cookieSecure = callback_uri_base.startsWith('https://');
+      console.log(`[API OIDC Callback - Dev] Effective APP_URL for session cookies: ${callback_uri_base}. Setting cookies: Secure=${cookieSecure}, SameSite=${cookieSameSite}.`);
+    } else {
       if (appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
         cookieSecure = false;
-        cookieSameSite = 'lax';
-        console.warn(
-            `[API OIDC Callback] WARNING: APP_URL (${appUrlFromEnv}) is HTTP in a non-development environment. ` +
-            "Session cookies (id_token, session_token) will be insecure. This is NOT recommended."
-        );
+        console.warn(`[API OIDC Callback - Non-Dev] WARNING: APP_URL (${appUrlFromEnv}) is HTTP. Session cookies will be insecure.`);
       } else {
         cookieSecure = true;
-        cookieSameSite = 'lax';
-        if (!appUrlFromEnv || !appUrlFromEnv.startsWith('https://')) {
-             console.log(
-                `[API OIDC Callback] Non-development: APP_URL is not explicitly HTTPS or not set. `+
-                `Setting session cookies with SameSite=Lax; Secure=true. Ensure APP_URL matches public HTTPS URL.`
-            );
-        } else {
-            console.log(`[API OIDC Callback] Non-development (HTTPS APP_URL): Setting session cookies with SameSite=Lax; Secure=true.`);
-        }
       }
+      console.log(`[API OIDC Callback - Non-Dev] APP_URL: ${appUrlFromEnv || 'Not Set (assuming HTTPS)'}. Setting session cookies: Secure=${cookieSecure}, SameSite=${cookieSameSite}.`);
     }
 
     const baseCookieOpts: Partial<ResponseCookie> = {
       httpOnly: true,
       path: '/',
-      maxAge: tokenSet.expires_in || 3600,
+      maxAge: tokenSet.expires_in || 3600, // 1 hour or token's expiry
       secure: cookieSecure,
       sameSite: cookieSameSite,
     };
 
-    const idTokenCookie: ResponseCookie = {
-        name: 'id_token',
-        value: tokenSet.id_token,
-        ...baseCookieOpts
-    } as ResponseCookie;
-
-    const sessionTokenCookie: ResponseCookie = {
-        name: 'session_token',
-        value: tokenSet.access_token,
-        ...baseCookieOpts
-    } as ResponseCookie;
+    const idTokenCookie: ResponseCookie = { name: 'id_token', value: tokenSet.id_token, ...baseCookieOpts } as ResponseCookie;
+    const sessionTokenCookie: ResponseCookie = { name: 'session_token', value: tokenSet.access_token, ...baseCookieOpts } as ResponseCookie;
 
     cookieStore.set(idTokenCookie);
     cookieStore.set(sessionTokenCookie);
@@ -119,21 +71,21 @@ export async function GET(request: NextRequest) {
     cookieStore.delete('oidc_nonce');
     cookieStore.delete('oidc_state');
 
-    const finalRedirectUrl = appUrlFromEnv || 'http://localhost:9002';
+    const finalRedirectUrl = callback_uri_base; // Base URL for redirecting to dashboard
     return NextResponse.redirect(new URL('/admin/dashboard', finalRedirectUrl));
   } catch (error) {
     console.error('OIDC Callback route error:', error);
     let errorMessage = 'OIDC callback failed.';
-    if (error instanceof Error) {
-        errorMessage = error.message;
-    }
+    if (error instanceof Error) errorMessage = error.message;
+
     const cookieStore = cookies();
     cookieStore.delete('oidc_code_verifier');
     cookieStore.delete('oidc_nonce');
     cookieStore.delete('oidc_state');
     cookieStore.delete('id_token');
     cookieStore.delete('session_token');
-    const errorRedirectAppUrl = process.env.APP_URL || 'http://localhost:9002';
+
+    const errorRedirectAppUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || '9002'}`;
     return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMessage)}`, errorRedirectAppUrl));
   }
 }
