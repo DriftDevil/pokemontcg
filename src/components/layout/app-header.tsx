@@ -18,37 +18,39 @@ import { usePathname, useRouter } from "next/navigation";
 import React, { useState, useEffect, useCallback } from "react";
 import AppSidebarContent, { type NavItem } from "./app-sidebar-content";
 
-// Define a simple user type for the application
 interface AppUser {
   id: string;
   name?: string;
   email?: string;
-  picture?: string; // For OIDC avatar
-  // preferredUsername?: string; // From openapi User schema
-  // isAdmin?: boolean; // From openapi User schema
+  picture?: string; 
 }
 
 const useThemeToggle = () => {
   const [theme, setTheme] = useState("light");
 
   useEffect(() => {
-    const storedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-    setTheme(storedTheme);
-    if (storedTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+    // Ensure this runs only on the client
+    if (typeof window !== 'undefined') {
+      const storedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      setTheme(storedTheme);
+      if (storedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
     }
   }, []);
 
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
     setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
-    if (newTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('theme', newTheme);
+      if (newTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
     }
   };
   return { theme, toggleTheme };
@@ -60,19 +62,23 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
   const { theme, toggleTheme } = useThemeToggle();
   const [user, setUser] = useState<AppUser | null>(null);
   const [isLoadingSession, setIsLoadingSession] = useState(true);
+  const pathname = usePathname();
 
   const fetchUser = useCallback(async () => {
+    // console.log("[AppHeader] Attempting to fetch user session...");
     setIsLoadingSession(true);
     try {
       const res = await fetch('/api/auth/user', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        setUser(data); // data can be null if not authenticated
+        // console.log("[AppHeader] User data fetched:", data);
+        setUser(data); 
       } else {
+        // console.log("[AppHeader] Failed to fetch user, status:", res.status);
         setUser(null);
       }
     } catch (error) {
-      console.error("Failed to fetch user session", error);
+      console.error("[AppHeader] Error fetching user session:", error);
       setUser(null);
     } finally {
       setIsLoadingSession(false);
@@ -80,12 +86,7 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
   }, []);
 
   useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
-
-  // Effect to refetch user on navigation to ensure state is fresh after login/logout redirects
-  const pathname = usePathname();
-  useEffect(() => {
+    // console.log("[AppHeader] useEffect triggered by pathname or fetchUser. Pathname:", pathname);
     fetchUser();
   }, [pathname, fetchUser]);
 
@@ -100,7 +101,7 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
 
   const getAvatarFallback = () => {
     if (user?.name) {
-      return user.name.split(' ').map(n => n[0]).join('').toUpperCase();
+      return user.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0,2);
     }
     if (user?.email) {
       return user.email.charAt(0).toUpperCase();
@@ -131,7 +132,7 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
           </Button>
           {isLoadingSession ? (
             <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />
-          ) : user && user.id ? ( // Check for user.id to ensure it's a valid user object
+          ) : user && user.id ? ( 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-9 w-9 rounded-full">
@@ -155,11 +156,11 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push('/admin/profile')}> {/* Placeholder for profile page */}
+                <DropdownMenuItem onClick={() => router.push('/admin/profile')}> 
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push('/admin/settings')}> {/* Placeholder for settings page */}
+                <DropdownMenuItem onClick={() => router.push('/admin/settings')} disabled> 
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>
                 </DropdownMenuItem>
@@ -171,7 +172,7 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-             <Button asChild variant="outline" onClick={handleLogin}>
+             <Button asChild variant="outline">
                 <Link href="/login">
                     <LogInIcon className="mr-2 h-4 w-4" /> Login
                 </Link>
@@ -182,3 +183,4 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
     </header>
   );
 }
+

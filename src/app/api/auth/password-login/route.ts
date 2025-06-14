@@ -94,30 +94,32 @@ export async function POST(request: NextRequest) {
     const appUrlFromEnv = process.env.APP_URL;
     const isDevelopment = process.env.NODE_ENV === 'development';
     let cookieSecure: boolean;
-    let cookieSameSite: 'lax' | 'none' | 'strict' | undefined = 'lax'; // Default to lax
+    const cookieSameSite: 'lax' | 'none' | 'strict' | undefined = 'lax';
 
     if (isDevelopment) {
       if (appUrlFromEnv && appUrlFromEnv.startsWith('https://')) {
         cookieSecure = true;
-        console.log(`[API Password Login] Development (HTTPS APP_URL): Setting 'session_token' cookie with SameSite=Lax; Secure=true.`);
+        console.log(`[API Password Login] Development (HTTPS APP_URL): Setting 'session_token' cookie with SameSite=${cookieSameSite}; Secure=true.`);
       } else {
         cookieSecure = false;
-        console.log(`[API Password Login] Development (HTTP APP_URL or APP_URL not set): Setting 'session_token' cookie with SameSite=Lax; Secure=false.`);
+        console.log(`[API Password Login] Development (HTTP APP_URL or APP_URL not set): Setting 'session_token' cookie with SameSite=${cookieSameSite}; Secure=false.`);
       }
-    } else { // Production
+    } else { // Production or other environments
       if (appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
         cookieSecure = false;
         console.warn(
-            `[API Password Login] WARNING: APP_URL (${appUrlFromEnv}) is HTTP in a production environment. ` +
+            `[API Password Login] WARNING: APP_URL (${appUrlFromEnv}) is HTTP in a non-development environment. ` +
             "Cookie 'session_token' will be insecure. This is NOT recommended."
         );
       } else {
-        cookieSecure = true;
+        cookieSecure = true; // Default to Secure=true in non-dev
         if (!appUrlFromEnv || !appUrlFromEnv.startsWith('https://')) {
-            console.warn(
-                `[API Password Login] WARNING: APP_URL is not explicitly HTTPS or not set in production. `+
-                "Assuming HTTPS for 'session_token' cookie. Ensure APP_URL is set to your full public HTTPS URL in .env."
+             console.log( // Info rather than warn
+                `[API Password Login] Non-development: APP_URL is not explicitly HTTPS or not set. `+
+                `Setting 'session_token' cookie with SameSite=${cookieSameSite}; Secure=true. Ensure APP_URL matches public HTTPS URL.`
             );
+        } else {
+             console.log(`[API Password Login] Non-development (HTTPS APP_URL): Setting 'session_token' cookie with SameSite=${cookieSameSite}; Secure=true.`);
         }
       }
     }
@@ -135,8 +137,6 @@ export async function POST(request: NextRequest) {
         value: token,
         ...cookieOpts, 
     };
-    
-    console.log(`[API Password Login] Preparing to set 'session_token' cookie for email ${email} with options: ${JSON.stringify(cookieOpts)}`);
     
     const response = NextResponse.json({ success: true, message: "Login successful" });
     response.cookies.set(sessionTokenCookie);

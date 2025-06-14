@@ -19,51 +19,41 @@ export async function GET() {
 
     const isDevelopment = process.env.NODE_ENV === 'development';
     let cookieSecure: boolean;
-    // For OIDC state cookies, 'SameSite=Lax' is generally fine if the callback is to the same site.
-    // 'None' might be needed if IdP interaction is strictly cross-site and causes issues,
-    // but 'Lax' is a safer starting point.
-    let cookieSameSite: 'lax' | 'none' | 'strict' | undefined = 'lax'; 
+    const cookieSameSite: 'lax' | 'none' | 'strict' | undefined = 'lax'; 
 
     if (isDevelopment) {
       if (appUrlFromEnv && appUrlFromEnv.startsWith('https://')) {
         cookieSecure = true;
-        // If OIDC flow strictly requires cross-site cookies for state due to IdP on different domain
-        // and browser restrictions, 'SameSite=None; Secure=true' might be necessary.
-        // However, for many same-site callback scenarios, Lax is fine and preferred.
-        // For now, sticking to Lax as a safer default unless 'None' is proven necessary.
-        // Example: if (OIDC_REQUIRES_SAMESITE_NONE) cookieSameSite = 'none';
         console.log(`[API OIDC Login] Development (HTTPS APP_URL): Setting OIDC state cookies with SameSite=${cookieSameSite}; Secure=true.`);
-      } else { // HTTP dev or APP_URL not set
+      } else { 
         cookieSecure = false;
-        // cookieSameSite remains 'lax'
-        console.log(`[API OIDC Login] Development (HTTP APP_URL or APP_URL not set): Setting OIDC state cookies with SameSite=Lax; Secure=false.`);
+        console.log(`[API OIDC Login] Development (HTTP APP_URL or APP_URL not set): Setting OIDC state cookies with SameSite=${cookieSameSite}; Secure=false.`);
       }
-    } else { // Production
+    } else { // Production or other environments
         if (appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
-            // This is a misconfiguration for production if HTTPS is intended via proxy
             cookieSecure = false;
             console.warn(
-                `[API OIDC Login] WARNING: APP_URL (${appUrlFromEnv}) is HTTP in a production environment. ` +
+                `[API OIDC Login] WARNING: APP_URL (${appUrlFromEnv}) is HTTP in a non-development environment. ` +
                 "OIDC state cookies will be insecure. This is NOT recommended."
             );
-        } else { // Default to Secure for production (APP_URL is HTTPS or not set, assuming proxy handles HTTPS)
-            cookieSecure = true;
-            // cookieSameSite remains 'lax' unless specific cross-site IdP flow dictates 'None'
-            // Example: if (OIDC_REQUIRES_SAMESITE_NONE_PROD) cookieSameSite = 'none';
-            if (!appUrlFromEnv || !appUrlFromEnv.startsWith('https://')) {
-                console.warn(
-                    `[API OIDC Login] WARNING: APP_URL is not explicitly HTTPS or not set in production. `+
-                    `Assuming HTTPS for OIDC state cookies (SameSite=${cookieSameSite}). Ensure APP_URL is set to your full public HTTPS URL in .env.`
+        } else { 
+            cookieSecure = true; // Default to Secure=true in non-dev
+             if (!appUrlFromEnv || !appUrlFromEnv.startsWith('https://')) {
+                console.log( // Info, not warn
+                    `[API OIDC Login] Non-development: APP_URL is not explicitly HTTPS or not set. `+
+                    `Setting OIDC state cookies with SameSite=${cookieSameSite}; Secure=true. Ensure APP_URL matches public HTTPS URL.`
                 );
+            } else {
+                console.log(`[API OIDC Login] Non-development (HTTPS APP_URL): Setting OIDC state cookies with SameSite=${cookieSameSite}; Secure=true.`);
             }
         }
     }
-    // Enforce Secure if SameSite=None is used (though current default is Lax)
+    
+    // SameSite=None requires Secure=true. Since we default to Lax, this check is mostly for future proofing if SameSite changes.
     if (cookieSameSite === 'none' && !cookieSecure) {
-        console.warn("[API OIDC Login] Correcting: SameSite=None requires Secure=true. OIDC state cookies will be Secure.");
+        console.warn("[API OIDC Login] Correcting: SameSite=None requires Secure=true. OIDC state cookies will be Secure=true.");
         cookieSecure = true; 
     }
-
 
     const cookieOptions: Omit<ResponseCookie, 'name' | 'value'> = {
       httpOnly: true,
@@ -73,8 +63,6 @@ export async function GET() {
       sameSite: cookieSameSite,
     };
     
-    console.log(`[API OIDC Login] Setting OIDC state cookies with options: ${JSON.stringify(cookieOptions)}`);
-
     const cookieStore = cookies();
     cookieStore.set('oidc_code_verifier', code_verifier, cookieOptions);
     cookieStore.set('oidc_nonce', nonce, cookieOptions);
