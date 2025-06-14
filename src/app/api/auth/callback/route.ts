@@ -25,8 +25,8 @@ export async function GET(request: NextRequest) {
         throw new Error('Missing state cookie');
     }
 
-    const appUrl = process.env.APP_URL || 'http://localhost:9002';
-    const redirect_uri = `${appUrl}/api/auth/callback`;
+    const appUrlFromEnv = process.env.APP_URL; // Keep original for redirect
+    const redirect_uri = `${appUrlFromEnv || 'http://localhost:9002'}/api/auth/callback`;
 
     const params = client.callbackParams(request.url);
 
@@ -43,41 +43,37 @@ export async function GET(request: NextRequest) {
         throw new Error('Access token not found in token set');
     }
     
-    const currentAppUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || '9002'}`;
     const isDevelopment = process.env.NODE_ENV === 'development';
-    const appUrlIsHttps = currentAppUrl.startsWith('https://');
-
     let cookieSecure: boolean;
-    let cookieSameSite: 'lax' | 'none' | 'strict' | undefined;
+    let cookieSameSite: 'lax' | 'none' | 'strict' | undefined = 'lax'; // Default to lax
 
     if (isDevelopment) {
-      if (appUrlIsHttps) {
-        // HTTPS Development: SameSite=None and Secure=true is viable
+      // For development, if APP_URL is explicitly HTTPS, we can use Secure. Otherwise, non-Secure.
+      // SameSite=Lax is a good default for dev too.
+      if (appUrlFromEnv && appUrlFromEnv.startsWith('https://')) {
         cookieSecure = true;
-        cookieSameSite = 'none';
-        console.log(`[API OIDC Callback] Development (HTTPS): Setting cookies with SameSite=None; Secure=true.`);
+        console.log(`[API OIDC Callback] Development (HTTPS APP_URL): Setting cookies with SameSite=Lax; Secure=true.`);
       } else {
-        // HTTP Development: SameSite=None requires Secure=true, which won't work. Fallback to Lax.
         cookieSecure = false;
-        cookieSameSite = 'lax';
-        console.warn(
-            `[API OIDC Callback] WARNING: Development (HTTP - APP_URL: ${currentAppUrl}). ` +
-            "Cannot use SameSite=None as it requires Secure=true. Falling back to SameSite=Lax; Secure=false for cookies (id_token, session_token)."
-        );
+        console.log(`[API OIDC Callback] Development (HTTP APP_URL or APP_URL not set): Setting cookies with SameSite=Lax; Secure=false.`);
       }
     } else { // Production or other environments
-        if (appUrlIsHttps) {
-            cookieSecure = true;
-            cookieSameSite = 'lax'; // Secure default for production
-        } else {
-            // HTTP Production (not recommended)
-            cookieSecure = false;
-            cookieSameSite = 'lax';
-            console.warn(
-                `[API OIDC Callback] WARNING: APP_URL (${currentAppUrl}) is not HTTPS in a non-development environment. ` +
-                "Cookies (id_token, session_token) will be sent with Secure=false and SameSite=lax."
+      // In production, strongly prefer Secure cookies. Assume HTTPS unless APP_URL is explicitly HTTP.
+      if (appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
+        cookieSecure = false;
+        console.warn(
+            `[API OIDC Callback] WARNING: APP_URL (${appUrlFromEnv}) is HTTP in a production environment. ` +
+            "Session cookies (id_token, session_token) will be insecure. This is NOT recommended."
+        );
+      } else {
+        cookieSecure = true;
+        if (!appUrlFromEnv || !appUrlFromEnv.startsWith('https://')) {
+             console.warn(
+                `[API OIDC Callback] WARNING: APP_URL is not explicitly HTTPS or not set in production. `+
+                "Assuming HTTPS for cookies. Ensure APP_URL is set to your full public HTTPS URL in .env."
             );
         }
+      }
     }
     
     const baseCookieOpts: Partial<ResponseCookie> = {
@@ -109,7 +105,8 @@ export async function GET(request: NextRequest) {
     cookieStore.delete('oidc_nonce');
     cookieStore.delete('oidc_state');
 
-    return NextResponse.redirect(new URL('/admin/dashboard', appUrl));
+    const finalRedirectUrl = appUrlFromEnv || 'http://localhost:9002';
+    return NextResponse.redirect(new URL('/admin/dashboard', finalRedirectUrl));
   } catch (error) {
     console.error('OIDC Callback route error:', error);
     let errorMessage = 'OIDC callback failed.';
@@ -126,3 +123,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMessage)}`, errorRedirectAppUrl));
   }
 }
+    

@@ -91,41 +91,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Authentication service did not provide an accessToken.', details: 'Check server logs for the full response from the authentication service.' }, { status: 500 });
     }
 
-    const currentAppUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || '9002'}`;
+    const appUrlFromEnv = process.env.APP_URL;
     const isDevelopment = process.env.NODE_ENV === 'development';
-    const appUrlIsHttps = currentAppUrl.startsWith('https://');
-    
     let cookieSecure: boolean;
-    let cookieSameSite: 'lax' | 'none' | 'strict' | undefined;
+    let cookieSameSite: 'lax' | 'none' | 'strict' | undefined = 'lax'; // Default to lax
 
     if (isDevelopment) {
-      if (appUrlIsHttps) {
-        // HTTPS Development: SameSite=None and Secure=true is viable
+      if (appUrlFromEnv && appUrlFromEnv.startsWith('https://')) {
         cookieSecure = true;
-        cookieSameSite = 'none';
-        console.log(`[API Password Login] Development (HTTPS): Setting 'session_token' cookie with SameSite=None; Secure=true.`);
+        console.log(`[API Password Login] Development (HTTPS APP_URL): Setting 'session_token' cookie with SameSite=Lax; Secure=true.`);
       } else {
-        // HTTP Development: SameSite=None requires Secure=true, which won't work. Fallback to Lax.
         cookieSecure = false;
-        cookieSameSite = 'lax';
-        console.warn(
-            `[API Password Login] WARNING: Development (HTTP - APP_URL: ${currentAppUrl}). ` +
-            "Cannot use SameSite=None for 'session_token' cookie as it requires Secure=true. Falling back to SameSite=Lax; Secure=false."
-        );
+        console.log(`[API Password Login] Development (HTTP APP_URL or APP_URL not set): Setting 'session_token' cookie with SameSite=Lax; Secure=false.`);
       }
-    } else { // Production or other environments
-        if (appUrlIsHttps) {
-            cookieSecure = true;
-            cookieSameSite = 'lax'; // Secure default for production
-        } else {
-            // HTTP Production (not recommended)
-            cookieSecure = false;
-            cookieSameSite = 'lax';
+    } else { // Production
+      if (appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
+        cookieSecure = false;
+        console.warn(
+            `[API Password Login] WARNING: APP_URL (${appUrlFromEnv}) is HTTP in a production environment. ` +
+            "Cookie 'session_token' will be insecure. This is NOT recommended."
+        );
+      } else {
+        cookieSecure = true;
+        if (!appUrlFromEnv || !appUrlFromEnv.startsWith('https://')) {
             console.warn(
-                `[API Password Login] WARNING: APP_URL (${currentAppUrl}) is not HTTPS in a non-development environment. ` +
-                "Cookie 'session_token' will be sent with Secure=false and SameSite=lax."
+                `[API Password Login] WARNING: APP_URL is not explicitly HTTPS or not set in production. `+
+                "Assuming HTTPS for 'session_token' cookie. Ensure APP_URL is set to your full public HTTPS URL in .env."
             );
         }
+      }
     }
     
     const cookieOpts: Omit<ResponseCookie, 'name' | 'value'> = {
@@ -159,3 +153,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, message: 'Internal server error during login process.', details: errorMessage }, { status: 500 });
   }
 }
+    
