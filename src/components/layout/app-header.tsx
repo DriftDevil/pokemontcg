@@ -62,31 +62,41 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
   const { theme, toggleTheme } = useThemeToggle();
   const [user, setUser] = useState<AppUser | null>(null);
   const [isLoadingSession, setIsLoadingSession] = useState(true);
-  const pathname = usePathname(); // Used to re-fetch user on navigation
+  const pathname = usePathname(); 
 
   const fetchUser = useCallback(async () => {
-    // console.log("[AppHeader] Attempting to fetch user session...");
+    console.log("[AppHeader] Attempting to fetch user session...");
     setIsLoadingSession(true);
     try {
       const res = await fetch('/api/auth/user', { cache: 'no-store' });
+      console.log(`[AppHeader] /api/auth/user responded with status: ${res.status}`);
+      
       if (res.ok) {
         const data = await res.json();
-        // console.log("[AppHeader] User data fetched:", data);
-        setUser(data); 
+        if (data && data.id) { // Check if data is a valid user object
+          console.log("[AppHeader] User data fetched successfully:", data);
+          setUser(data);
+        } else {
+          console.log("[AppHeader] User data received, but it's null or invalid (no ID). User is not logged in.", data);
+          setUser(null);
+        }
       } else {
-        // console.log("[AppHeader] Failed to fetch user, status:", res.status);
+        const errorBody = await res.text().catch(() => "Could not read error body");
+        console.log(`[AppHeader] Failed to fetch user. Status: ${res.status}. Body: ${errorBody.substring(0, 300)}`);
         setUser(null);
       }
     } catch (error) {
-      console.error("[AppHeader] Error fetching user session:", error);
+      console.error("[AppHeader] Network or other error fetching user session:", error);
       setUser(null);
     } finally {
       setIsLoadingSession(false);
+      console.log("[AppHeader] Finished fetching user session. isLoadingSession:", false, "User:", user ? user.id : "null");
     }
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Removed `user` from dependencies to prevent re-fetch loops on setUser
 
   useEffect(() => {
-    // console.log("[AppHeader] useEffect triggered by pathname. Pathname:", pathname);
+    console.log("[AppHeader] useEffect triggered by pathname change. Pathname:", pathname, "Fetching user...");
     fetchUser();
   }, [pathname, fetchUser]);
 
