@@ -70,10 +70,13 @@ export default function AdminUsersPage() {
     try {
       const fetchHeaders = new Headers();
       fetchHeaders.append('Content-Type', 'application/json');
+      // Note: Authorization header for GET /api/users/all is typically handled by cookies automatically.
+      // If token-based auth via header is strictly needed, it would be added here.
 
       const response = await fetch(fetchUrl, {
         method: 'GET',
         headers: fetchHeaders,
+        credentials: 'include', // Ensure cookies are sent
         cache: 'no-store',
       });
 

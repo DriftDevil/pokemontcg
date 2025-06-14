@@ -70,7 +70,10 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
     setIsLoadingSession(true);
     let newUserData: AppUser | null = null;
     try {
-      const res = await fetch(`/api/auth/user?t=${Date.now()}`, { cache: 'no-store' });
+      const res = await fetch(`/api/auth/user?t=${Date.now()}`, { 
+        cache: 'no-store',
+        credentials: 'include', // Ensure cookies are sent
+      });
       console.log(`[AppHeader] fetchUser: /api/auth/user responded with status: ${res.status}`);
       
       if (res.ok) {
@@ -94,16 +97,18 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
       newUserData = null;
     } finally {
       setUser(newUserData);
-      setIsLoadingSession(false);
+      // The 'user' variable in the log below is from the closure of the current execution,
+      // not the state that will be active after this update.
       console.log(`[AppHeader] fetchUser: Processing complete. isLoadingSession is now false. User state will update to:`, newUserData);
     }
-  }, []);
+  }, []); // Empty dependency array: fetchUser itself doesn't depend on other state/props for its definition
 
   useEffect(() => {
     console.log(`[AppHeader] Pathname changed to: ${pathname}. Triggering user fetch.`);
     fetchUser();
   }, [pathname, fetchUser]);
 
+  // This effect logs the actual user state after re-renders
   useEffect(() => {
     console.log("[AppHeader RENDERED] isLoadingSession:", isLoadingSession, "User state is now:", user);
   }, [user, isLoadingSession]);

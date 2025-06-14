@@ -69,6 +69,7 @@ export default function AddUserDialog({ onUserAdded, children }: AddUserDialogPr
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
+        credentials: 'include', // Ensure cookies are sent if needed by the API route
       });
 
       const result = await response.json();

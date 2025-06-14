@@ -68,6 +68,7 @@ function LoginContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
+        credentials: 'include', // Ensure cookies are sent if API route expects them
       });
 
       const responseData = await response.json();

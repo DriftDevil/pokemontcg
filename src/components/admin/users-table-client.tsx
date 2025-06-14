@@ -133,16 +133,17 @@ export default function UsersTableClient({ initialUsers, onUserDeleted }: UsersT
     try {
       const response = await fetch(`/api/users/remove/${userToDelete.id}`, {
         method: 'DELETE',
+        credentials: 'include', // Ensure cookies are sent if needed by the API route
       });
 
-      if (response.ok) {
+      if (response.ok) { // Handles 200 OK or 204 No Content
         toast({
           title: "User Deleted",
           description: `User ${userToDelete.name} (${userToDelete.email}) has been successfully deleted.`,
         });
         onUserDeleted(); // Trigger refresh from parent
       } else {
-        const result = await response.json();
+        const result = await response.json().catch(() => ({ message: "An unknown error occurred on deletion." })); // Handle non-JSON error response
         toast({
           title: "Failed to Delete User",
           description: result.message || result.details || "An unknown error occurred.",
