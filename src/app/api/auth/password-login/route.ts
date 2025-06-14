@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     if (!email || !password) {
       return NextResponse.json({ success: false, message: 'Email and password are required.', details: 'Missing credentials in request.' }, { status: 400 });
     }
-    
+
     console.log(`[API Password Login] Attempting password login for email: ${email} to external API: ${currentExternalApiBaseUrl}/auth/local/login (Password NOT logged)`);
 
     const apiResponse = await fetch(`${currentExternalApiBaseUrl}/auth/local/login`, {
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       } else {
         errorDetails = `External API request failed with status ${apiResponse.status} and an empty response body. URL: ${currentExternalApiBaseUrl}/auth/local/login.`;
       }
-      
+
       console.error(`[API Password Login] External API login failed for email ${email}: ${apiResponse.status}`, errorDetails);
       return NextResponse.json(
         { success: false, message: 'Login failed at external API.', details: errorDetails },
@@ -74,14 +74,14 @@ export async function POST(request: NextRequest) {
             console.error(`[API Password Login] External API success response for email ${email} was not JSON. Content-Type: ${contentType}. Body: ${responseBodyText.substring(0,500)}...`);
             return NextResponse.json(
                 { success: false, message: 'Received invalid data format from authentication service despite success status.', details: 'The authentication service responded successfully but the data was not in the expected JSON format.' },
-                { status: 502 } 
+                { status: 502 }
             );
         }
     } catch (e: any) {
         console.error(`[API Password Login] Error parsing successful external API response for email ${email} as JSON:`, e.message, `Body: ${responseBodyText.substring(0,500)}...`);
         return NextResponse.json(
             { success: false, message: 'Failed to parse response from authentication service.', details: 'The authentication service responded successfully but its data could not be processed.' },
-            { status: 502 } 
+            { status: 502 }
         );
     }
 
@@ -97,19 +97,27 @@ export async function POST(request: NextRequest) {
     let cookieSameSite: 'lax' | 'none' | 'strict' | undefined;
 
     if (isDevelopment) {
-      const isHttpsLocalhost = appUrlFromEnv && appUrlFromEnv.startsWith('https://localhost');
-      if (isHttpsLocalhost) {
+      if (appUrlFromEnv && appUrlFromEnv.startsWith('https://localhost')) {
         cookieSecure = true;
         cookieSameSite = 'none';
         console.log(`[API Password Login] Development (HTTPS localhost APP_URL): Setting 'session_token' cookie with SameSite=None; Secure=true.`);
-      } else {
-        cookieSecure = !!(appUrlFromEnv && appUrlFromEnv.startsWith('https://'));
+      } else if ((appUrlFromEnv && appUrlFromEnv.startsWith('http://localhost')) || !appUrlFromEnv) {
+        cookieSecure = false;
         cookieSameSite = 'lax';
-        if (appUrlFromEnv && appUrlFromEnv.startsWith('http://localhost')) {
-          console.log(`[API Password Login] Development (HTTP localhost APP_URL): Setting 'session_token' cookie with SameSite=Lax; Secure=false.`);
-        } else {
-          console.log(`[API Password Login] Development (General APP_URL: ${appUrlFromEnv}): Setting 'session_token' cookie with SameSite=Lax; Secure=${cookieSecure}.`);
-        }
+        const effectiveAppUrl = appUrlFromEnv || `http://localhost:${process.env.PORT || '9002'}`;
+        console.log(`[API Password Login] Development (HTTP localhost APP_URL: ${effectiveAppUrl}): Setting 'session_token' cookie with SameSite=Lax; Secure=false.`);
+      } else if (appUrlFromEnv && appUrlFromEnv.startsWith('https://')) {
+        cookieSecure = true;
+        cookieSameSite = 'lax';
+        console.log(`[API Password Login] Development (HTTPS non-localhost APP_URL: ${appUrlFromEnv}): Setting 'session_token' cookie with SameSite=Lax; Secure=true.`);
+      } else if (appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
+        cookieSecure = false;
+        cookieSameSite = 'lax';
+        console.log(`[API Password Login] Development (HTTP non-localhost APP_URL: ${appUrlFromEnv}): Setting 'session_token' cookie with SameSite=Lax; Secure=false.`);
+      } else {
+        cookieSecure = false;
+        cookieSameSite = 'lax';
+        console.log(`[API Password Login] Development (Fallback/Unknown APP_URL): Setting 'session_token' cookie with SameSite=Lax; Secure=false.`);
       }
     } else { // Production or other environments
       if (appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
@@ -123,16 +131,16 @@ export async function POST(request: NextRequest) {
         cookieSecure = true;
         cookieSameSite = 'lax';
         if (!appUrlFromEnv || !appUrlFromEnv.startsWith('https://')) {
-             console.log( 
+             console.log(
                 `[API Password Login] Non-development: APP_URL is not explicitly HTTPS or not set. `+
                 `Setting 'session_token' cookie with SameSite=Lax; Secure=true. Ensure APP_URL matches public HTTPS URL.`
             );
         } else {
-             console.log(`[API Password Login] Non-development (HTTPS APP_URL): Setting 'session_token' cookie with SameSite=Lax; Secure=true.`);
+             console.log(`[API Password Login] Non-development (HTTPS APP_URL: ${appUrlFromEnv}): Setting 'session_token' cookie with SameSite=Lax; Secure=true.`);
         }
       }
     }
-    
+
     const cookieOpts: Omit<ResponseCookie, 'name' | 'value'> = {
       httpOnly: true,
       path: '/',
@@ -140,13 +148,13 @@ export async function POST(request: NextRequest) {
       secure: cookieSecure,
       sameSite: cookieSameSite,
     };
-        
+
     const sessionTokenCookie: ResponseCookie = {
         name: 'session_token',
         value: token,
-        ...cookieOpts, 
+        ...cookieOpts,
     };
-    
+
     const response = NextResponse.json({ success: true, message: "Login successful" });
     response.cookies.set(sessionTokenCookie);
 

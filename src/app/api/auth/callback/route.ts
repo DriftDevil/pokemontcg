@@ -9,11 +9,11 @@ export async function GET(request: NextRequest) {
   try {
     const client = await getOidcClient();
     const searchParams = request.nextUrl.searchParams;
-    
+
     const cookieStore = cookies();
     const code_verifier = cookieStore.get('oidc_code_verifier')?.value;
     const nonce = cookieStore.get('oidc_nonce')?.value;
-    const state = cookieStore.get('oidc_state')?.value; 
+    const state = cookieStore.get('oidc_state')?.value;
 
     if (!code_verifier) {
       throw new Error('Missing code_verifier cookie');
@@ -25,15 +25,15 @@ export async function GET(request: NextRequest) {
         throw new Error('Missing state cookie');
     }
 
-    const appUrlFromEnv = process.env.APP_URL; 
+    const appUrlFromEnv = process.env.APP_URL;
     const redirect_uri = `${appUrlFromEnv || 'http://localhost:9002'}/api/auth/callback`;
 
     const params = client.callbackParams(request.url);
 
-    const tokenSet = await client.callback(redirect_uri, params, { 
+    const tokenSet = await client.callback(redirect_uri, params, {
       code_verifier,
       nonce,
-      state, 
+      state,
     });
 
     if (!tokenSet.id_token) {
@@ -42,25 +42,33 @@ export async function GET(request: NextRequest) {
     if (!tokenSet.access_token) {
         throw new Error('Access token not found in token set');
     }
-    
+
     const isDevelopment = process.env.NODE_ENV === 'development';
     let cookieSecure: boolean;
     let cookieSameSite: 'lax' | 'none' | 'strict' | undefined;
 
     if (isDevelopment) {
-      const isHttpsLocalhost = appUrlFromEnv && appUrlFromEnv.startsWith('https://localhost');
-      if (isHttpsLocalhost) {
+      if (appUrlFromEnv && appUrlFromEnv.startsWith('https://localhost')) {
         cookieSecure = true;
         cookieSameSite = 'none';
         console.log(`[API OIDC Callback] Development (HTTPS localhost APP_URL): Setting session cookies with SameSite=None; Secure=true.`);
-      } else {
-        cookieSecure = !!(appUrlFromEnv && appUrlFromEnv.startsWith('https://'));
+      } else if ((appUrlFromEnv && appUrlFromEnv.startsWith('http://localhost')) || !appUrlFromEnv) {
+        cookieSecure = false;
         cookieSameSite = 'lax';
-        if (appUrlFromEnv && appUrlFromEnv.startsWith('http://localhost')) {
-          console.log(`[API OIDC Callback] Development (HTTP localhost APP_URL): Setting session cookies with SameSite=Lax; Secure=false.`);
-        } else {
-          console.log(`[API OIDC Callback] Development (General APP_URL: ${appUrlFromEnv}): Setting session cookies with SameSite=Lax; Secure=${cookieSecure}.`);
-        }
+        const effectiveAppUrl = appUrlFromEnv || `http://localhost:${process.env.PORT || '9002'}`;
+        console.log(`[API OIDC Callback] Development (HTTP localhost APP_URL: ${effectiveAppUrl}): Setting session cookies with SameSite=Lax; Secure=false.`);
+      } else if (appUrlFromEnv && appUrlFromEnv.startsWith('https://')) {
+        cookieSecure = true;
+        cookieSameSite = 'lax';
+        console.log(`[API OIDC Callback] Development (HTTPS non-localhost APP_URL: ${appUrlFromEnv}): Setting session cookies with SameSite=Lax; Secure=true.`);
+      } else if (appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
+        cookieSecure = false;
+        cookieSameSite = 'lax';
+        console.log(`[API OIDC Callback] Development (HTTP non-localhost APP_URL: ${appUrlFromEnv}): Setting session cookies with SameSite=Lax; Secure=false.`);
+      } else {
+        cookieSecure = false;
+        cookieSameSite = 'lax';
+        console.log(`[API OIDC Callback] Development (Fallback/Unknown APP_URL): Setting session cookies with SameSite=Lax; Secure=false.`);
       }
     } else { // Production or other environments
       if (appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
@@ -71,10 +79,10 @@ export async function GET(request: NextRequest) {
             "Session cookies (id_token, session_token) will be insecure. This is NOT recommended."
         );
       } else {
-        cookieSecure = true; 
+        cookieSecure = true;
         cookieSameSite = 'lax';
         if (!appUrlFromEnv || !appUrlFromEnv.startsWith('https://')) {
-             console.log( 
+             console.log(
                 `[API OIDC Callback] Non-development: APP_URL is not explicitly HTTPS or not set. `+
                 `Setting session cookies with SameSite=Lax; Secure=true. Ensure APP_URL matches public HTTPS URL.`
             );
@@ -83,15 +91,15 @@ export async function GET(request: NextRequest) {
         }
       }
     }
-    
+
     const baseCookieOpts: Partial<ResponseCookie> = {
       httpOnly: true,
       path: '/',
-      maxAge: tokenSet.expires_in || 3600, 
+      maxAge: tokenSet.expires_in || 3600,
       secure: cookieSecure,
       sameSite: cookieSameSite,
     };
-    
+
     const idTokenCookie: ResponseCookie = {
         name: 'id_token',
         value: tokenSet.id_token,
@@ -106,7 +114,7 @@ export async function GET(request: NextRequest) {
 
     cookieStore.set(idTokenCookie);
     cookieStore.set(sessionTokenCookie);
-    
+
     cookieStore.delete('oidc_code_verifier');
     cookieStore.delete('oidc_nonce');
     cookieStore.delete('oidc_state');
