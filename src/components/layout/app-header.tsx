@@ -67,38 +67,45 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
   const fetchUser = useCallback(async () => {
     console.log("[AppHeader] fetchUser: Attempting to fetch user session...");
     setIsLoadingSession(true);
+    let newUserData: AppUser | null = null;
     try {
       const res = await fetch('/api/auth/user', { cache: 'no-store' });
       console.log(`[AppHeader] fetchUser: /api/auth/user responded with status: ${res.status}`);
       
       if (res.ok) {
         const data = await res.json();
-        if (data && data.id) { // Check if data is a valid user object
-          console.log("[AppHeader] fetchUser: User data fetched successfully:", {id: data.id, name: data.name, email: data.email});
-          setUser(data);
+        if (data && data.id) { 
+          console.log("[AppHeader] fetchUser: User data fetched successfully:", {id: data.id, name: data.name, email: data.email, isAdmin: data.isAdmin, authSource: data.authSource });
+          newUserData = data;
         } else {
           console.log("[AppHeader] fetchUser: User data received, but it's null or invalid (no ID). User is not logged in.", data);
-          setUser(null);
+          newUserData = null;
         }
       } else {
         const errorBody = await res.text().catch(() => "Could not read error body");
         console.warn(`[AppHeader] fetchUser: Failed to fetch user. Status: ${res.status}. Body: ${errorBody.substring(0, 300)}`);
-        setUser(null);
+        newUserData = null;
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error("[AppHeader] fetchUser: Network or other error fetching user session:", errorMsg);
-      setUser(null);
+      newUserData = null;
     } finally {
+      setUser(newUserData);
       setIsLoadingSession(false);
-      // User state is logged above based on fetch outcome
+      console.log("[AppHeader] fetchUser: Processing complete. isLoadingSession is now false. User state will update to:", newUserData);
     }
-  }, []); // fetchUser is stable, depends on nothing external to its own scope
+  }, []); 
 
   useEffect(() => {
     console.log("[AppHeader] useEffect for user fetch triggered. Pathname:", pathname);
     fetchUser();
-  }, [pathname, fetchUser]); // fetchUser is stable due to useCallback with empty deps.
+  }, [pathname, fetchUser]);
+
+  // New useEffect to log the actual user state after updates
+  useEffect(() => {
+    console.log("[AppHeader RENDERED] isLoadingSession:", isLoadingSession, "User state is now:", user);
+  }, [user, isLoadingSession]);
 
 
   const handleLogout = async () => {
