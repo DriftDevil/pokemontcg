@@ -65,40 +65,40 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
   const pathname = usePathname(); 
 
   const fetchUser = useCallback(async () => {
-    console.log("[AppHeader] Attempting to fetch user session...");
+    console.log("[AppHeader] fetchUser: Attempting to fetch user session...");
     setIsLoadingSession(true);
     try {
       const res = await fetch('/api/auth/user', { cache: 'no-store' });
-      console.log(`[AppHeader] /api/auth/user responded with status: ${res.status}`);
+      console.log(`[AppHeader] fetchUser: /api/auth/user responded with status: ${res.status}`);
       
       if (res.ok) {
         const data = await res.json();
         if (data && data.id) { // Check if data is a valid user object
-          console.log("[AppHeader] User data fetched successfully:", data);
+          console.log("[AppHeader] fetchUser: User data fetched successfully:", {id: data.id, name: data.name, email: data.email});
           setUser(data);
         } else {
-          console.log("[AppHeader] User data received, but it's null or invalid (no ID). User is not logged in.", data);
+          console.log("[AppHeader] fetchUser: User data received, but it's null or invalid (no ID). User is not logged in.", data);
           setUser(null);
         }
       } else {
         const errorBody = await res.text().catch(() => "Could not read error body");
-        console.log(`[AppHeader] Failed to fetch user. Status: ${res.status}. Body: ${errorBody.substring(0, 300)}`);
+        console.warn(`[AppHeader] fetchUser: Failed to fetch user. Status: ${res.status}. Body: ${errorBody.substring(0, 300)}`);
         setUser(null);
       }
     } catch (error) {
-      console.error("[AppHeader] Network or other error fetching user session:", error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error("[AppHeader] fetchUser: Network or other error fetching user session:", errorMsg);
       setUser(null);
     } finally {
       setIsLoadingSession(false);
-      console.log("[AppHeader] Finished fetching user session. isLoadingSession:", false, "User:", user ? user.id : "null");
+      // User state is logged above based on fetch outcome
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Removed `user` from dependencies to prevent re-fetch loops on setUser
+  }, []); // fetchUser is stable, depends on nothing external to its own scope
 
   useEffect(() => {
-    console.log("[AppHeader] useEffect triggered by pathname change. Pathname:", pathname, "Fetching user...");
+    console.log("[AppHeader] useEffect for user fetch triggered. Pathname:", pathname);
     fetchUser();
-  }, [pathname, fetchUser]);
+  }, [pathname, fetchUser]); // fetchUser is stable due to useCallback with empty deps.
 
 
   const handleLogout = async () => {
