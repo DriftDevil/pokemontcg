@@ -19,42 +19,46 @@ export async function GET() {
 
     const isDevelopment = process.env.NODE_ENV === 'development';
     let cookieSecure: boolean;
-    const cookieSameSite: 'lax' | 'none' | 'strict' | undefined = 'lax'; 
+    let cookieSameSite: 'lax' | 'none' | 'strict' | undefined;
 
     if (isDevelopment) {
-      if (appUrlFromEnv && appUrlFromEnv.startsWith('https://')) {
+      const isHttpsLocalhost = appUrlFromEnv && appUrlFromEnv.startsWith('https://localhost');
+      if (isHttpsLocalhost) {
         cookieSecure = true;
-        console.log(`[API OIDC Login] Development (HTTPS APP_URL): Setting OIDC state cookies with SameSite=${cookieSameSite}; Secure=true.`);
-      } else { 
-        cookieSecure = false;
-        console.log(`[API OIDC Login] Development (HTTP APP_URL or APP_URL not set): Setting OIDC state cookies with SameSite=${cookieSameSite}; Secure=false.`);
+        cookieSameSite = 'none';
+        console.log(`[API OIDC Login] Development (HTTPS localhost APP_URL): Setting OIDC state cookies with SameSite=None; Secure=true.`);
+      } else {
+        // For HTTP localhost or other dev URLs
+        cookieSecure = !!(appUrlFromEnv && appUrlFromEnv.startsWith('https://'));
+        cookieSameSite = 'lax';
+        if (appUrlFromEnv && appUrlFromEnv.startsWith('http://localhost')) {
+          console.log(`[API OIDC Login] Development (HTTP localhost APP_URL): Setting OIDC state cookies with SameSite=Lax; Secure=false.`);
+        } else {
+          console.log(`[API OIDC Login] Development (General APP_URL: ${appUrlFromEnv}): Setting OIDC state cookies with SameSite=Lax; Secure=${cookieSecure}.`);
+        }
       }
     } else { // Production or other environments
         if (appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
             cookieSecure = false;
+            cookieSameSite = 'lax';
             console.warn(
                 `[API OIDC Login] WARNING: APP_URL (${appUrlFromEnv}) is HTTP in a non-development environment. ` +
                 "OIDC state cookies will be insecure. This is NOT recommended."
             );
         } else { 
             cookieSecure = true; // Default to Secure=true in non-dev
+            cookieSameSite = 'lax';
              if (!appUrlFromEnv || !appUrlFromEnv.startsWith('https://')) {
-                console.log( // Info, not warn
+                console.log( 
                     `[API OIDC Login] Non-development: APP_URL is not explicitly HTTPS or not set. `+
-                    `Setting OIDC state cookies with SameSite=${cookieSameSite}; Secure=true. Ensure APP_URL matches public HTTPS URL.`
+                    `Setting OIDC state cookies with SameSite=Lax; Secure=true. Ensure APP_URL matches public HTTPS URL.`
                 );
             } else {
-                console.log(`[API OIDC Login] Non-development (HTTPS APP_URL): Setting OIDC state cookies with SameSite=${cookieSameSite}; Secure=true.`);
+                console.log(`[API OIDC Login] Non-development (HTTPS APP_URL): Setting OIDC state cookies with SameSite=Lax; Secure=true.`);
             }
         }
     }
     
-    // SameSite=None requires Secure=true. Since we default to Lax, this check is mostly for future proofing if SameSite changes.
-    if (cookieSameSite === 'none' && !cookieSecure) {
-        console.warn("[API OIDC Login] Correcting: SameSite=None requires Secure=true. OIDC state cookies will be Secure=true.");
-        cookieSecure = true; 
-    }
-
     const cookieOptions: Omit<ResponseCookie, 'name' | 'value'> = {
       httpOnly: true,
       path: '/',

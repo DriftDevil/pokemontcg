@@ -62,7 +62,7 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
   const { theme, toggleTheme } = useThemeToggle();
   const [user, setUser] = useState<AppUser | null>(null);
   const [isLoadingSession, setIsLoadingSession] = useState(true);
-  const pathname = usePathname();
+  const pathname = usePathname(); // Used to re-fetch user on navigation
 
   const fetchUser = useCallback(async () => {
     // console.log("[AppHeader] Attempting to fetch user session...");
@@ -86,7 +86,7 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
   }, []);
 
   useEffect(() => {
-    // console.log("[AppHeader] useEffect triggered by pathname or fetchUser. Pathname:", pathname);
+    // console.log("[AppHeader] useEffect triggered by pathname. Pathname:", pathname);
     fetchUser();
   }, [pathname, fetchUser]);
 

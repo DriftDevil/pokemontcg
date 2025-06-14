@@ -94,32 +94,41 @@ export async function POST(request: NextRequest) {
     const appUrlFromEnv = process.env.APP_URL;
     const isDevelopment = process.env.NODE_ENV === 'development';
     let cookieSecure: boolean;
-    const cookieSameSite: 'lax' | 'none' | 'strict' | undefined = 'lax';
+    let cookieSameSite: 'lax' | 'none' | 'strict' | undefined;
 
     if (isDevelopment) {
-      if (appUrlFromEnv && appUrlFromEnv.startsWith('https://')) {
+      const isHttpsLocalhost = appUrlFromEnv && appUrlFromEnv.startsWith('https://localhost');
+      if (isHttpsLocalhost) {
         cookieSecure = true;
-        console.log(`[API Password Login] Development (HTTPS APP_URL): Setting 'session_token' cookie with SameSite=${cookieSameSite}; Secure=true.`);
+        cookieSameSite = 'none';
+        console.log(`[API Password Login] Development (HTTPS localhost APP_URL): Setting 'session_token' cookie with SameSite=None; Secure=true.`);
       } else {
-        cookieSecure = false;
-        console.log(`[API Password Login] Development (HTTP APP_URL or APP_URL not set): Setting 'session_token' cookie with SameSite=${cookieSameSite}; Secure=false.`);
+        cookieSecure = !!(appUrlFromEnv && appUrlFromEnv.startsWith('https://'));
+        cookieSameSite = 'lax';
+        if (appUrlFromEnv && appUrlFromEnv.startsWith('http://localhost')) {
+          console.log(`[API Password Login] Development (HTTP localhost APP_URL): Setting 'session_token' cookie with SameSite=Lax; Secure=false.`);
+        } else {
+          console.log(`[API Password Login] Development (General APP_URL: ${appUrlFromEnv}): Setting 'session_token' cookie with SameSite=Lax; Secure=${cookieSecure}.`);
+        }
       }
     } else { // Production or other environments
       if (appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
         cookieSecure = false;
+        cookieSameSite = 'lax';
         console.warn(
             `[API Password Login] WARNING: APP_URL (${appUrlFromEnv}) is HTTP in a non-development environment. ` +
             "Cookie 'session_token' will be insecure. This is NOT recommended."
         );
       } else {
-        cookieSecure = true; // Default to Secure=true in non-dev
+        cookieSecure = true;
+        cookieSameSite = 'lax';
         if (!appUrlFromEnv || !appUrlFromEnv.startsWith('https://')) {
-             console.log( // Info rather than warn
+             console.log( 
                 `[API Password Login] Non-development: APP_URL is not explicitly HTTPS or not set. `+
-                `Setting 'session_token' cookie with SameSite=${cookieSameSite}; Secure=true. Ensure APP_URL matches public HTTPS URL.`
+                `Setting 'session_token' cookie with SameSite=Lax; Secure=true. Ensure APP_URL matches public HTTPS URL.`
             );
         } else {
-             console.log(`[API Password Login] Non-development (HTTPS APP_URL): Setting 'session_token' cookie with SameSite=${cookieSameSite}; Secure=true.`);
+             console.log(`[API Password Login] Non-development (HTTPS APP_URL): Setting 'session_token' cookie with SameSite=Lax; Secure=true.`);
         }
       }
     }
