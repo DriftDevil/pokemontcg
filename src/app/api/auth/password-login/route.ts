@@ -89,16 +89,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Authentication service did not provide an accessToken.', details: 'Check server logs for the full response from the authentication service.' }, { status: 500 });
     }
 
+    let effectiveAppUrl: string;
     const appUrlFromEnv = process.env.APP_URL;
-    const defaultDevAppUrl = `http://localhost:${process.env.PORT || '9002'}`;
-    const effectiveAppUrl = appUrlFromEnv || defaultDevAppUrl;
+
+    if (appUrlFromEnv) {
+      effectiveAppUrl = appUrlFromEnv;
+    } else {
+      if (process.env.NODE_ENV === 'development') {
+        const port = process.env.PORT || '9002';
+        effectiveAppUrl = `http://localhost:${port}`;
+        console.log(`[API Password Login] APP_URL not set, NODE_ENV is development. Defaulting effectiveAppUrl for session cookie to ${effectiveAppUrl}`);
+      } else {
+        console.error(`[API Password Login] CRITICAL: APP_URL is not set in a non-development environment (${process.env.NODE_ENV}). Session cookie settings will likely be incorrect, expecting an HTTPS URL. Defaulting to http://localhost:9002 for context, but this requires correction by setting APP_URL.`);
+        effectiveAppUrl = 'http://localhost:9002'; // Fallback that will likely lead to Secure=false
+      }
+    }
     
     const cookieSecure = effectiveAppUrl.startsWith('https://');
     const cookieSameSite = 'lax';
 
-    console.log(`[API Password Login] Effective APP_URL for 'session_token' cookie: ${effectiveAppUrl}. Setting cookie: Secure=${cookieSecure}, SameSite=${cookieSameSite}.`);
+    console.log(`[API Password Login] Effective APP_URL for 'session_token' cookie: ${effectiveAppUrl}. Setting cookie: Secure=${cookieSecure}, SameSite=${cookieSameSite}. Max-Age=7 days.`);
     if (process.env.NODE_ENV !== 'development' && !cookieSecure && appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
         console.warn(`[API Password Login - Non-Dev] WARNING: APP_URL (${appUrlFromEnv}) is HTTP. 'session_token' cookie will be insecure.`);
+    }
+    if (process.env.NODE_ENV !== 'development' && !appUrlFromEnv) {
+      console.warn(`[API Password Login - Non-Dev] WARNING: APP_URL is NOT SET. Session cookie will be based on a default ${effectiveAppUrl} and likely insecure if an HTTPS URL is expected.`);
     }
 
 

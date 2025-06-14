@@ -14,19 +14,35 @@ export async function GET() {
     const nonce = generators.nonce();
     const state = generators.state();
 
+    let effectiveAppUrl: string;
     const appUrlFromEnv = process.env.APP_URL;
-    const defaultDevAppUrl = `http://localhost:${process.env.PORT || '9002'}`;
-    const redirect_uri_base = appUrlFromEnv || defaultDevAppUrl;
-    const redirect_uri = `${redirect_uri_base}/api/auth/callback`;
 
-    // Determine cookie security settings based on the effective URL scheme
-    const cookieSecure = redirect_uri_base.startsWith('https://');
+    if (appUrlFromEnv) {
+      effectiveAppUrl = appUrlFromEnv;
+    } else {
+      if (process.env.NODE_ENV === 'development') {
+        const port = process.env.PORT || '9002';
+        effectiveAppUrl = `http://localhost:${port}`;
+        console.log(`[API OIDC Login] APP_URL not set, NODE_ENV is development. Defaulting effectiveAppUrl for OIDC state cookies to ${effectiveAppUrl}`);
+      } else {
+        console.error(`[API OIDC Login] CRITICAL: APP_URL is not set in a non-development environment (${process.env.NODE_ENV}). OIDC state cookie settings will likely be incorrect, expecting an HTTPS URL. Defaulting to http://localhost:9002 for context, but this requires correction by setting APP_URL.`);
+        effectiveAppUrl = 'http://localhost:9002'; // Fallback that will likely lead to Secure=false
+      }
+    }
+    
+    const redirect_uri = `${effectiveAppUrl}/api/auth/callback`;
+
+    const cookieSecure = effectiveAppUrl.startsWith('https://');
     const cookieSameSite = 'lax'; 
 
-    console.log(`[API OIDC Login] Effective APP_URL for OIDC state cookies: ${redirect_uri_base}. Setting cookies: Secure=${cookieSecure}, SameSite=${cookieSameSite}.`);
+    console.log(`[API OIDC Login] Effective APP_URL for OIDC state cookies: ${effectiveAppUrl}. Setting cookies: Secure=${cookieSecure}, SameSite=${cookieSameSite}. Redirect URI: ${redirect_uri}`);
     if (process.env.NODE_ENV !== 'development' && !cookieSecure && appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
       console.warn(`[API OIDC Login - Non-Dev] WARNING: APP_URL (${appUrlFromEnv}) is HTTP. OIDC state cookies will be insecure.`);
     }
+     if (process.env.NODE_ENV !== 'development' && !appUrlFromEnv) {
+      console.warn(`[API OIDC Login - Non-Dev] WARNING: APP_URL is NOT SET. OIDC state cookies will be based on a default ${effectiveAppUrl} and likely insecure if an HTTPS URL is expected.`);
+    }
+
 
     const cookieOptions: Omit<ResponseCookie, 'name' | 'value'> = {
       httpOnly: true,
@@ -57,8 +73,20 @@ export async function GET() {
     if (error instanceof Error) {
       errorMessage = error.message;
     }
-    const errorRedirectAppUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || '9002'}`;
-    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMessage)}`, errorRedirectAppUrl));
+    
+    // Determine error redirect base URL robustly
+    let errorRedirectBaseUrl = 'http://localhost:9002'; // Ultimate fallback
+    const appUrlForErrorRedirect = process.env.APP_URL;
+    if (appUrlForErrorRedirect) {
+        errorRedirectBaseUrl = appUrlForErrorRedirect;
+    } else if (process.env.NODE_ENV === 'development') {
+        const port = process.env.PORT || '9002';
+        errorRedirectBaseUrl = `http://localhost:${port}`;
+    }
+    // In non-dev, if APP_URL is not set, redirecting to localhost is not ideal but better than crashing.
+    // The core issue (missing APP_URL) should be addressed.
+
+    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMessage)}`, errorRedirectBaseUrl));
   }
 }
     
