@@ -28,7 +28,7 @@ interface ExternalApiUser {
 // Represents the structure of the response from /auth/local/me which is UserWithAuthSource
 interface ExternalApiUserResponse {
     data: ExternalApiUser;
-    authSource: 'local' | 'oidc';
+    authSource: 'local' | 'oidc'; // authSource might not be directly from /me, but useful for context
 }
 
 
@@ -37,16 +37,10 @@ const EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
 export async function GET() {
   const cookieStore = cookies();
   
-  // Enhanced logging for all received cookies
   const allCookiesArray = cookieStore.getAll().map(c => ({ 
     name: c.name, 
     valueExists: !!c.value, 
     valueSnippet: c.value ? c.value.substring(0,15)+'...' : 'N/A',
-    // path: c.path, // May not be available in Next.js 13+ cookies() directly, but good for context if it were
-    // domain: c.domain, // Same as above
-    // secure: c.secure, // Same as above
-    // httpOnly: c.httpOnly, // Same as above
-    // sameSite: c.sameSite // Same as above
   }));
   console.log(`[API User - GET /api/auth/user] START. Received cookies (name, valueExists, snippet):`, JSON.stringify(allCookiesArray, null, 2));
 
@@ -72,7 +66,7 @@ export async function GET() {
           groups: claims.groups
         });
 
-      if (claims && claims.sub && claims.iss) { // OIDC token MUST have an issuer (iss)
+      if (claims && claims.sub && claims.iss) {
         console.log("[API User] OIDC ID token claims are valid (sub & iss present).");
         const user: AppUser = {
           id: claims.sub,
@@ -117,9 +111,27 @@ export async function GET() {
 
         console.log(`[API User] Response status from ${externalUserUrl}: ${response.status}`);
         const responseBodyText = await response.text(); 
+        
+        let responseData: ExternalApiUserResponse | null = null;
+        try {
+            if (responseBodyText) {
+                responseData = JSON.parse(responseBodyText);
+                console.log("[API User] External API /auth/local/me full parsed response data:", JSON.stringify(responseData, null, 2));
+            } else {
+                console.warn(`[API User] External API /auth/local/me returned an empty body. Status: ${response.status}`);
+            }
+        } catch (parseError) {
+            console.error(`[API User] Failed to parse JSON response from ${externalUserUrl}. Status: ${response.status}. Body: ${responseBodyText.substring(0,300)}...`);
+            // If parse fails but status was OK, treat as if user data is missing. If status was bad, handle below.
+            if (!response.ok) {
+                // Fall through to generic error handling
+            } else {
+                 return NextResponse.json(null, { status: 502, statusText: "Invalid JSON response from authentication service." });
+            }
+        }
 
         if (!response.ok) {
-            console.error(`[API User] Failed to fetch user from ${externalUserUrl} for local session. Status: ${response.status}. Response Body: ${responseBodyText.substring(0,300)}`);
+            console.error(`[API User] Failed to fetch user from ${externalUserUrl} for local session. Status: ${response.status}. Response Body (or parsed error if JSON): ${responseData ? JSON.stringify(responseData) : responseBodyText.substring(0,300)}`);
             if (response.status === 401 || response.status === 403) {
                 console.log("[API User] External API returned 401/403 for session_token. Deleting local session_token and id_token cookies.");
                 const clearCookieResponse = NextResponse.json({ message: "Session token invalid, cleared by /api/auth/user." }, { status: response.status }); 
@@ -127,24 +139,14 @@ export async function GET() {
                 clearCookieResponse.cookies.delete('id_token'); 
                 return clearCookieResponse;
             }
-            console.log("[API User] External API error was not 401/403. Returning null.");
-            return NextResponse.json({ message: `Error from external auth service: ${response.status}`, details: responseBodyText.substring(0,300) }, { status: response.status });
+            return NextResponse.json({ message: `Error from external auth service: ${response.status}`, details: responseData || responseBodyText.substring(0,300) }, { status: response.status });
         }
         
-        let responseData: ExternalApiUserResponse;
-        try {
-            responseData = JSON.parse(responseBodyText);
-        } catch (parseError) {
-            console.error(`[API User] Failed to parse JSON response from ${externalUserUrl}. Body: ${responseBodyText.substring(0,300)}... Returning null.`);
-            return NextResponse.json(null, { status: 502, statusText: "Invalid JSON response from authentication service." });
-        }
-        
-        console.log("[API User] External API /auth/local/me response data (parsed):", responseData);
-
         if (!responseData || !responseData.data || !responseData.data.id) {
-            console.error('[API User] User data, data field, or user ID not found in /auth/local/me response for local session. Parsed response body:', responseData, 'Returning null.');
-            return NextResponse.json(null, { status: 500, statusText: "Invalid user data format from authentication service." });
+            console.error('[API User] User data, data field, or user ID not found in /auth/local/me response for local session. Parsed response body was:', responseData, 'Returning null.');
+            return NextResponse.json(null, { status: 500, statusText: "Invalid user data format from authentication service or user is anonymous." });
         }
+
         const externalUser = responseData.data;
         console.log("[API User] Local session user fetched successfully from external API. External User ID:", externalUser.id);
 
@@ -153,7 +155,7 @@ export async function GET() {
             name: externalUser.name || externalUser.preferredUsername,
             email: externalUser.email,
             isAdmin: externalUser.isAdmin,
-            authSource: 'local',
+            authSource: 'local', // Assuming 'local' as per the endpoint. If responseData.authSource exists, it could be used.
         };
         console.log("[API User] Local user constructed. Returning user:", user);
         return NextResponse.json(user);
