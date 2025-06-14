@@ -23,15 +23,14 @@ interface AppUser {
   name?: string;
   email?: string;
   picture?: string; 
-  isAdmin?: boolean; // Added from /api/auth/user AppUser definition
-  authSource?: 'oidc' | 'local'; // Added from /api/auth/user AppUser definition
+  isAdmin?: boolean; 
+  authSource?: 'oidc' | 'local'; 
 }
 
 const useThemeToggle = () => {
   const [theme, setTheme] = useState("light");
 
   useEffect(() => {
-    // Ensure this runs only on the client
     if (typeof window !== 'undefined') {
       const storedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
       setTheme(storedTheme);
@@ -71,13 +70,14 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
     setIsLoadingSession(true);
     let newUserData: AppUser | null = null;
     try {
-      const res = await fetch('/api/auth/user', { cache: 'no-store' });
+      const res = await fetch(`/api/auth/user?t=${Date.now()}`, { cache: 'no-store' });
       console.log(`[AppHeader] fetchUser: /api/auth/user responded with status: ${res.status}`);
       
       if (res.ok) {
         const data = await res.json();
         if (data && data.id) { 
-          console.log("[AppHeader] fetchUser: User data fetched successfully:", {id: data.id, name: data.name, email: data.email, isAdmin: data.isAdmin, authSource: data.authSource });
+          console.log("[AppHeader] fetchUser: User data fetched successfully:", 
+            {id: data.id, name: data.name, email: data.email, isAdmin: data.isAdmin, authSource: data.authSource });
           newUserData = data;
         } else {
           console.log("[AppHeader] fetchUser: User data received, but it's null or invalid (no ID). User is not logged in.", data);
@@ -97,14 +97,13 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
       setIsLoadingSession(false);
       console.log(`[AppHeader] fetchUser: Processing complete. isLoadingSession is now false. User state will update to:`, newUserData);
     }
-  }, []);  // Empty dependency array is correct here as fetchUser itself doesn't depend on external state for its definition
+  }, []);
 
   useEffect(() => {
-    console.log(`[AppHeader] Pathname changed to: ${pathname}. Triggering user fetch.`); // Enhanced log
+    console.log(`[AppHeader] Pathname changed to: ${pathname}. Triggering user fetch.`);
     fetchUser();
-  }, [pathname, fetchUser]); // fetchUser is stable due to useCallback with empty deps
+  }, [pathname, fetchUser]);
 
-  // This useEffect logs the state *after* React has processed updates.
   useEffect(() => {
     console.log("[AppHeader RENDERED] isLoadingSession:", isLoadingSession, "User state is now:", user);
   }, [user, isLoadingSession]);
@@ -114,10 +113,6 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
     router.push('/api/auth/logout');
   };
   
-  const handleLogin = () => {
-    router.push('/login');
-  };
-
   const getAvatarFallback = () => {
     if (user?.name) {
       return user.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0,2);
@@ -202,4 +197,3 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
     </header>
   );
 }
-
