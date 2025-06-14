@@ -11,6 +11,7 @@ export default function HomePage() {
   const [theme, setTheme] = useState("light");
 
   useEffect(() => {
+    console.log("[HomePage] Component mounted or updated."); // Added log
     const storedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
     setTheme(storedTheme);
     if (storedTheme === 'dark') {
