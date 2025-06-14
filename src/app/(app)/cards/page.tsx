@@ -84,6 +84,7 @@ const APP_URL = process.env.APP_URL || "";
 const PRIMARY_EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
 const BACKUP_EXTERNAL_API_BASE_URL = 'https://api.pokemontcg.io/v2';
 const REQUESTED_PAGE_SIZE = 24;
+const BACKUP_API_FOR_FILTERS_URL = 'https://api.pokemontcg.io/v2';
 
 
 async function getSetOptions(): Promise<SetOption[]> {
@@ -92,7 +93,8 @@ async function getSetOptions(): Promise<SetOption[]> {
     return [];
   }
   try {
-    const response = await fetch(`${APP_URL}/api/sets?select=id,name&orderBy=name`);
+    // Fetch all sets for options by omitting pagination params or using a specific 'all' flag if API supports
+    const response = await fetch(`${APP_URL}/api/sets?select=id,name&orderBy=name&limit=500`); // Assuming limit=500 gets most/all sets
     if (!response.ok) throw new Error('Failed to fetch sets from internal API');
     const data = await response.json();
     return (data.data || []).map((set: any) => ({ id: set.id, name: set.name }));
@@ -105,34 +107,77 @@ async function getSetOptions(): Promise<SetOption[]> {
 async function getTypeOptions(): Promise<string[]> {
   if (!APP_URL) {
     console.error("APP_URL is not defined. Cannot fetch type options.");
-    return [];
+    return ["All Types"];
   }
   try {
     const response = await fetch(`${APP_URL}/api/types`);
     if (!response.ok) throw new Error('Failed to fetch types from internal API');
     const data = await response.json();
-    return data.data || [];
+    const types = data.data || [];
+    return ["All Types", ...types.sort()];
   } catch (error) {
     console.error("Error fetching type options from internal API:", error);
-    return [];
+    return ["All Types"];
   }
 }
 
 async function getRarityOptions(): Promise<string[]> {
   if (!APP_URL) {
     console.error("APP_URL is not defined. Cannot fetch rarity options.");
-    return [];
+    return ["All Rarities"];
   }
   try {
     const response = await fetch(`${APP_URL}/api/rarities`);
     if (!response.ok) throw new Error('Failed to fetch rarities from internal API');
     const data = await response.json();
-    return (data.data || []).filter((r: string | null) => r && r.trim() !== "");
+    const rarities = (data.data || []).filter((r: string | null) => r && r.trim() !== "");
+    return ["All Rarities", ...rarities.sort()];
   } catch (error) {
     console.error("Error fetching rarity options from internal API:", error);
-    return [];
+    return ["All Rarities"];
   }
 }
+
+async function getSetSpecificTypeOptions(setId: string): Promise<string[]> {
+  if (!setId || setId === "All Sets") return ["All Types"];
+  try {
+    const response = await fetch(`${BACKUP_API_FOR_FILTERS_URL}/cards?q=set.id:${setId}&select=types&pageSize=250`);
+    if (!response.ok) {
+      console.error(`Failed to fetch types for set ${setId}: ${response.status}`);
+      return ["All Types"];
+    }
+    const data = await response.json();
+    const cards: ApiPokemonCardSource[] = data.data || [];
+    if (cards.length === 0) return ["All Types"];
+    const allTypesInSet = cards.flatMap(card => card.types || []);
+    const uniqueTypes = Array.from(new Set(allTypesInSet)).sort();
+    return ["All Types", ...uniqueTypes];
+  } catch (error) {
+    console.error(`Error fetching types for set ${setId}:`, error);
+    return ["All Types"]; // Fallback
+  }
+}
+
+async function getSetSpecificRarityOptions(setId: string): Promise<string[]> {
+  if (!setId || setId === "All Sets") return ["All Rarities"];
+  try {
+    const response = await fetch(`${BACKUP_API_FOR_FILTERS_URL}/cards?q=set.id:${setId}&select=rarity&pageSize=250`);
+    if (!response.ok) {
+      console.error(`Failed to fetch rarities for set ${setId}: ${response.status}`);
+      return ["All Rarities"];
+    }
+    const data = await response.json();
+    const cards: ApiPokemonCardSource[] = data.data || [];
+    if (cards.length === 0) return ["All Rarities"];
+    const allRaritiesInSet = cards.map(card => card.rarity).filter(Boolean) as string[];
+    const uniqueRarities = Array.from(new Set(allRaritiesInSet)).sort();
+    return ["All Rarities", ...uniqueRarities];
+  } catch (error) {
+    console.error(`Error fetching rarities for set ${setId}:`, error);
+    return ["All Rarities"]; // Fallback
+  }
+}
+
 
 async function getCards(filters: { search?: string; set?: string; type?: string; rarity?: string; page?: number }): Promise<PokemonCardListResult> {
   const queryParams = new URLSearchParams();
@@ -163,7 +208,6 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
   const pageSizeParamName = usePrimaryApi ? 'limit' : 'pageSize';
   queryParams.set(pageSizeParamName, REQUESTED_PAGE_SIZE.toString());
   
-  // Dynamically set orderBy
   if (filters.set && filters.set !== "All Sets") {
     queryParams.set('orderBy', 'number'); 
   } else {
@@ -191,7 +235,7 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     if (!response.ok) {
       const errorData = await response.text();
       console.warn(`${source} API (${fetchUrl}) failed: ${response.status}`, errorData);
-      if (source === 'Primary' && PRIMARY_EXTERNAL_API_BASE_URL) return defaultReturn; // Indicate primary failure to trigger backup
+      if (source === 'Primary' && PRIMARY_EXTERNAL_API_BASE_URL) return defaultReturn; 
       throw new Error(`${source} API error: ${response.status}`);
     }
     const responseData = await response.json();
@@ -209,12 +253,12 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
       } else if (apiCountOnPage > 0 && apiPageSize > 0 && apiCurrentPage === 1 && apiCountOnPage < apiPageSize) {
         apiTotalPages = 1;
       } else if (apiCountOnPage === 0 && apiCurrentPage === 1) {
-        apiTotalPages = 0; // if no cards, 0 total pages, or 1 if you prefer to show an empty page
+        apiTotalPages = 0; 
       } else {
         apiTotalPages = apiCurrentPage; 
       }
     }
-    apiTotalPages = Math.max(1, apiTotalPages); // Ensure at least 1 page, even if empty
+    apiTotalPages = Math.max(1, apiTotalPages); 
 
     return { cards, currentPage: apiCurrentPage, totalPages: apiTotalPages, totalCount: apiTotalCount, pageSize: apiPageSize };
   };
@@ -226,10 +270,7 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     try {
       apiResponse = await fetch(fetchUrl);
       const result = await processResponse(apiResponse, 'Primary');
-      // If primary API returns empty data but indicates an error (e.g. by not being ok, handled by processResponse),
-      // or if we specifically want to try backup on empty results from primary:
       if (apiResponse.ok) return result; 
-      // If not ok, processResponse would have thrown or returned defaultReturn to signal backup
     } catch (error) {
       console.warn(`Failed to fetch or process from Primary API (${fetchUrl}):`, error);
     }
@@ -273,22 +314,36 @@ export default async function CardsPage({
     type: currentType,
     rarity: currentRarity,
   };
+  
+  const isSpecificSetSelected = currentSet && currentSet !== "All Sets";
 
   const [
     { cards, currentPage: apiCurrentPage, totalPages: apiTotalPages, totalCount: apiTotalCount }, 
-    setOptions, 
-    typeOptions, 
-    rarityOptions
+    setOptionsData, 
+    typeOptionsData, 
+    rarityOptionsData
   ] = await Promise.all([
     getCards({ ...currentFilters, page: currentPage }),
     getSetOptions(),
-    getTypeOptions(),
-    getRarityOptions()
+    isSpecificSetSelected ? getSetSpecificTypeOptions(currentSet) : getTypeOptions(),
+    isSpecificSetSelected ? getSetSpecificRarityOptions(currentSet) : getRarityOptions()
   ]);
 
-  const allSetOptions: SetOption[] = [{ id: "All Sets", name: "All Sets" }, ...setOptions];
-  const allTypeOptions: string[] = ["All Types", ...typeOptions];
-  const allRarityOptions: string[] = ["All Rarities", ...rarityOptions];
+  const allSetOptions: SetOption[] = Array.from(new Map([{ id: "All Sets", name: "All Sets" }, ...setOptionsData].map(item => [item.id, item])).values());
+  
+  // Ensure "All Types" / "All Rarities" are present and list is unique
+  const allTypeOptions: string[] = Array.from(new Set(typeOptionsData)).sort((a,b) => {
+    if (a === "All Types") return -1;
+    if (b === "All Types") return 1;
+    return a.localeCompare(b);
+  });
+
+  const allRarityOptions: string[] = Array.from(new Set(rarityOptionsData)).sort((a,b) => {
+      if (a === "All Rarities") return -1;
+      if (b === "All Rarities") return 1;
+      return a.localeCompare(b);
+  });
+
 
   const createPageLink = (newPage: number) => {
     const params = new URLSearchParams();
@@ -392,3 +447,4 @@ export default async function CardsPage({
   );
 }
 
+    
