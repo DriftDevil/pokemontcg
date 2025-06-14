@@ -192,7 +192,7 @@ async function fetchTotalUsersCount(sessionToken: string | undefined): Promise<n
 async function fetchRecentLiveUsers(sessionToken: string | undefined, count: number = 3): Promise<ApiUser[]> {
   const baseUrl = getBaseUrl();
   const fetchUrl = `${baseUrl}/api/users/all`;
-  // console.log(`[AdminDashboardPage - fetchRecentLiveUsers] Session token for Authorization header: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
+  console.log(`[AdminDashboardPage - fetchRecentLiveUsers] Session token for Authorization header: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
   
   try {
     const fetchHeaders = new Headers();
