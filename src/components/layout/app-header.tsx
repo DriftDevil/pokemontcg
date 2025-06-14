@@ -23,6 +23,8 @@ interface AppUser {
   name?: string;
   email?: string;
   picture?: string; 
+  isAdmin?: boolean; // Added from /api/auth/user AppUser definition
+  authSource?: 'oidc' | 'local'; // Added from /api/auth/user AppUser definition
 }
 
 const useThemeToggle = () => {
@@ -93,16 +95,16 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
     } finally {
       setUser(newUserData);
       setIsLoadingSession(false);
-      console.log("[AppHeader] fetchUser: Processing complete. isLoadingSession is now false. User state will update to:", newUserData);
+      console.log(`[AppHeader] fetchUser: Processing complete. isLoadingSession is now false. User state will update to:`, newUserData);
     }
-  }, []); 
+  }, []);  // Empty dependency array is correct here as fetchUser itself doesn't depend on external state for its definition
 
   useEffect(() => {
-    console.log("[AppHeader] useEffect for user fetch triggered. Pathname:", pathname);
+    console.log(`[AppHeader] Pathname changed to: ${pathname}. Triggering user fetch.`); // Enhanced log
     fetchUser();
-  }, [pathname, fetchUser]);
+  }, [pathname, fetchUser]); // fetchUser is stable due to useCallback with empty deps
 
-  // New useEffect to log the actual user state after updates
+  // This useEffect logs the state *after* React has processed updates.
   useEffect(() => {
     console.log("[AppHeader RENDERED] isLoadingSession:", isLoadingSession, "User state is now:", user);
   }, [user, isLoadingSession]);
