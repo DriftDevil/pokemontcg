@@ -37,12 +37,12 @@ const EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
 export async function GET() {
   const cookieStore = cookies();
   
-  const allCookiesArray = cookieStore.getAll().map(c => ({ 
-    name: c.name, 
-    valueExists: !!c.value, 
-    valueSnippet: c.value ? c.value.substring(0,15)+'...' : 'N/A',
-  }));
-  console.log(`[API User - GET /api/auth/user] START. Received cookies (name, valueExists, snippet):`, JSON.stringify(allCookiesArray, null, 2));
+  // Convert cookies to a simple object for easier logging
+  const receivedCookies: { [key: string]: string | undefined } = {};
+  cookieStore.getAll().forEach(c => {
+    receivedCookies[c.name] = c.value ? c.value.substring(0,15)+'...' : 'EMPTY_OR_UNDEFINED';
+  });
+  console.log(`[API User - GET /api/auth/user] START. Received cookies (name: valueSnippetOrStatus):`, JSON.stringify(receivedCookies));
 
   const idTokenCookie = cookieStore.get('id_token');
   const sessionTokenCookie = cookieStore.get('session_token');
@@ -54,32 +54,32 @@ export async function GET() {
     try {
       const idTokenValue = idTokenCookie.value;
       const claims = jose.decodeJwt(idTokenValue);
-      console.log("[API User] OIDC ID token decoded. Claims (sub, iss, name, email, preferred_username, picture, is_admin, groups):", 
+      console.log("[API User] OIDC ID token decoded. Relevant claims (sub, name, email, preferred_username, picture, is_admin, groups):", 
         { 
           sub: claims.sub, 
-          iss: claims.iss, 
           name: claims.name, 
           email: claims.email,
           preferred_username: claims.preferred_username,
           picture: claims.picture,
-          is_admin: claims.is_admin,
-          groups: claims.groups
+          is_admin: claims.is_admin, // Direct claim
+          groups: claims.groups // For deriving admin status
         });
 
-      if (claims && claims.sub && claims.iss) {
-        console.log("[API User] OIDC ID token claims are valid (sub & iss present).");
+      if (claims && claims.sub) { // iss check removed for broader compatibility, sub is primary identifier
+        console.log("[API User] OIDC ID token claims appear valid (sub present).");
         const user: AppUser = {
           id: claims.sub,
           name: (claims.name as string | undefined) || (claims.preferred_username as string | undefined),
           email: claims.email as string | undefined,
           picture: claims.picture as string | undefined,
-          isAdmin: (claims.is_admin as boolean | undefined) || (Array.isArray(claims.groups) && (claims.groups as string[]).includes('admin')),
+          // Check both direct 'is_admin' claim and 'admin' group membership
+          isAdmin: (claims.is_admin === true) || (Array.isArray(claims.groups) && (claims.groups as string[]).includes('admin')),
           authSource: 'oidc',
         };
         console.log("[API User] OIDC user constructed. Returning user:", user);
         return NextResponse.json(user);
       } else {
-        console.warn('[API User] OIDC ID token present but claims are invalid (missing sub or iss). Decoded Claims:', claims, 'Falling back if session_token exists.');
+        console.warn('[API User] OIDC ID token present but essential claims (sub) are missing. Decoded Claims:', claims, 'Falling back if session_token exists.');
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -94,7 +94,11 @@ export async function GET() {
     console.log("[API User] No valid OIDC token or OIDC check failed. Attempting local session with session_token.");
     if (!EXTERNAL_API_BASE_URL) {
         console.error('[API User] CRITICAL: EXTERNAL_API_BASE_URL not set. Cannot fetch user details for local session. Returning null.');
-        return NextResponse.json(null, { status: 500, statusText: "Server configuration error: API base URL not set." });
+        const errResponse = NextResponse.json(null, { status: 500, statusText: "Server configuration error: API base URL not set." });
+        // Clear cookies as a precaution, as we can't validate them.
+        errResponse.cookies.delete('session_token');
+        errResponse.cookies.delete('id_token');
+        return errResponse;
     }
     try {
         const token = sessionTokenCookie.value;
@@ -122,40 +126,48 @@ export async function GET() {
             }
         } catch (parseError) {
             console.error(`[API User] Failed to parse JSON response from ${externalUserUrl}. Status: ${response.status}. Body: ${responseBodyText.substring(0,300)}...`);
-            // If parse fails but status was OK, treat as if user data is missing. If status was bad, handle below.
             if (!response.ok) {
-                // Fall through to generic error handling
+                // Fall through to generic error handling for non-OK responses
             } else {
-                 return NextResponse.json(null, { status: 502, statusText: "Invalid JSON response from authentication service." });
+                 // OK status but unparseable JSON - treat as invalid session.
+                const clearCookieResponse = NextResponse.json(null, { status: 502, statusText: "Invalid JSON response from authentication service." });
+                clearCookieResponse.cookies.delete('session_token');
+                clearCookieResponse.cookies.delete('id_token');
+                console.log("[API User] External API returned OK but unparseable JSON; clearing local session cookies.");
+                return clearCookieResponse;
             }
         }
 
         if (!response.ok) {
             console.error(`[API User] Failed to fetch user from ${externalUserUrl} for local session. Status: ${response.status}. Response Body (or parsed error if JSON): ${responseData ? JSON.stringify(responseData) : responseBodyText.substring(0,300)}`);
+            const clearCookieResponse = NextResponse.json({ message: `Error from external auth service: ${response.status}`, details: responseData || responseBodyText.substring(0,300) }, { status: response.status }); 
+            // If token is rejected by external API (401/403), definitely clear it.
             if (response.status === 401 || response.status === 403) {
-                console.log("[API User] External API returned 401/403 for session_token. Deleting local session_token and id_token cookies.");
-                const clearCookieResponse = NextResponse.json({ message: "Session token invalid, cleared by /api/auth/user." }, { status: response.status }); 
                 clearCookieResponse.cookies.delete('session_token');
                 clearCookieResponse.cookies.delete('id_token'); 
-                return clearCookieResponse;
+                console.log("[API User] External API returned 401/403 for session_token. Deleting local session_token and id_token cookies.");
             }
-            return NextResponse.json({ message: `Error from external auth service: ${response.status}`, details: responseData || responseBodyText.substring(0,300) }, { status: response.status });
+            return clearCookieResponse;
         }
         
+        // CRITICAL CHECK: External API returned 200 OK, but is the user data valid (i.e., not anonymous)?
         if (!responseData || !responseData.data || !responseData.data.id) {
-            console.error('[API User] User data, data field, or user ID not found in /auth/local/me response for local session. Parsed response body was:', responseData, 'Returning null.');
-            return NextResponse.json(null, { status: 500, statusText: "Invalid user data format from authentication service or user is anonymous." });
+            console.warn('[API User] External API /auth/local/me returned 200 OK, but user data is missing, invalid, or indicates an anonymous user. Parsed response body was:', responseData, 'Treating as unauthenticated and clearing local session cookies.');
+            const clearCookieResponse = NextResponse.json(null, { status: 200 }); // Return null (unauthenticated)
+            clearCookieResponse.cookies.delete('session_token');
+            clearCookieResponse.cookies.delete('id_token');
+            return clearCookieResponse;
         }
 
         const externalUser = responseData.data;
-        console.log("[API User] Local session user fetched successfully from external API. External User ID:", externalUser.id);
+        console.log("[API User] Local session user fetched successfully from external API. External User ID:", externalUser.id, "isAdmin:", externalUser.isAdmin);
 
         const user: AppUser = {
             id: externalUser.id,
             name: externalUser.name || externalUser.preferredUsername,
             email: externalUser.email,
             isAdmin: externalUser.isAdmin,
-            authSource: 'local', // Assuming 'local' as per the endpoint. If responseData.authSource exists, it could be used.
+            authSource: 'local', 
         };
         console.log("[API User] Local user constructed. Returning user:", user);
         return NextResponse.json(user);
@@ -163,7 +175,11 @@ export async function GET() {
     } catch (error: any) {
         const errorMessage = error.message ? error.message : String(error);
         console.error(`[API User] Error during local session user fetch: ${errorMessage}. Stack: ${error.stack ? error.stack.substring(0, 500) : 'N/A'}. Returning null.`);
-        return NextResponse.json({ message: "Internal server error fetching user details for local session.", details: errorMessage }, { status: 500 });
+        const errResponse = NextResponse.json({ message: "Internal server error fetching user details for local session.", details: errorMessage }, { status: 500 });
+        // Clear cookies on unexpected error during fetch.
+        errResponse.cookies.delete('session_token');
+        errResponse.cookies.delete('id_token');
+        return errResponse;
     }
   } else {
      console.log("[API User] No local session_token cookie found or its value is empty.");
