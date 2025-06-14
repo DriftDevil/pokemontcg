@@ -292,7 +292,7 @@ const getAvatarFallbackText = (user: ApiUser) => {
 }
 
 export default async function AdminDashboardPage() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const sessionToken = cookieStore.get('session_token')?.value;
   // console.log(`[AdminDashboardPage - Render] session_token value at page top: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 

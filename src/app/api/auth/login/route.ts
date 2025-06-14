@@ -52,7 +52,7 @@ export async function GET() {
       sameSite: cookieSameSite,
     };
 
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     cookieStore.set('oidc_code_verifier', code_verifier, cookieOptions);
     cookieStore.set('oidc_nonce', nonce, cookieOptions);
     cookieStore.set('oidc_state', state, cookieOptions);
