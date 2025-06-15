@@ -15,7 +15,7 @@ interface AppUser {
   email?: string;
   avatarUrl?: string;
   isAdmin?: boolean;
-  authSource?: 'oidc' | 'local';
+  authSource?: 'oidc' | 'local' | 'mock';
 }
 
 export default function HomePage() {
@@ -89,7 +89,7 @@ export default function HomePage() {
     return 'U';
   }
 
-  const loggedInAvatarSrc = loggedInUser?.avatarUrl || `https://placehold.co/96x96.png?text=${getAvatarFallbackText(loggedInUser)}`;
+  const loggedInAvatarSrc = loggedInUser?.avatarUrl || `https://placehold.co/40x40.png?text=${getAvatarFallbackText(loggedInUser)}`;
   const loggedInAvatarHint = loggedInUser?.avatarUrl && !loggedInUser.avatarUrl.includes('placehold.co') ? "user avatar" : "avatar placeholder";
 
 
@@ -147,7 +147,7 @@ export default function HomePage() {
           "grid grid-cols-1 gap-6 w-full",
           loggedInUser.isAdmin
             ? "sm:grid-cols-2 lg:grid-cols-3 max-w-4xl"
-            : "sm:grid-cols-2 max-w-2xl" // Adjusted for non-admin 2x2 layout
+            : "sm:grid-cols-2 max-w-2xl" 
         )}>
           {loggedInUser.isAdmin && (
             <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
@@ -161,7 +161,7 @@ export default function HomePage() {
                 <p className="text-sm text-muted-foreground">View site analytics and manage content.</p>
               </CardContent>
               <CardFooter>
-                <Button asChild className="w-full"> {/* Changed variant */}
+                <Button asChild className="w-full"> 
                   <Link href="/admin/dashboard">Go to Dashboard</Link>
                 </Button>
               </CardFooter>
@@ -178,7 +178,7 @@ export default function HomePage() {
               <p className="text-sm text-muted-foreground">View and manage your profile settings.</p>
             </CardContent>
             <CardFooter>
-              <Button asChild className="w-full"> {/* Changed variant */}
+              <Button asChild className="w-full"> 
                 <Link href="/admin/profile">View Profile</Link>
               </Button>
             </CardFooter>
@@ -194,7 +194,7 @@ export default function HomePage() {
               <p className="text-sm text-muted-foreground">Explore all available Pokémon TCG sets.</p>
             </CardContent>
             <CardFooter>
-              <Button asChild className="w-full"> {/* Changed variant */}
+              <Button asChild className="w-full"> 
                 <Link href="/sets">Browse Sets</Link>
               </Button>
             </CardFooter>
@@ -210,12 +210,12 @@ export default function HomePage() {
               <p className="text-sm text-muted-foreground">Search and filter individual Pokémon cards.</p>
             </CardContent>
             <CardFooter>
-              <Button asChild className="w-full"> {/* Changed variant */}
+              <Button asChild className="w-full">
                 <Link href="/cards">Find Cards</Link>
               </Button>
             </CardFooter>
           </Card>
-           <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300"> {/* Removed conditional lg:col-start-2 */}
+           <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
             <CardHeader>
               <CardTitle className="font-headline flex items-center text-xl">
                 <LogOut className="mr-2 h-5 w-5 text-destructive" />
@@ -277,9 +277,7 @@ export default function HomePage() {
             <p>Login to unlock the full potential of the PokeAPI Admin panel.</p>
           </CardContent>
           <CardFooter>
-            <Button asChild className="w-full" size="lg">
-              <Link href="/login">Admin Login</Link>
-            </Button>
+            <Button asChild className="w-full" size="lg"><Link href="/login">Admin Login</Link></Button>
           </CardFooter>
         </Card>
 
