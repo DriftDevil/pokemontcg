@@ -46,7 +46,7 @@ interface PokemonCardDetail extends PokemonCardSummary {
 interface CardInSet {
   id: string;
   name: string;
-  number: string;
+  number: string; // The collector number as a string
 }
 
 // Interface for the card detail page component, including navigation context
@@ -132,6 +132,24 @@ function mapApiToPokemonCardDetail(apiCard: ApiPokemonCardDetailSource): Pokemon
   };
 }
 
+// Helper function to parse card numbers for robust sorting
+function parseCardNumber(cardNumberStr: string): { prefix: string; num: number; suffix: string } {
+  const match = cardNumberStr.match(/^([a-zA-Z]*)(\d+)(.*)$/);
+  if (match) {
+    return {
+      prefix: (match[1] || '').toLowerCase(),
+      num: parseInt(match[2], 10),
+      suffix: (match[3] || '').toLowerCase(),
+    };
+  }
+  const num = parseInt(cardNumberStr, 10);
+  if (!isNaN(num)) {
+    return { prefix: '', num: num, suffix: '' };
+  }
+  return { prefix: '', num: Infinity, suffix: cardNumberStr.toLowerCase() }; // Fallback for non-standard numbers
+}
+
+
 async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithContext | null> {
   if (!APP_URL) {
     console.error("APP_URL is not defined. Cannot fetch card details.");
@@ -159,7 +177,7 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
 
   if (!apiCardSource.set || !apiCardSource.set.id) {
     console.warn(`Card ${id} has no set information. Cannot provide next/previous navigation.`);
-    return cardDetail; // Return card detail without next/prev context
+    return cardDetail; 
   }
 
   const setId = apiCardSource.set.id;
@@ -172,16 +190,32 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
   if (primaryExternalApiBaseUrl) {
     setQueryBaseUrl = `${primaryExternalApiBaseUrl}/v2`;
   } else {
-    setQueryBaseUrl = backupExternalApiBaseUrl; // Fallback to backup if primary isn't set
+    setQueryBaseUrl = backupExternalApiBaseUrl; 
   }
   
   try {
-    const setCardsUrl = `${setQueryBaseUrl}/cards?q=set.id:${setId}&orderBy=number&select=id,name,number&pageSize=250`;
+    // Request orderBy=number as a first pass, but we will re-sort robustly later
+    const setCardsUrl = `${setQueryBaseUrl}/cards?q=set.id:${setId}&select=id,name,number&pageSize=250`;
     const res = await fetch(setCardsUrl);
     if (res.ok) {
       const setData = await res.json();
-      // Ensure data is an array before mapping
       cardsInSet = Array.isArray(setData.data) ? setData.data.map((c: any) => ({ id: c.id, name: c.name, number: c.number })) : [];
+      
+      // Robust sorting of cardsInSet by parsed card number
+      if (cardsInSet.length > 0) {
+        cardsInSet.sort((a, b) => {
+          const numDetailsA = parseCardNumber(a.number);
+          const numDetailsB = parseCardNumber(b.number);
+
+          if (numDetailsA.prefix < numDetailsB.prefix) return -1;
+          if (numDetailsA.prefix > numDetailsB.prefix) return 1;
+          if (numDetailsA.num < numDetailsB.num) return -1;
+          if (numDetailsA.num > numDetailsB.num) return 1;
+          if (numDetailsA.suffix < numDetailsB.suffix) return -1;
+          if (numDetailsA.suffix > numDetailsB.suffix) return 1;
+          return 0;
+        });
+      }
     } else {
       console.warn(`Failed to fetch cards for set ${setId} from ${setQueryBaseUrl}: ${res.status}`);
     }
@@ -202,7 +236,7 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
         nextCardId = cardsInSet[currentIndex + 1].id;
       }
     } else {
-        console.warn(`Card ${id} not found in its own set ${setId} list. This could be due to data inconsistency or pageSize limit if set is very large.`);
+        console.warn(`Card ${id} not found in its own set ${setId} list after sorting. This could be due to data inconsistency or pageSize limit if set is very large.`);
     }
   }
 
@@ -251,7 +285,7 @@ export default async function CardDetailPage({ params }: { params: { id: string 
   
   const pageActions = (
     <div className="flex flex-wrap gap-2 items-center">
-      {card.currentSetId && ( // Only show prev/next if in set context
+      {card.currentSetId && ( 
         <>
           <Button asChild variant="outline" size="sm" disabled={!card.previousCardId}>
             <Link href={card.previousCardId ? `/cards/${card.previousCardId}` : "#"}>
@@ -423,4 +457,3 @@ export default async function CardDetailPage({ params }: { params: { id: string 
     </>
   );
 }
-
