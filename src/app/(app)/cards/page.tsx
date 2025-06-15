@@ -36,12 +36,14 @@ interface ApiPokemonCardSource {
     name: string;
     series?: string;
     printedTotal?: number;
-    total?: number; // Matches openapi.yaml 'total' and also in pokemontcg.io (different meaning)
+    total?: number; 
     legalities?: { [key: string]: string };
     ptcgoCode?: string;
     releaseDate?: string;
     updatedAt?: string;
     images?: { symbol: string; logo: string };
+    // Potentially a field for official total if primary API has it different from 'total'
+    officialTotal?: number; 
   };
   number?: string;
   artist?: string;
@@ -49,7 +51,7 @@ interface ApiPokemonCardSource {
   flavorText?: string;
   nationalPokedexNumbers?: number[];
   legalities?: { [key: string]: string };
-  images?: { small?: string; large?: string }; // Both small and large are optional
+  images?: { small?: string; large?: string }; 
   tcgplayer?: any;
   cardmarket?: any;
 }
@@ -84,8 +86,8 @@ interface SetOption {
 interface SelectedSetDetails {
   id: string;
   name: string;
-  printedTotal?: number;
-  officialTotal?: number; // This will typically come from `set.total` from API
+  printedTotal?: number; 
+  officialTotal?: number; 
 }
 
 
@@ -99,25 +101,17 @@ function getBaseUrlForApi(): string {
   if (appUrlEnv) {
     try {
       const parsedAppUrl = new URL(appUrlEnv);
-      // Ensure it returns just the origin (scheme://hostname:port)
       return parsedAppUrl.origin;
     } catch (error) {
       console.error(`[CardsPage - getBaseUrlForApi] Invalid APP_URL: ${appUrlEnv}. Error: ${error}. Falling back to localhost.`);
-      // Fallback for invalid APP_URL, especially in dev
     }
   }
-  // Fallback for local development if APP_URL is not set.
-  // For production, APP_URL should always be set.
-  const port = process.env.PORT || "9002"; // Default Next.js port or your app's port
+  const port = process.env.PORT || "9002"; 
   const defaultUrl = `http://localhost:${port}`;
-  if (process.env.NODE_ENV !== 'production') {
-    console.warn(`[CardsPage - getBaseUrlForApi] APP_URL not set. Defaulting to ${defaultUrl} for internal API calls. This is okay for local development but ensure APP_URL is set in deployed environments.`);
-  } else {
-    // In production, if APP_URL is missing, this is a critical misconfiguration.
-    // Throwing an error or logging a severe warning might be appropriate,
-    // but for now, we'll return a localhost URL which will likely fail,
-    // highlighting the need for APP_URL.
-    console.error(`[CardsPage - getBaseUrlForApi] CRITICAL: APP_URL is not set in production. Internal API calls will likely fail. Defaulting to ${defaultUrl}.`);
+  if (process.env.NODE_ENV === 'production' && !appUrlEnv) {
+    console.error(`[CardsPage - getBaseUrlForApi] CRITICAL: APP_URL is not set in production. Internal API calls will use ${defaultUrl} and likely fail.`);
+  } else if (!appUrlEnv) {
+    console.warn(`[CardsPage - getBaseUrlForApi] APP_URL not set. Defaulting to ${defaultUrl} for internal API calls.`);
   }
   return defaultUrl;
 }
@@ -178,7 +172,6 @@ async function getRarityOptions(): Promise<string[]> {
 
 async function getSetSpecificTypeOptions(setId: string): Promise<string[]> {
   if (!setId || setId === "All Sets") return ["All Types"];
-  // This function fetches directly from an external API, so getBaseUrlForApi() is not needed here.
   try {
     const response = await fetch(`${BACKUP_API_FOR_FILTERS_URL}/cards?q=set.id:${setId}&select=types&pageSize=250`);
     if (!response.ok) {
@@ -199,7 +192,6 @@ async function getSetSpecificTypeOptions(setId: string): Promise<string[]> {
 
 async function getSetSpecificRarityOptions(setId: string): Promise<string[]> {
   if (!setId || setId === "All Sets") return ["All Rarities"];
-  // This function fetches directly from an external API.
   try {
     const response = await fetch(`${BACKUP_API_FOR_FILTERS_URL}/cards?q=set.id:${setId}&select=rarity&pageSize=250`);
     if (!response.ok) {
@@ -228,24 +220,54 @@ async function getSelectedSetDetails(setId: string): Promise<SelectedSetDetails 
     console.log(`[CardsPage - getSelectedSetDetails] Fetching set details from: ${fetchUrl}`);
     const response = await fetch(fetchUrl);
     if (!response.ok) {
-      console.error(`[CardsPage - getSelectedSetDetails] Failed to fetch details for set ${setId} from internal API ${fetchUrl}: ${response.status}, Body: ${await response.text()}`);
+      console.error(`[CardsPage - getSelectedSetDetails] Failed to fetch details for set ${setId} (Status: ${response.status}) from internal API ${fetchUrl}. Body: ${await response.text()}`);
       return null;
     }
-    const data = await response.json();
-    const setData = data.data || data;
+    const apiResponseData = await response.json();
+    // Handle if actual set data is nested under 'data' (like pokemontcg.io) or direct (primary API assumption)
+    const setData = apiResponseData.data || apiResponseData; 
+
     if (!setData || !setData.id) {
-        console.error(`[CardsPage - getSelectedSetDetails] No valid data found for set ${setId} in response from ${fetchUrl}:`, data);
-        return null;
+      console.error(`[CardsPage - getSelectedSetDetails] No valid data.id found for set ${setId} in response from ${fetchUrl}. Full response:`, apiResponseData);
+      return null;
     }
-    console.log(`[CardsPage - getSelectedSetDetails] Successfully fetched details for set ${setId}:`, setData);
+
+    let pTotal: number | undefined;
+    let oTotal: number | undefined;
+
+    // Case 1: PokemonTCG.io like structure (has 'printedTotal' and 'total' where 'total' is official)
+    if (setData.printedTotal !== undefined && setData.total !== undefined) {
+      pTotal = Number(setData.printedTotal);
+      oTotal = Number(setData.total);
+    } 
+    // Case 2: Primary API might use 'total' for printed and 'officialTotal' for official
+    else if (setData.total !== undefined && setData.officialTotal !== undefined) {
+      pTotal = Number(setData.total);
+      oTotal = Number(setData.officialTotal);
+    } 
+    // Case 3: Only 'total' is available (assume it's official, printed might be same or unknown)
+    else if (setData.total !== undefined) {
+      oTotal = Number(setData.total);
+      pTotal = Number(setData.total); // Or undefined, depending on how strict we want to be
+    } 
+    // Case 4: Only 'printedTotal' is available
+    else if (setData.printedTotal !== undefined) {
+        pTotal = Number(setData.printedTotal);
+        oTotal = Number(setData.printedTotal); // Assume official is same as printed if no other info
+    }
+    else {
+      console.warn(`[CardsPage - getSelectedSetDetails] Could not reliably determine printed/official totals for set ${setId}. setData:`, setData);
+    }
+    
+    console.log(`[CardsPage - getSelectedSetDetails] Successfully fetched details for set ${setId}. Name: ${setData.name}, Mapped Printed: ${pTotal}, Mapped Official: ${oTotal}`);
     return {
       id: setData.id,
       name: setData.name,
-      printedTotal: setData.printedTotal,
-      officialTotal: setData.total,
+      printedTotal: pTotal,
+      officialTotal: oTotal,
     };
   } catch (error) {
-    console.error(`[CardsPage - getSelectedSetDetails] Error fetching details for set ${setId} from internal API:`, error);
+    console.error(`[CardsPage - getSelectedSetDetails] Error fetching/processing details for set ${setId} from internal API:`, error);
     return null;
   }
 }
@@ -260,7 +282,6 @@ function naturalSortCompare(aStr: string, bStr: string): number {
     const aPart = aParts[i];
     const bPart = bParts[i];
 
-    // If both parts are numbers, compare them numerically
     if (/\d/.test(aPart) && /\d/.test(bPart)) {
       const aNum = parseInt(aPart, 10);
       const bNum = parseInt(bPart, 10);
@@ -268,7 +289,6 @@ function naturalSortCompare(aStr: string, bStr: string): number {
         return aNum - bNum;
       }
     } else {
-      // Otherwise, compare them as strings (case-insensitive for stability)
       const aPartLower = aPart.toLowerCase();
       const bPartLower = bPart.toLowerCase();
       if (aPartLower !== bPartLower) {
@@ -276,7 +296,6 @@ function naturalSortCompare(aStr: string, bStr: string): number {
       }
     }
   }
-  // If one string is a prefix of the other, the shorter string comes first
   return aParts.length - bParts.length;
 }
 
@@ -337,13 +356,13 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     if (!response.ok) {
       const errorData = await response.text();
       console.warn(`${source} API (${fetchUrl}) failed: ${response.status}`, errorData);
-      if (source === 'Primary' && PRIMARY_EXTERNAL_API_BASE_URL) return defaultReturn;
+      if (source === 'Primary' && PRIMARY_EXTERNAL_API_BASE_URL) return defaultReturn; // Allow fallback if primary fails non-critically
       throw new Error(`${source} API error: ${response.status}`);
     }
     const responseData = await response.json();
     let cards = (responseData.data || []).map(mapApiCardToPokemonCard);
 
-    // Client-side sorting if a specific set is filtered
+    // Client-side sorting if a specific set is filtered, as API sort might not be perfect
     if (filters.set && filters.set !== "All Sets" && cards.length > 0) {
       console.log(`[CardsPage - getCards - processResponse] Client-side sorting cards for set ${filters.set} by collector number.`);
       cards.sort((a, b) => naturalSortCompare(a.number, b.number));
@@ -363,7 +382,7 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
       } else if (apiCountOnPage === 0 && apiCurrentPage === 1) {
         apiTotalPages = 0;
       } else {
-        apiTotalPages = apiCurrentPage;
+        apiTotalPages = apiCurrentPage; 
       }
     }
     apiTotalPages = Math.max(1, apiTotalPages);
@@ -469,22 +488,22 @@ export default async function CardsPage({
 
   if (selectedSetDetails) {
     pageTitle = selectedSetDetails.name;
-    let descriptionParts = [];
-    if (selectedSetDetails.printedTotal !== undefined) {
-      descriptionParts.push(`Printed: ${selectedSetDetails.printedTotal}`);
-    }
-    if (selectedSetDetails.officialTotal !== undefined && selectedSetDetails.printedTotal !== undefined && Number(selectedSetDetails.officialTotal) > Number(selectedSetDetails.printedTotal)) {
-      const secretCount = Number(selectedSetDetails.officialTotal) - Number(selectedSetDetails.printedTotal);
-      descriptionParts.push(`Secret: ${secretCount}`);
-    }
-    if (selectedSetDetails.officialTotal !== undefined) {
-        descriptionParts.push(`Official Total: ${selectedSetDetails.officialTotal} cards`);
-    } else if (selectedSetDetails.printedTotal !== undefined) {
-        descriptionParts.push(`Total: ${selectedSetDetails.printedTotal} cards`);
-    }
     
-    pageDescription = descriptionParts.join(' • ') || "View cards from this set.";
+    const printed = selectedSetDetails.printedTotal;
+    const official = selectedSetDetails.officialTotal;
+
+    if (typeof official === 'number' && typeof printed === 'number' && official > printed) {
+      const secretCount = official - printed;
+      pageDescription = `Total Cards: ${printed} (+${secretCount} Secret)`;
+    } else if (typeof official === 'number') {
+      pageDescription = `Total Cards: ${official}`;
+    } else if (typeof printed === 'number') {
+      pageDescription = `Total Cards: ${printed}`;
+    } else {
+      pageDescription = `Details for set: ${selectedSetDetails.name}. Card counts unavailable.`;
+    }
   }
+
 
   return (
     <>
@@ -528,6 +547,7 @@ export default async function CardsPage({
                       quality={100}
                       className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
                       data-ai-hint={card.imageUrl.includes('placehold.co') ? "pokemon card" : undefined}
+
                     />
                 </CardHeader>
                 <CardContent className="p-3 flex-grow">
