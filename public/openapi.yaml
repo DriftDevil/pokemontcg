@@ -434,9 +434,9 @@ paths:
           description: User not found
         '500':
           description: Internal server error
-  /user/cards/add:
+  /user/collection/cards/add:
     post:
-      summary: Add a card to user collection
+      summary: Add one or more cards to the user's collection
       tags: [Users]
       security:
         - oauth2:
@@ -448,15 +448,31 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+                - cardIds
               properties:
-                cardId:
-                  type: string
+                cardIds:
+                  type: array
+                  items:
+                    type: string
+                  description: List of card IDs to add
       responses:
-        "200":
-          description: Card added
-  /user/cards/remove:
+        "201":
+          description: Cards added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cards:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                    description: Map of card IDs to updated quantities
+
+  /user/collection/cards/remove:
     post:
-      summary: Remove a card from user collection
+      summary: Remove one or more cards from the user's collection
       tags: [Users]
       security:
         - oauth2:
@@ -468,12 +484,24 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+                - cardIds
               properties:
-                cardId:
-                  type: string
+                cardIds:
+                  type: array
+                  items:
+                    type: string
+                  description: List of card IDs to remove from the collection
       responses:
         "200":
-          description: Card removed
+          description: Cards removed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
   /user/{userID}/cards:
     get:
       summary: Get user’s cards
