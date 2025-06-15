@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Gem, LayoutDashboard, Users, FileText, Layers, CreditCard, Settings, LogOut } from "lucide-react";
+import { Gem, LayoutDashboard, Users, FileText, Layers, CreditCard, Settings, LogOut, ShoppingBag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -45,15 +45,26 @@ export default function AppSidebarContent({ navItems, isMobile = false, user }: 
     return pathname === item.href;
   };
 
-  const renderNavItem = (item: NavItem, depth = 0) => (
+  const renderNavItem = (item: NavItem, depth = 0) => {
+    // Skip rendering admin items if user is not admin
+    if (item.isAdmin && !currentUserIsAdmin) {
+      return null;
+    }
+    // Skip rendering user items if user is not logged in (unless it's a public page like /cards or /sets)
+    if (item.isUser && !user && !['/sets', '/cards'].includes(item.href)) {
+        return null;
+    }
+
+
+    return (
     <li key={item.href}>
       {item.subItems ? (
-        <Accordion type="single" collapsible className="w-full">
+        <Accordion type="single" collapsible className="w-full" defaultValue={item.subItems.some(sub => isActive(sub)) ? item.href : undefined}>
           <AccordionItem value={item.href} className="border-b-0">
             <AccordionTrigger
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground transition-all hover:text-sidebar-accent-foreground hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground",
-                isActive(item) && "bg-sidebar-accent text-sidebar-accent-foreground font-semibold",
+                isActive(item) && !item.subItems?.some(sub => isActive(sub)) && "bg-sidebar-accent text-sidebar-accent-foreground font-semibold",
                 depth > 0 && "pl-8"
               )}
             >
@@ -82,11 +93,21 @@ export default function AppSidebarContent({ navItems, isMobile = false, user }: 
         </Link>
       )}
     </li>
-  );
+    );
+  };
   
-  const adminNavItems = navItems.filter(item => item.isAdmin && currentUserIsAdmin);
-  const userNavItems = navItems.filter(item => item.isUser);
-  const showSeparator = currentUserIsAdmin && adminNavItems.length > 0 && userNavItems.length > 0;
+  const adminNavItems = navItems.filter(item => item.isAdmin);
+  const primaryUserNavItems = navItems.filter(item => item.isUser && item.href !== '/me/collections'); 
+  const collectionsNavItem = navItems.find(item => item.href === '/me/collections');
+
+  const shouldShowAdminSection = currentUserIsAdmin && adminNavItems.length > 0;
+  const shouldShowPrimaryUserSection = primaryUserNavItems.length > 0;
+  const shouldShowCollectionsSection = user && collectionsNavItem; // Only show if user logged in
+
+  // Determine if separators are needed
+  const sepAdminUser = shouldShowAdminSection && (shouldShowPrimaryUserSection || shouldShowCollectionsSection);
+  const sepUserCollections = shouldShowPrimaryUserSection && shouldShowCollectionsSection;
+
 
   return (
     <>
@@ -98,9 +119,15 @@ export default function AppSidebarContent({ navItems, isMobile = false, user }: 
       </div>
       <nav className="flex-1 overflow-auto py-4 px-2 text-sm font-medium">
         <ul className="space-y-1">
-          {adminNavItems.map(item => renderNavItem(item))}
-          {showSeparator && <Separator className="my-2 bg-sidebar-border" />}
-          {userNavItems.map(item => renderNavItem(item))}
+          {shouldShowAdminSection && adminNavItems.map(item => renderNavItem(item))}
+          
+          {sepAdminUser && <Separator className="my-2 bg-sidebar-border" />}
+
+          {shouldShowCollectionsSection && collectionsNavItem && renderNavItem(collectionsNavItem)}
+
+          {sepUserCollections && <Separator className="my-2 bg-sidebar-border" />}
+          
+          {shouldShowPrimaryUserSection && primaryUserNavItems.map(item => renderNavItem(item))}
         </ul>
       </nav>
       {isMobile && user && ( 

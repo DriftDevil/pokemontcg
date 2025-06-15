@@ -146,8 +146,8 @@ export default function HomePage() {
         <div className={cn(
           "grid grid-cols-1 gap-6 w-full",
           loggedInUser.isAdmin
-            ? "sm:grid-cols-2 lg:grid-cols-3 max-w-4xl" // Admin has more options
-            : "sm:grid-cols-2 max-w-3xl" // Regular user might have collections + sets + cards
+            ? "sm:grid-cols-2 lg:grid-cols-3 max-w-4xl" 
+            : "sm:grid-cols-2 max-w-3xl" 
         )}>
           {loggedInUser.isAdmin && (
             <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
@@ -184,7 +184,6 @@ export default function HomePage() {
             </CardFooter>
           </Card>
           
-          {/* My Collections Card - Visible to all logged-in users */}
           <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
             <CardHeader>
               <CardTitle className="font-headline flex items-center text-xl">
