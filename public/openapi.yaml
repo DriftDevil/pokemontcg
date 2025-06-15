@@ -615,6 +615,9 @@ components:
           type: string
         lastSeen:
           type: string
+        avatar:
+          type: string
+          description: URL to the user's avatar image
 
     UserWithAuthSource:
       type: object
