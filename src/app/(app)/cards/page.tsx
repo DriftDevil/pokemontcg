@@ -464,12 +464,33 @@ export default async function CardsPage({
     return `/cards?${params.toString()}`;
   };
 
+  let pageTitle = "Pokémon Cards";
+  let pageDescription = "Browse and search for individual Pokémon cards.";
+
+  if (selectedSetDetails) {
+    pageTitle = selectedSetDetails.name;
+    let descriptionParts = [];
+    if (selectedSetDetails.printedTotal !== undefined) {
+      descriptionParts.push(`Printed: ${selectedSetDetails.printedTotal}`);
+    }
+    if (selectedSetDetails.officialTotal !== undefined && selectedSetDetails.printedTotal !== undefined && Number(selectedSetDetails.officialTotal) > Number(selectedSetDetails.printedTotal)) {
+      const secretCount = Number(selectedSetDetails.officialTotal) - Number(selectedSetDetails.printedTotal);
+      descriptionParts.push(`Secret: ${secretCount}`);
+    }
+    if (selectedSetDetails.officialTotal !== undefined) {
+        descriptionParts.push(`Official Total: ${selectedSetDetails.officialTotal} cards`);
+    } else if (selectedSetDetails.printedTotal !== undefined) {
+        descriptionParts.push(`Total: ${selectedSetDetails.printedTotal} cards`);
+    }
+    
+    pageDescription = descriptionParts.join(' • ') || "View cards from this set.";
+  }
 
   return (
     <>
       <PageHeader
-        title="Pokémon Cards"
-        description="Browse and search for individual Pokémon cards."
+        title={pageTitle}
+        description={pageDescription}
         icon={CreditCard}
       />
       <CardFiltersForm
@@ -481,23 +502,6 @@ export default async function CardsPage({
         typeOptions={allTypeOptions}
         rarityOptions={allRarityOptions}
       />
-
-      {selectedSetDetails && (
-        <div className="mb-6 md:mb-8 text-center md:text-left">
-          <h2 className="font-headline text-3xl md:text-4xl font-bold text-foreground mb-1">
-            {selectedSetDetails.name}
-          </h2>
-          {selectedSetDetails.printedTotal !== undefined && selectedSetDetails.officialTotal !== undefined && (
-            <p className="text-md text-muted-foreground">
-              Total: {selectedSetDetails.printedTotal}
-              {Number(selectedSetDetails.officialTotal) > Number(selectedSetDetails.printedTotal) &&
-                ` (+${Number(selectedSetDetails.officialTotal) - Number(selectedSetDetails.printedTotal)} Secret)`}
-              {' '}cards
-            </p>
-          )}
-        </div>
-      )}
-
 
       {cards.length === 0 ? (
         <div className="text-center py-12">
