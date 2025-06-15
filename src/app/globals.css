@@ -318,13 +318,15 @@ h1, h2, h3, h4, h5, h6 {
 
   /* Method specific button colors - ensure good contrast */
   /* These colors are for the method text itself (GET, POST, etc.). */
-  .dark .swagger-ui .opblock.opblock-get .opblock-summary-method { color: #61affe !important; } /* Light Blue */
-  .dark .swagger-ui .opblock.opblock-post .opblock-summary-method { color: #49cc90 !important; } /* Green */
-  .dark .swagger-ui .opblock.opblock-put .opblock-summary-method { color: #fca130 !important; } /* Orange */
-  .dark .swagger-ui .opblock.opblock-delete .opblock-summary-method { color: #f93e3e !important; } /* Red */
-  .dark .swagger-ui .opblock.opblock-patch .opblock-summary-method { color: #50e3c2 !important; } /* Teal/Turquoise */
-  .dark .swagger-ui .opblock.opblock-options .opblock-summary-method { color: #d393e0 !important; } /* Purple */
-  .dark .swagger-ui .opblock.opblock-head .opblock-summary-method { color: #c0ca33 !important; } /* Lime Green */
+  .dark .swagger-ui .opblock.opblock-get .opblock-summary-method,
+  .dark .swagger-ui .opblock.opblock-post .opblock-summary-method,
+  .dark .swagger-ui .opblock.opblock-put .opblock-summary-method,
+  .dark .swagger-ui .opblock.opblock-delete .opblock-summary-method,
+  .dark .swagger-ui .opblock.opblock-patch .opblock-summary-method,
+  .dark .swagger-ui .opblock.opblock-options .opblock-summary-method,
+  .dark .swagger-ui .opblock.opblock-head .opblock-summary-method {
+    color: hsl(var(--primary-foreground)) !important; /* Use a very dark color for text */
+  }
 
   .dark .swagger-ui .opblock-deprecated .opblock-summary-method {
     color: hsl(var(--muted-foreground)) !important; /* Override to make deprecated less prominent */
