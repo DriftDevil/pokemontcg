@@ -132,21 +132,46 @@ function mapApiToPokemonCardDetail(apiCard: ApiPokemonCardDetailSource): Pokemon
   };
 }
 
-// Helper function to parse card numbers for robust sorting
-function parseCardNumber(cardNumberStr: string): { prefix: string; num: number; suffix: string } {
-  const match = cardNumberStr.match(/^([a-zA-Z]*)(\d+)(.*)$/);
-  if (match) {
-    return {
-      prefix: (match[1] || '').toLowerCase(),
-      num: parseInt(match[2], 10),
-      suffix: (match[3] || '').toLowerCase(),
-    };
+// Natural sort comparison function for alphanumeric strings (card numbers)
+function naturalSortCompare(aStr: string, bStr: string): number {
+  const re = /(\D*)(\d*)/g; // Regex to split into non-digit and digit parts
+
+  const rượu_vang_a = []; // Parts for string a
+  let matchA;
+  re.lastIndex = 0; 
+  while ((matchA = re.exec(aStr)) !== null && matchA[0] !== '') {
+    if (matchA[1]) rượu_vang_a.push(matchA[1]); // Non-digit part
+    if (matchA[2]) rượu_vang_a.push(parseInt(matchA[2], 10)); // Digit part as number
   }
-  const num = parseInt(cardNumberStr, 10);
-  if (!isNaN(num)) {
-    return { prefix: '', num: num, suffix: '' };
+  if (re.lastIndex < aStr.length) rượu_vang_a.push(aStr.substring(re.lastIndex)); // Remainder
+
+  const partsB = []; // Parts for string b
+  let matchB;
+  re.lastIndex = 0;
+  while ((matchB = re.exec(bStr)) !== null && matchB[0] !== '') {
+    if (matchB[1]) partsB.push(matchB[1]);
+    if (matchB[2]) partsB.push(parseInt(matchB[2], 10));
   }
-  return { prefix: '', num: Infinity, suffix: cardNumberStr.toLowerCase() }; // Fallback for non-standard numbers
+  if (re.lastIndex < bStr.length) partsB.push(bStr.substring(re.lastIndex));
+
+  for (let i = 0; i < Math.max(rượu_vang_a.length, partsB.length); i++) {
+    const partA = rượu_vang_a[i];
+    const partB = partsB[i];
+
+    if (partA === undefined) return -1; // a is shorter
+    if (partB === undefined) return 1;  // b is shorter
+
+    if (typeof partA === 'number' && typeof partB === 'number') {
+      if (partA < partB) return -1;
+      if (partA > partB) return 1;
+    } else if (typeof partA === 'string' && typeof partB === 'string') {
+      const comparison = partA.localeCompare(partB);
+      if (comparison !== 0) return comparison;
+    } else { // Mixed types: number comes before string
+      return (typeof partA === 'number') ? -1 : 1;
+    }
+  }
+  return 0;
 }
 
 
@@ -194,27 +219,16 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
   }
   
   try {
-    // Request orderBy=number as a first pass, but we will re-sort robustly later
+    // Request orderBy=number, but we will re-sort robustly later
     const setCardsUrl = `${setQueryBaseUrl}/cards?q=set.id:${setId}&select=id,name,number&pageSize=250`;
     const res = await fetch(setCardsUrl);
     if (res.ok) {
       const setData = await res.json();
       cardsInSet = Array.isArray(setData.data) ? setData.data.map((c: any) => ({ id: c.id, name: c.name, number: c.number })) : [];
       
-      // Robust sorting of cardsInSet by parsed card number
+      // Robust natural sorting of cardsInSet by card number
       if (cardsInSet.length > 0) {
-        cardsInSet.sort((a, b) => {
-          const numDetailsA = parseCardNumber(a.number);
-          const numDetailsB = parseCardNumber(b.number);
-
-          if (numDetailsA.prefix < numDetailsB.prefix) return -1;
-          if (numDetailsA.prefix > numDetailsB.prefix) return 1;
-          if (numDetailsA.num < numDetailsB.num) return -1;
-          if (numDetailsA.num > numDetailsB.num) return 1;
-          if (numDetailsA.suffix < numDetailsB.suffix) return -1;
-          if (numDetailsA.suffix > numDetailsB.suffix) return 1;
-          return 0;
-        });
+        cardsInSet.sort((a, b) => naturalSortCompare(a.number, b.number));
       }
     } else {
       console.warn(`Failed to fetch cards for set ${setId} from ${setQueryBaseUrl}: ${res.status}`);
@@ -457,3 +471,4 @@ export default async function CardDetailPage({ params }: { params: { id: string 
     </>
   );
 }
+
