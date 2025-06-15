@@ -3,10 +3,11 @@ import PageHeader from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Zap, Flame, Droplet, Leaf, EyeIcon, Brain, ShieldHalf, Palette, Star, Dna, HelpCircle, ChevronLeft, ChevronRight, Layers } from "lucide-react";
+import { ArrowLeft, Zap, Flame, Droplet, Leaf, EyeIcon, Brain, ShieldHalf, Palette, Star, Dna, HelpCircle, ChevronLeft, ChevronRight, Layers, Info } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import type { PokemonCard as PokemonCardSummaryBase } from "../page"; 
+import { cn } from "@/lib/utils";
 
 // Self-contained definition for card summary aspects for clarity on this page
 interface PokemonCardSummary {
@@ -40,15 +41,20 @@ interface PokemonCardDetail extends PokemonCardSummary {
   flavorText?: string;
   nationalPokedexNumbers?: number[];
   largeImageUrl?: string;
-  setPrintedTotal?: number; // Number of cards in the main set (e.g., 182 in "1/182")
-  setOfficialTotal?: number; // Total cards in the set including secret rares (e.g., 244)
+  setPrintedTotal?: number;
+  setOfficialTotal?: number;
+  // New fields for set info box
+  setSeries?: string;
+  setReleaseDate?: string;
+  setSymbolUrl?: string;
+  ptcgoCode?: string;
 }
 
 // Interface for cards within a set, used for next/previous navigation
 interface CardInSet {
   id: string;
   name: string;
-  number: string; // The collector number as a string
+  number: string; 
 }
 
 // Interface for the card detail page component, including navigation context
@@ -85,8 +91,8 @@ interface ApiPokemonCardDetailSource {
     id: string;
     name: string;
     series?: string;
-    printedTotal?: number; // Number of cards in the main numbered set (e.g., the X in Y/X)
-    total?: number;       // Official total including secret rares (e.g., the Z in "Full Set: Z cards")
+    printedTotal?: number; 
+    total?: number;       
     releaseDate?: string;
     updatedAt?: string;
     images?: { symbol: string; logo: string };
@@ -132,10 +138,13 @@ function mapApiToPokemonCardDetail(apiCard: ApiPokemonCardDetailSource): Pokemon
     flavorText: apiCard.flavorText,
     nationalPokedexNumbers: apiCard.nationalPokedexNumbers,
     setPrintedTotal: apiCard.set?.printedTotal,
-    setOfficialTotal: apiCard.set?.total, // Assuming apiCard.set.total is the official total including secrets
+    setOfficialTotal: apiCard.set?.total,
+    setSeries: apiCard.set?.series,
+    setReleaseDate: apiCard.set?.releaseDate,
+    setSymbolUrl: apiCard.set?.images?.symbol,
+    ptcgoCode: apiCard.set?.ptcgoCode,
   };
 }
-
 
 async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithContext | null> {
   if (!APP_URL) {
@@ -186,14 +195,11 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
     const res = await fetch(setCardsUrl);
     if (res.ok) {
       const setData = await res.json();
-      // Ensure 'number' is consistently a string for reliable sorting if API sorting isn't perfect
       cardsInSet = Array.isArray(setData.data) ? setData.data.map((c: any) => ({ 
         id: c.id, 
         name: c.name, 
-        number: String(c.number || "") // Ensure number is a string
+        number: String(c.number || "") 
       })) : [];
-      
-      // No client-side sort needed if orderBy=number is reliable from API
     } else {
       console.warn(`Failed to fetch cards for set ${setId} from ${setQueryBaseUrl}: ${res.status}`);
     }
@@ -257,7 +263,7 @@ export default async function CardDetailPage({ params }: { params: { id: string 
       </div>
     );
   }
-  const card = cardWithContext; // For easier referencing
+  const card = cardWithContext; 
   const TypeIcon = typeIcons[card.type] || typeIcons.Unknown;
   const displayImageUrl = card.largeImageUrl || "https://placehold.co/400x557.png";
   
@@ -288,7 +294,6 @@ export default async function CardDetailPage({ params }: { params: { id: string 
         actions={pageHeaderActions}
       />
 
-      {/* Navigation and Collector Number Bar */}
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-3 border rounded-lg bg-card shadow-sm">
         <div className="flex-1 flex justify-start">
           {card.currentSetId && (
@@ -451,6 +456,48 @@ export default async function CardDetailPage({ params }: { params: { id: string 
                 )}
               </div>
 
+              {(card.setSymbolUrl || card.setName || card.setSeries || card.setReleaseDate || card.ptcgoCode || card.setPrintedTotal || card.setOfficialTotal) && (
+                <div className="border-t pt-4 mt-4">
+                  <h3 className="font-headline text-xl mb-4 text-foreground flex items-center">
+                    <Info className="mr-2 h-5 w-5 text-accent" /> Set Information
+                  </h3>
+                  <div className="flex items-start gap-4 p-4 bg-muted/50 rounded-lg">
+                    {card.setSymbolUrl && (
+                      <div className="flex-shrink-0">
+                        <Image
+                          src={card.setSymbolUrl}
+                          alt={`${card.setName} Symbol`}
+                          width={64}
+                          height={64}
+                          className="object-contain rounded bg-card p-1 shadow"
+                          data-ai-hint="set symbol"
+                        />
+                      </div>
+                    )}
+                    <div className="flex-grow space-y-1">
+                      <p className="text-lg font-semibold text-foreground leading-tight">{card.setName}</p>
+                      {card.setSeries && <p className="text-sm text-muted-foreground">Series: {card.setSeries}</p>}
+                      {card.setReleaseDate && <p className="text-sm text-muted-foreground">Release Date: {new Date(card.setReleaseDate).toLocaleDateString()}</p>}
+                      {card.ptcgoCode && (
+                        <p className="text-sm text-muted-foreground">
+                          Set Code: <Badge variant="outline" className="text-xs font-mono">{card.ptcgoCode.toUpperCase()}</Badge>
+                        </p>
+                      )}
+                      {card.setPrintedTotal && card.setOfficialTotal && card.setOfficialTotal >= card.setPrintedTotal ? (
+                        <p className="text-sm text-muted-foreground">
+                          Total: {card.setPrintedTotal}
+                          {card.setOfficialTotal > card.setPrintedTotal && ` (+${card.setOfficialTotal - card.setPrintedTotal} Secret)`}
+                        </p>
+                      ) : card.setOfficialTotal ? (
+                         <p className="text-sm text-muted-foreground">Total Cards: {card.setOfficialTotal}</p>
+                      ) : card.setPrintedTotal ? (
+                         <p className="text-sm text-muted-foreground">Total Cards: {card.setPrintedTotal}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </CardContent>
             <CardFooter>
                 <p className="text-xs text-muted-foreground">
@@ -463,4 +510,4 @@ export default async function CardDetailPage({ params }: { params: { id: string 
     </>
   );
 }
-
+        
