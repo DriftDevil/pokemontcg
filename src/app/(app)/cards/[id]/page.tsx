@@ -132,48 +132,6 @@ function mapApiToPokemonCardDetail(apiCard: ApiPokemonCardDetailSource): Pokemon
   };
 }
 
-// Natural sort comparison function for alphanumeric strings (card numbers)
-function naturalSortCompare(aStr: string, bStr: string): number {
-  const re = /(\D*)(\d*)/g; // Regex to split into non-digit and digit parts
-
-  const rượu_vang_a = []; // Parts for string a
-  let matchA;
-  re.lastIndex = 0; 
-  while ((matchA = re.exec(aStr)) !== null && matchA[0] !== '') {
-    if (matchA[1]) rượu_vang_a.push(matchA[1]); // Non-digit part
-    if (matchA[2]) rượu_vang_a.push(parseInt(matchA[2], 10)); // Digit part as number
-  }
-  if (re.lastIndex < aStr.length) rượu_vang_a.push(aStr.substring(re.lastIndex)); // Remainder
-
-  const partsB = []; // Parts for string b
-  let matchB;
-  re.lastIndex = 0;
-  while ((matchB = re.exec(bStr)) !== null && matchB[0] !== '') {
-    if (matchB[1]) partsB.push(matchB[1]);
-    if (matchB[2]) partsB.push(parseInt(matchB[2], 10));
-  }
-  if (re.lastIndex < bStr.length) partsB.push(bStr.substring(re.lastIndex));
-
-  for (let i = 0; i < Math.max(rượu_vang_a.length, partsB.length); i++) {
-    const partA = rượu_vang_a[i];
-    const partB = partsB[i];
-
-    if (partA === undefined) return -1; // a is shorter
-    if (partB === undefined) return 1;  // b is shorter
-
-    if (typeof partA === 'number' && typeof partB === 'number') {
-      if (partA < partB) return -1;
-      if (partA > partB) return 1;
-    } else if (typeof partA === 'string' && typeof partB === 'string') {
-      const comparison = partA.localeCompare(partB);
-      if (comparison !== 0) return comparison;
-    } else { // Mixed types: number comes before string
-      return (typeof partA === 'number') ? -1 : 1;
-    }
-  }
-  return 0;
-}
-
 
 async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithContext | null> {
   if (!APP_URL) {
@@ -219,21 +177,17 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
   }
   
   try {
-    // Request orderBy=number, but we will re-sort robustly later
-    const setCardsUrl = `${setQueryBaseUrl}/cards?q=set.id:${setId}&select=id,name,number&pageSize=250`;
+    // Request orderBy=number, API should handle numerical sorting. pageSize=250 to get most sets in one go.
+    const setCardsUrl = `${setQueryBaseUrl}/cards?q=set.id:${setId}&select=id,name,number&pageSize=250&orderBy=number`;
+    console.log(`[CardDetailPage - getCardDetailsWithSetContext] Fetching cards in set URL: ${setCardsUrl}`);
     const res = await fetch(setCardsUrl);
     if (res.ok) {
       const setData = await res.json();
       cardsInSet = Array.isArray(setData.data) ? setData.data.map((c: any) => ({ 
         id: c.id, 
         name: c.name, 
-        number: String(c.number || "") // Ensure number is a string, default to "" if null/undefined
+        number: String(c.number || "") // Ensure number is a string
       })) : [];
-      
-      // Robust natural sorting of cardsInSet by card number
-      if (cardsInSet.length > 0) {
-        cardsInSet.sort((a, b) => naturalSortCompare(a.number, b.number));
-      }
     } else {
       console.warn(`Failed to fetch cards for set ${setId} from ${setQueryBaseUrl}: ${res.status}`);
     }
@@ -254,7 +208,7 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
         nextCardId = cardsInSet[currentIndex + 1].id;
       }
     } else {
-        console.warn(`Card ${id} not found in its own set ${setId} list after sorting. This could be due to data inconsistency or pageSize limit if set is very large.`);
+        console.warn(`Card ${id} not found in its own set ${setId} list. This could be due to data inconsistency or pageSize limit if set is very large.`);
     }
   }
 
@@ -475,4 +429,3 @@ export default async function CardDetailPage({ params }: { params: { id: string 
     </>
   );
 }
-
