@@ -40,6 +40,8 @@ interface PokemonCardDetail extends PokemonCardSummary {
   flavorText?: string;
   nationalPokedexNumbers?: number[];
   largeImageUrl?: string;
+  setPrintedTotal?: number; // Number of cards in the main set (e.g., 182 in "1/182")
+  setOfficialTotal?: number; // Total cards in the set including secret rares (e.g., 244)
 }
 
 // Interface for cards within a set, used for next/previous navigation
@@ -83,8 +85,8 @@ interface ApiPokemonCardDetailSource {
     id: string;
     name: string;
     series?: string;
-    printedTotal?: number;
-    total?: number;
+    printedTotal?: number; // Number of cards in the main numbered set (e.g., the X in Y/X)
+    total?: number;       // Official total including secret rares (e.g., the Z in "Full Set: Z cards")
     releaseDate?: string;
     updatedAt?: string;
     images?: { symbol: string; logo: string };
@@ -129,6 +131,8 @@ function mapApiToPokemonCardDetail(apiCard: ApiPokemonCardDetailSource): Pokemon
     retreatCost: apiCard.retreatCost,
     flavorText: apiCard.flavorText,
     nationalPokedexNumbers: apiCard.nationalPokedexNumbers,
+    setPrintedTotal: apiCard.set?.printedTotal,
+    setOfficialTotal: apiCard.set?.total, // Assuming apiCard.set.total is the official total including secrets
   };
 }
 
@@ -159,7 +163,7 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
   const cardDetail = mapApiToPokemonCardDetail(apiCardSource);
 
   if (!apiCardSource.set || !apiCardSource.set.id) {
-    console.warn(`Card ${id} has no set information. Cannot provide next/previous navigation.`);
+    console.warn(`Card ${id} has no set information. Cannot provide next/previous navigation or full set totals.`);
     return cardDetail; 
   }
 
@@ -177,17 +181,19 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
   }
   
   try {
-    // Request orderBy=number, API should handle numerical sorting. pageSize=250 to get most sets in one go.
     const setCardsUrl = `${setQueryBaseUrl}/cards?q=set.id:${setId}&select=id,name,number&pageSize=250&orderBy=number`;
     console.log(`[CardDetailPage - getCardDetailsWithSetContext] Fetching cards in set URL: ${setCardsUrl}`);
     const res = await fetch(setCardsUrl);
     if (res.ok) {
       const setData = await res.json();
+      // Ensure 'number' is consistently a string for reliable sorting if API sorting isn't perfect
       cardsInSet = Array.isArray(setData.data) ? setData.data.map((c: any) => ({ 
         id: c.id, 
         name: c.name, 
         number: String(c.number || "") // Ensure number is a string
       })) : [];
+      
+      // No client-side sort needed if orderBy=number is reliable from API
     } else {
       console.warn(`Failed to fetch cards for set ${setId} from ${setQueryBaseUrl}: ${res.status}`);
     }
@@ -255,40 +261,68 @@ export default async function CardDetailPage({ params }: { params: { id: string 
   const TypeIcon = typeIcons[card.type] || typeIcons.Unknown;
   const displayImageUrl = card.largeImageUrl || "https://placehold.co/400x557.png";
   
-  const pageActions = (
-    <div className="flex flex-wrap gap-2 items-center">
-      {card.currentSetId && ( 
-        <>
-          <Button asChild variant="outline" size="sm" disabled={!card.previousCardId}>
-            <Link href={card.previousCardId ? `/cards/${card.previousCardId}` : "#"}>
-              <ChevronLeft className="mr-2 h-4 w-4" />
-              Previous
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="sm" disabled={!card.nextCardId}>
-            <Link href={card.nextCardId ? `/cards/${card.nextCardId}` : "#"}>
-              Next
-              <ChevronRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
-        </>
+  const pageHeaderActions = (
+    <>
+      {card.currentSetId && card.currentSetName && (
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/cards?set=${encodeURIComponent(card.currentSetId)}&source=card_detail_header_back_to_set`}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to {card.currentSetName}
+          </Link>
+        </Button>
       )}
-      <Button asChild variant="outline" size="sm">
-        <Link href="/cards">
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to All Cards
-        </Link>
-      </Button>
-    </div>
+       <Button asChild variant="outline" size="sm">
+          <Link href="/cards">
+             Back to All Cards
+          </Link>
+        </Button>
+    </>
   );
+
 
   return (
     <>
       <PageHeader
         title={card.name}
-        description={`Details for ${card.name} from the ${card.setName} set.`}
+        description={`(#${card.number} - ID: ${card.id})`}
         icon={TypeIcon}
-        actions={pageActions}
+        actions={pageHeaderActions}
       />
+
+      {/* Navigation and Collector Number Bar */}
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-3 border rounded-lg bg-card shadow-sm">
+        <div className="flex-1 flex justify-start">
+          {card.currentSetId && (
+            <Button asChild variant="outline" size="sm" disabled={!card.previousCardId}>
+              <Link href={card.previousCardId ? `/cards/${card.previousCardId}` : "#"}>
+                <ChevronLeft className="mr-2 h-4 w-4" /> Previous
+              </Link>
+            </Button>
+          )}
+        </div>
+        
+        <div className="flex-shrink-0 text-center">
+          {card.number && card.setPrintedTotal && card.setPrintedTotal > 0 && (
+            <p className="text-sm text-muted-foreground">
+              Collector No.: <strong>{card.number} / {card.setPrintedTotal}</strong>
+              {card.setOfficialTotal && card.setOfficialTotal > 0 && card.setOfficialTotal >= card.setPrintedTotal && (
+                <span> (Full Set: {card.setOfficialTotal} cards)</span>
+              )}
+            </p>
+          )}
+        </div>
+
+        <div className="flex-1 flex justify-end">
+           {card.currentSetId && (
+            <Button asChild variant="outline" size="sm" disabled={!card.nextCardId}>
+              <Link href={card.nextCardId ? `/cards/${card.nextCardId}` : "#"}>
+                Next <ChevronRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          )}
+        </div>
+      </div>
+
+
       <div className="grid md:grid-cols-3 gap-8">
         <div className="md:col-span-1">
           <Card className="overflow-hidden shadow-xl">
@@ -309,7 +343,7 @@ export default async function CardDetailPage({ params }: { params: { id: string 
             <CardHeader>
               <CardTitle className="font-headline text-3xl">{card.name}</CardTitle>
               <CardDescription>
-                Card Number: {card.number} &bull; Set:{" "}
+                From Set:{" "}
                 {card.currentSetId ? (
                   <Link href={`/cards?set=${encodeURIComponent(card.currentSetId)}`} className="underline hover:text-primary">
                     {card.setName}
@@ -429,3 +463,4 @@ export default async function CardDetailPage({ params }: { params: { id: string 
     </>
   );
 }
+
