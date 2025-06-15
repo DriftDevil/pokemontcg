@@ -14,7 +14,7 @@ interface AppUser {
   id: string;
   name?: string;
   email?: string;
-  picture?: string;
+  avatarUrl?: string; // Changed from picture
   isAdmin?: boolean;
   authSource: 'oidc' | 'local';
 }
@@ -26,13 +26,12 @@ async function getUserProfile(): Promise<AppUser | null> {
   const userApiUrl = `${appUrl}/api/auth/user`;
 
   try {
-    // Use an absolute URL for fetch when in Server Components calling internal API routes
     const response = await fetch(userApiUrl, {
       headers: {
         'Cookie': cookieStore.toString(), 
       },
       cache: 'no-store',
-      credentials: 'include', // Added for consistency, though less critical for server-to-server
+      credentials: 'include', 
     });
 
     if (!response.ok) {
@@ -76,7 +75,8 @@ export default async function ProfilePage() {
     return currentUser.email ? currentUser.email[0].toUpperCase() : 'U';
   }
   
-  const avatarSrc = user.picture || `https://placehold.co/96x96.png?text=${getAvatarFallbackText(user)}`;
+  const avatarSrc = user.avatarUrl || `https://placehold.co/96x96.png?text=${getAvatarFallbackText(user)}`;
+  const avatarHint = user.avatarUrl && !user.avatarUrl.includes('placehold.co') ? "user avatar" : "avatar placeholder";
 
   return (
     <>
@@ -88,7 +88,7 @@ export default async function ProfilePage() {
               <AvatarImage 
                 src={avatarSrc} 
                 alt={user.name || 'User Avatar'} 
-                data-ai-hint={user.picture ? "user avatar" : "user avatar placeholder"}
+                data-ai-hint={avatarHint}
               />
               <AvatarFallback className="text-3xl">{getAvatarFallbackText(user)}</AvatarFallback>
             </Avatar>

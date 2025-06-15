@@ -6,7 +6,6 @@ import PageHeader from "@/components/page-header";
 import UsersTableClient from "@/components/admin/users-table-client";
 import { Users as UsersIcon, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-// useRouter is not directly used for refresh here, using useCallback for fetchUsers
 import { useToast } from "@/hooks/use-toast";
 import AddUserDialog from '@/components/admin/add-user-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -18,7 +17,8 @@ interface ApiUser {
   preferredUsername?: string;
   isAdmin?: boolean;
   createdAt?: string; 
-  lastSeen?: string;  
+  lastSeen?: string;
+  avatarUrl?: string; // Added avatarUrl
 }
 
 interface ApiUserListResponse {
@@ -33,7 +33,7 @@ export interface DisplayUser {
   role: string;  
   status: string; 
   lastLogin: string | null; 
-  avatar: string; 
+  avatarUrl?: string; // Changed from avatar to avatarUrl
 }
 
 function getBaseUrl(): string {
@@ -49,14 +49,6 @@ function getBaseUrl(): string {
   return typeof window !== 'undefined' ? window.location.origin : '';
 }
 
-const getAvatarFallbackText = (user: Pick<ApiUser, 'name' | 'preferredUsername' | 'email'>) => {
-    const name = user.name || user.preferredUsername;
-    if (name) {
-        return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0,2) || (user.email ? user.email[0].toUpperCase() : 'U');
-    }
-    return user.email ? user.email[0].toUpperCase() : 'U';
-}
-
 export default function AdminUsersPage() {
   const { toast } = useToast();
   const [users, setUsers] = useState<DisplayUser[]>([]);
@@ -70,13 +62,11 @@ export default function AdminUsersPage() {
     try {
       const fetchHeaders = new Headers();
       fetchHeaders.append('Content-Type', 'application/json');
-      // Note: Authorization header for GET /api/users/all is typically handled by cookies automatically.
-      // If token-based auth via header is strictly needed, it would be added here.
 
       const response = await fetch(fetchUrl, {
         method: 'GET',
         headers: fetchHeaders,
-        credentials: 'include', // Ensure cookies are sent
+        credentials: 'include', 
         cache: 'no-store',
       });
 
@@ -123,7 +113,7 @@ export default function AdminUsersPage() {
         role: apiUser.isAdmin ? 'Admin' : 'User',
         status: 'Active', 
         lastLogin: apiUser.lastSeen || apiUser.createdAt || null,
-        avatar: `https://placehold.co/40x40.png?text=${getAvatarFallbackText(apiUser)}`,
+        avatarUrl: apiUser.avatarUrl, // Use avatarUrl
       })));
 
     } catch (error) {
@@ -158,7 +148,7 @@ export default function AdminUsersPage() {
     </AddUserDialog>
   );
 
-  if (isLoading && users.length === 0) { // Show skeleton only on initial load
+  if (isLoading && users.length === 0) { 
     return (
       <>
         <PageHeader

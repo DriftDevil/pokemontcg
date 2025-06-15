@@ -21,7 +21,7 @@ interface ApiUser {
   isAdmin?: boolean;
   createdAt?: string; // ISO date string
   lastSeen?: string;  // ISO date string
-  // Note: Avatar is not in the API user schema, will use placeholder
+  avatarUrl?: string; // Added avatarUrl
 }
 
 interface ApiUserListResponse {
@@ -54,7 +54,6 @@ async function fetchTotalCountFromPaginated(endpoint: string, sessionToken: stri
   const fetchUrl = `${baseUrl}/api/${endpoint}?limit=1`;
 
   console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Base URL for internal API: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
-  // console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Session token for Authorization header: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
   try {
     const fetchHeaders = new Headers();
@@ -153,7 +152,6 @@ async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]>
 async function fetchTotalUsersCount(sessionToken: string | undefined): Promise<number> {
   const baseUrl = getBaseUrl();
   const fetchUrl = `${baseUrl}/api/users/all`;
-  // console.log(`[AdminDashboardPage - fetchTotalUsersCount] Session token for Authorization header: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
   try {
     const fetchHeaders = new Headers();
@@ -224,11 +222,10 @@ async function fetchRecentLiveUsers(sessionToken: string | undefined, count: num
       return [];
     }
 
-    // Sort users: by lastSeen (desc), then by createdAt (desc) as fallback
     const sortedUsers = data.data.sort((a, b) => {
       const dateA = a.lastSeen ? new Date(a.lastSeen).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
       const dateB = b.lastSeen ? new Date(b.lastSeen).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
-      return dateB - dateA; // Descending order
+      return dateB - dateA; 
     });
 
     return sortedUsers.slice(0, count);
@@ -247,7 +244,6 @@ async function fetchRecentLiveUsers(sessionToken: string | undefined, count: num
 async function fetchApiRequests24h(sessionToken: string | undefined): Promise<number> {
   const baseUrl = getBaseUrl();
   const fetchUrl = `${baseUrl}/api/usage`;
-  // console.log(`[AdminDashboardPage - fetchApiRequests24h] Session token for Authorization header: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
   try {
     const fetchHeaders = new Headers();
@@ -294,10 +290,8 @@ const getAvatarFallbackText = (user: ApiUser) => {
 export default async function AdminDashboardPage() {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get('session_token')?.value;
-  // console.log(`[AdminDashboardPage - Render] session_token value at page top: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
 
   const appUrlIsSet = !!process.env.APP_URL;
-  // console.log(`[AdminDashboardPage - Render] APP_URL env var is set: ${appUrlIsSet}, Value: ${process.env.APP_URL}, NODE_ENV: ${process.env.NODE_ENV}`);
   if (!appUrlIsSet && process.env.NODE_ENV !== 'development') {
       console.warn("[AdminDashboardPage - Render] WARNING: APP_URL is not set in a non-development environment. Dashboard data fetching may rely on localhost defaults or fail if external access is needed for internal API calls.");
   }
@@ -406,9 +400,9 @@ export default async function AdminDashboardPage() {
                         <div className="flex items-center gap-3">
                           <Avatar className="h-9 w-9">
                              <AvatarImage 
-                                src={`https://placehold.co/40x40.png?text=${getAvatarFallbackText(user)}`} // API user has no avatar
+                                src={user.avatarUrl || `https://placehold.co/40x40.png?text=${getAvatarFallbackText(user)}`}
                                 alt={user.name || user.preferredUsername || 'User'} 
-                                data-ai-hint="user avatar placeholder"
+                                data-ai-hint={user.avatarUrl && !user.avatarUrl.includes('placehold.co') ? "user avatar" : "avatar placeholder"}
                              />
                             <AvatarFallback>{getAvatarFallbackText(user)}</AvatarFallback>
                           </Avatar>
@@ -422,7 +416,7 @@ export default async function AdminDashboardPage() {
                                className={cn(
                                   'border bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700'
                                 )}>
-                          Active {/* Defaulting to Active as API user doesn't have explicit status */}
+                          Active
                         </Badge>
                       </TableCell>
                     </TableRow>
@@ -443,4 +437,3 @@ export default async function AdminDashboardPage() {
     </>
   );
 }
-

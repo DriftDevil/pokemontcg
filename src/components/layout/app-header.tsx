@@ -22,7 +22,7 @@ interface AppUser {
   id: string;
   name?: string;
   email?: string;
-  picture?: string; 
+  avatarUrl?: string; // Changed from picture
   isAdmin?: boolean; 
   authSource?: 'oidc' | 'local'; 
 }
@@ -73,19 +73,24 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
         cache: 'no-store',
         credentials: 'include', 
       });
+      console.log(`[AppHeader] /api/auth/user responded with status: ${res.status}`);
       
       if (res.ok) {
         const data = await res.json();
         if (data && data.id) { 
           newUserData = data;
+          console.log("[AppHeader] User data fetched successfully:", newUserData);
         } else {
           newUserData = null;
+          console.log("[AppHeader] User data fetched, but no valid user (e.g., null or no ID):", data);
         }
       } else {
         newUserData = null;
+        console.log(`[AppHeader] Failed to fetch user, status: ${res.status}`);
       }
     } catch (error) {
       newUserData = null;
+      console.error("[AppHeader] Error fetching user session:", error);
     } finally {
       setUser(newUserData);
       setIsLoadingSession(false);
@@ -118,7 +123,9 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
     return 'U';
   };
 
-  const avatarSrc = user?.picture || `https://placehold.co/40x40.png?text=${getAvatarFallback()}`;
+  const avatarSrc = user?.avatarUrl || `https://placehold.co/40x40.png?text=${getAvatarFallback()}`;
+  const avatarHint = user?.avatarUrl && !user.avatarUrl.includes('placehold.co') ? "user avatar" : "avatar placeholder";
+
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
@@ -151,7 +158,7 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
                     <AvatarImage 
                       src={avatarSrc}
                       alt={user.name || 'User'} 
-                      data-ai-hint={user.picture ? "user avatar" : "user avatar placeholder"}
+                      data-ai-hint={avatarHint}
                     />
                     <AvatarFallback>{getAvatarFallback()}</AvatarFallback>
                   </Avatar>

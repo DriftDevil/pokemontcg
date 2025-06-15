@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
-import type { DisplayUser as User } from '@/app/(app)/admin/users/page';
+import type { DisplayUser as User } from '@/app/(app)/admin/users/page'; // User has avatarUrl
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,7 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 
 interface UsersTableClientProps {
   initialUsers: User[];
-  onUserDeleted: () => void; // Callback to refresh users list
+  onUserDeleted: () => void; 
 }
 
 type SortKey = keyof User | '';
@@ -41,8 +41,6 @@ export default function UsersTableClient({ initialUsers, onUserDeleted }: UsersT
 
   useEffect(() => {
     setUsers(initialUsers);
-    // Do not reset currentPage here if initialUsers changes due to deletion on the same page view
-    // setCurrentPage(1); 
   }, [initialUsers]);
 
   const handleSort = (key: SortKey) => {
@@ -96,7 +94,6 @@ export default function UsersTableClient({ initialUsers, onUserDeleted }: UsersT
 
   const totalPages = Math.max(1, Math.ceil(filteredAndSortedUsers.length / itemsPerPage));
 
-  // Adjust current page if it becomes invalid after filtering/deletion
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
@@ -133,17 +130,17 @@ export default function UsersTableClient({ initialUsers, onUserDeleted }: UsersT
     try {
       const response = await fetch(`/api/users/remove/${userToDelete.id}`, {
         method: 'DELETE',
-        credentials: 'include', // Ensure cookies are sent if needed by the API route
+        credentials: 'include', 
       });
 
-      if (response.ok) { // Handles 200 OK or 204 No Content
+      if (response.ok) { 
         toast({
           title: "User Deleted",
           description: `User ${userToDelete.name} (${userToDelete.email}) has been successfully deleted.`,
         });
-        onUserDeleted(); // Trigger refresh from parent
+        onUserDeleted(); 
       } else {
-        const result = await response.json().catch(() => ({ message: "An unknown error occurred on deletion." })); // Handle non-JSON error response
+        const result = await response.json().catch(() => ({ message: "An unknown error occurred on deletion." })); 
         toast({
           title: "Failed to Delete User",
           description: result.message || result.details || "An unknown error occurred.",
@@ -232,58 +229,62 @@ export default function UsersTableClient({ initialUsers, onUserDeleted }: UsersT
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedUsers.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage 
-                          src={user.avatar} 
-                          alt={user.name} 
-                          data-ai-hint="user avatar placeholder"
-                        />
-                        <AvatarFallback>{getAvatarFallbackTextClient(user)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-medium">{user.name}</div>
-                        <div className="text-xs text-muted-foreground">{user.email}</div>
+              {paginatedUsers.map((user) => {
+                const avatarDisplaySrc = user.avatarUrl || `https://placehold.co/40x40.png?text=${getAvatarFallbackTextClient(user)}`;
+                const avatarDisplayHint = user.avatarUrl && !user.avatarUrl.includes('placehold.co') ? "user avatar" : "avatar placeholder";
+                return (
+                  <TableRow key={user.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-9 w-9">
+                          <AvatarImage 
+                            src={avatarDisplaySrc} 
+                            alt={user.name} 
+                            data-ai-hint={avatarDisplayHint}
+                          />
+                          <AvatarFallback>{getAvatarFallbackTextClient(user)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium">{user.name}</div>
+                          <div className="text-xs text-muted-foreground">{user.email}</div>
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>{user.role}</TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    <Badge variant={'outline'} className={cn("border", getStatusBadgeVariant(user.status))}>
-                      {user.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    {user.lastLogin ? format(parseISO(user.lastLogin), 'MMM d, yyyy, p') : 'N/A'}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => viewUser(user.id)}>
-                          <Eye className="mr-2 h-4 w-4" /> View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => editUser(user.id)} disabled>
-                          <Edit3 className="mr-2 h-4 w-4" /> Edit User
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onClick={() => handleDeleteRequest(user)}>
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete User
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                    <TableCell>{user.role}</TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      <Badge variant={'outline'} className={cn("border", getStatusBadgeVariant(user.status))}>
+                        {user.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      {user.lastLogin ? format(parseISO(user.lastLogin), 'MMM d, yyyy, p') : 'N/A'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={() => viewUser(user.id)}>
+                            <Eye className="mr-2 h-4 w-4" /> View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => editUser(user.id)} disabled>
+                            <Edit3 className="mr-2 h-4 w-4" /> Edit User
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onClick={() => handleDeleteRequest(user)}>
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete User
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
                {paginatedUsers.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">

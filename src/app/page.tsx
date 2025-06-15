@@ -12,7 +12,7 @@ interface AppUser {
   id: string;
   name?: string;
   email?: string;
-  picture?: string;
+  avatarUrl?: string; // Changed from picture
   isAdmin?: boolean;
   authSource?: 'oidc' | 'local';
 }
@@ -86,7 +86,9 @@ export default function HomePage() {
     return 'U';
   }
   
-  const loggedInAvatarSrc = loggedInUser?.picture || `https://placehold.co/96x96.png?text=${getAvatarFallbackText(loggedInUser)}`;
+  const loggedInAvatarSrc = loggedInUser?.avatarUrl || `https://placehold.co/96x96.png?text=${getAvatarFallbackText(loggedInUser)}`;
+  const loggedInAvatarHint = loggedInUser?.avatarUrl && !loggedInUser.avatarUrl.includes('placehold.co') ? "user avatar" : "avatar placeholder";
+
 
   if (isLoadingUser) {
     return (
@@ -125,7 +127,7 @@ export default function HomePage() {
               <AvatarImage 
                 src={loggedInAvatarSrc} 
                 alt={loggedInUser.name || "User"} 
-                data-ai-hint={loggedInUser.picture ? "user avatar" : "user avatar placeholder"}
+                data-ai-hint={loggedInAvatarHint}
               />
               <AvatarFallback className="text-3xl">{getAvatarFallbackText(loggedInUser)}</AvatarFallback>
             </Avatar>
