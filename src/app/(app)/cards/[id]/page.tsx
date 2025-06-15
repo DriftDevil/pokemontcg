@@ -99,7 +99,8 @@ interface ApiPokemonCardDetailSource {
     legalities?: { [key: string]: string };
     ptcgoCode?: string;
   };
-  number?: string;
+  number?: string; // This is the collector number string
+  numberInt?: number; // Some APIs might provide this
   artist?: string;
   rarity?: string;
   flavorText?: string;
@@ -123,7 +124,7 @@ function mapApiToPokemonCardDetail(apiCard: ApiPokemonCardDetailSource): Pokemon
     rarity: apiCard.rarity || "Unknown",
     type: apiCard.types?.[0] || "Colorless",
     imageUrl: summaryImageUrl,
-    number: apiCard.number || "??",
+    number: apiCard.number || "??", // Use the string version for display
     artist: apiCard.artist || "N/A",
     largeImageUrl: detailLargeImageUrl,
     supertype: apiCard.supertype,
@@ -145,6 +146,37 @@ function mapApiToPokemonCardDetail(apiCard: ApiPokemonCardDetailSource): Pokemon
     ptcgoCode: apiCard.set?.ptcgoCode,
   };
 }
+
+// Natural sort comparison function for strings containing numbers
+function naturalSortCompare(aStr: string, bStr: string): number {
+  const re = /(\D+)|(\d+)/g; // Match non-digits or digits
+  const aParts = String(aStr).match(re) || [];
+  const bParts = String(bStr).match(re) || [];
+
+  for (let i = 0; i < Math.min(aParts.length, bParts.length); i++) {
+    const aPart = aParts[i];
+    const bPart = bParts[i];
+
+    // If both parts are numbers, compare them numerically
+    if (/\d/.test(aPart) && /\d/.test(bPart)) {
+      const aNum = parseInt(aPart, 10);
+      const bNum = parseInt(bPart, 10);
+      if (aNum !== bNum) {
+        return aNum - bNum;
+      }
+    } else {
+      // Otherwise, compare them as strings (case-insensitive for stability)
+      const aPartLower = aPart.toLowerCase();
+      const bPartLower = bPart.toLowerCase();
+      if (aPartLower !== bPartLower) {
+        return aPartLower.localeCompare(bPartLower);
+      }
+    }
+  }
+  // If one string is a prefix of the other, the shorter string comes first
+  return aParts.length - bParts.length;
+}
+
 
 async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithContext | null> {
   if (!APP_URL) {
@@ -181,37 +213,46 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
   let cardsInSet: CardInSet[] = [];
   const primaryExternalApiBaseUrl = process.env.EXTERNAL_API_BASE_URL;
   const backupExternalApiBaseUrl = 'https://api.pokemontcg.io/v2';
-  let setQueryBaseUrl = '';
-  let orderByParamValue = 'number'; // Default for pokemontcg.io (backup)
+  
+  let finalSetCardsUrl;
+  const fieldsToFetch = 'id,name,number'; // Fields needed for CardInSet mapping and sorting
+  const pageSize = 250; // Max cards per set is usually around this
 
   if (primaryExternalApiBaseUrl) {
-    setQueryBaseUrl = `${primaryExternalApiBaseUrl}/v2`; // Assumes primary API also has /v2
-    // If using the primary API (and it's the user's custom one based on env var), use number_int
-    orderByParamValue = 'number_int'; 
+    const basePath = `${primaryExternalApiBaseUrl}/v2/sets/${setId}/cards`;
+    const orderByParamValue = 'number_int'; // User's API specific
+    const fieldsParamName = 'fields'; // User's API specific
+    finalSetCardsUrl = `${basePath}?${fieldsParamName}=${fieldsToFetch}&pageSize=${pageSize}&orderBy=${orderByParamValue}`;
   } else {
-    setQueryBaseUrl = backupExternalApiBaseUrl;
-     // For pokemontcg.io, 'number' is typically sufficient and correct
+    const basePath = `${backupExternalApiBaseUrl}/cards`;
+    const orderByParamValue = 'number'; // pokemontcg.io specific
+    const fieldsParamName = 'select'; // pokemontcg.io specific
+    finalSetCardsUrl = `${basePath}?q=set.id:${setId}&${fieldsParamName}=${fieldsToFetch}&pageSize=${pageSize}&orderBy=${orderByParamValue}`;
   }
   
-  const orderByQuery = `orderBy=${orderByParamValue}`;
+  console.log(`[CardDetailPage - getCardDetailsWithSetContext] Fetching cards in set URL: ${finalSetCardsUrl}`);
 
   try {
-    // Construct URL to fetch all cards in the set, sorted by number
-    const setCardsUrl = `${setQueryBaseUrl}/cards?q=set.id:${setId}&select=id,name,number&pageSize=250&${orderByQuery}`;
-    console.log(`[CardDetailPage - getCardDetailsWithSetContext] Fetching cards in set URL: ${setCardsUrl}`);
-    const res = await fetch(setCardsUrl);
+    const res = await fetch(finalSetCardsUrl);
     if (res.ok) {
       const setData = await res.json();
+      // Ensure c.number is treated as a string for sorting and CardInSet interface
       cardsInSet = Array.isArray(setData.data) ? setData.data.map((c: any) => ({ 
         id: c.id, 
         name: c.name, 
-        number: String(c.number || "") 
+        number: String(c.number || "") // Crucial: ensure 'number' is string for naturalSort
       })) : [];
+
+      // Perform client-side natural sort on the 'number' field as a final guarantee
+      if (cardsInSet.length > 0) {
+        cardsInSet.sort((a, b) => naturalSortCompare(a.number, b.number));
+      }
+
     } else {
-      console.warn(`Failed to fetch cards for set ${setId} from ${setQueryBaseUrl} (using ${orderByQuery}): ${res.status}`);
+      console.warn(`Failed to fetch cards for set ${setId} from ${finalSetCardsUrl}: ${res.status}`);
     }
   } catch (e) {
-    console.warn(`Error fetching cards for set ${setId} from ${setQueryBaseUrl} (using ${orderByQuery}):`, e);
+    console.warn(`Error fetching or sorting cards for set ${setId} from ${finalSetCardsUrl}:`, e);
   }
   
   let previousCardId: string | null = null;
@@ -227,7 +268,7 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
         nextCardId = cardsInSet[currentIndex + 1].id;
       }
     } else {
-        console.warn(`Card ${id} not found in its own set ${setId} list after API sort. This could be due to data inconsistency, pageSize limit if set is very large, or API sort issues.`);
+        console.warn(`Card ${id} not found in its own set ${setId} list after API sort and client sort. This could be due to data inconsistency or pageSize limit if set is very large.`);
     }
   }
 
@@ -347,6 +388,7 @@ export default async function CardDetailPage({ params }: { params: { id: string 
               priority
               quality={100}
               data-ai-hint={displayImageUrl.includes('placehold.co') ? "pokemon card" : undefined}
+
             />
           </Card>
         </div>
