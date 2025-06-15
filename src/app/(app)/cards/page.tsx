@@ -84,8 +84,8 @@ interface SetOption {
 interface SelectedSetDetails {
   id: string;
   name: string;
-  printedTotal?: number; // Standard cards in set
-  officialTotal?: number; // Total cards including secrets
+  printedTotal?: number; // Standard cards in set (Number(setData.printedTotal))
+  officialTotal?: number; // Total cards including secrets (Number(setData.total))
 }
 
 
@@ -99,19 +99,17 @@ function getBaseUrlForApi(): string {
   if (appUrlEnv) {
     try {
       const parsedAppUrl = new URL(appUrlEnv);
-      // Ensure it's the origin (scheme, hostname, port)
       return parsedAppUrl.origin;
     } catch (error) {
-      console.error(`[CardsPage - getBaseUrlForApi] Invalid APP_URL: ${appUrlEnv}. Error: ${error}. Falling back to localhost.`);
+      console.error(`[CardsPage - getBaseUrlForApi] Invalid APP_URL: ${appUrlEnv}. Error: ${error}. Falling back to localhost defaults for internal API calls.`);
     }
   }
-  // Fallback for local development if APP_URL is not set
-  const port = process.env.PORT || "9002"; // Default Next.js dev port
+  const port = process.env.PORT || "9002";
   const defaultUrl = `http://localhost:${port}`;
   if (process.env.NODE_ENV === 'production' && !appUrlEnv) {
     console.error(`[CardsPage - getBaseUrlForApi] CRITICAL: APP_URL is not set in production. Internal API calls will use ${defaultUrl} and likely fail.`);
   } else if (!appUrlEnv) {
-    console.warn(`[CardsPage - getBaseUrlForApi] APP_URL not set. Defaulting to ${defaultUrl} for internal API calls.`);
+    console.warn(`[CardsPage - getBaseUrlForApi] APP_URL not set. Defaulting to ${defaultUrl} for internal API calls (dev mode or misconfiguration).`);
   }
   return defaultUrl;
 }
@@ -124,7 +122,7 @@ async function getSetOptions(): Promise<SetOption[]> {
     return [];
   }
   try {
-    const response = await fetch(`${baseUrl}/api/sets?select=id,name&orderBy=name&limit=500`); // Using limit for potentially large number of sets
+    const response = await fetch(`${baseUrl}/api/sets?select=id,name&orderBy=name&limit=500`);
     if (!response.ok) throw new Error(`Failed to fetch sets from internal API: ${response.status}`);
     const data = await response.json();
     return (data.data || []).map((set: any) => ({ id: set.id, name: set.name }));
@@ -141,11 +139,10 @@ async function getTypeOptions(): Promise<string[]> {
     return ["All Types"];
   }
   try {
-    // Fetching from internal API proxy
     const response = await fetch(`${baseUrl}/api/types`);
     if (!response.ok) throw new Error(`Failed to fetch types from internal API: ${response.status}`);
     const data = await response.json();
-    const types = data.data || []; // Assuming the proxied response wraps types in 'data'
+    const types = data.data || [];
     return ["All Types", ...types.sort()];
   } catch (error) {
     console.error("[CardsPage - getTypeOptions] Error fetching type options from internal API:", error);
@@ -160,11 +157,10 @@ async function getRarityOptions(): Promise<string[]> {
     return ["All Rarities"];
   }
   try {
-    // Fetching from internal API proxy
     const response = await fetch(`${baseUrl}/api/rarities`);
     if (!response.ok) throw new Error(`Failed to fetch rarities from internal API: ${response.status}`);
     const data = await response.json();
-    const rarities = (data.data || []).filter((r: string | null) => r && r.trim() !== ""); // Assuming proxied response wraps in 'data'
+    const rarities = (data.data || []).filter((r: string | null) => r && r.trim() !== "");
     return ["All Rarities", ...rarities.sort()];
   } catch (error) {
     console.error("[CardsPage - getRarityOptions] Error fetching rarity options from internal API:", error);
@@ -173,44 +169,42 @@ async function getRarityOptions(): Promise<string[]> {
 }
 
 async function getSetSpecificTypeOptions(setId: string): Promise<string[]> {
-  if (!setId || setId === "All Sets") return ["All Types"]; // No specific set, return global list or default
-  // Fetch types specific to this set (using direct external API as this is dynamic and less critical for proxy)
+  if (!setId || setId === "All Sets") return ["All Types"];
   try {
     const response = await fetch(`${BACKUP_API_FOR_FILTERS_URL}/cards?q=set.id:${setId}&select=types&pageSize=250`);
     if (!response.ok) {
       console.error(`[CardsPage - getSetSpecificTypeOptions] Failed to fetch types for set ${setId}: ${response.status}`);
-      return ["All Types"]; // Fallback
+      return ["All Types"];
     }
     const data = await response.json();
     const cards: ApiPokemonCardSource[] = data.data || [];
-    if (cards.length === 0) return ["All Types"]; // No cards, no specific types
+    if (cards.length === 0) return ["All Types"];
     const allTypesInSet = cards.flatMap(card => card.types || []);
     const uniqueTypes = Array.from(new Set(allTypesInSet)).sort();
     return ["All Types", ...uniqueTypes];
   } catch (error) {
     console.error(`[CardsPage - getSetSpecificTypeOptions] Error fetching types for set ${setId}:`, error);
-    return ["All Types"]; // Fallback
+    return ["All Types"];
   }
 }
 
 async function getSetSpecificRarityOptions(setId: string): Promise<string[]> {
-  if (!setId || setId === "All Sets") return ["All Rarities"]; // No specific set
-  // Fetch rarities specific to this set (using direct external API)
+  if (!setId || setId === "All Sets") return ["All Rarities"];
   try {
     const response = await fetch(`${BACKUP_API_FOR_FILTERS_URL}/cards?q=set.id:${setId}&select=rarity&pageSize=250`);
     if (!response.ok) {
       console.error(`[CardsPage - getSetSpecificRarityOptions] Failed to fetch rarities for set ${setId}: ${response.status}`);
-      return ["All Rarities"]; // Fallback
+      return ["All Rarities"];
     }
     const data = await response.json();
     const cards: ApiPokemonCardSource[] = data.data || [];
-    if (cards.length === 0) return ["All Rarities"]; // No cards, no specific rarities
-    const allRaritiesInSet = cards.map(card => card.rarity).filter(Boolean) as string[]; // Filter out null/undefined
+    if (cards.length === 0) return ["All Rarities"];
+    const allRaritiesInSet = cards.map(card => card.rarity).filter(Boolean) as string[];
     const uniqueRarities = Array.from(new Set(allRaritiesInSet)).sort();
     return ["All Rarities", ...uniqueRarities];
   } catch (error) {
     console.error(`[CardsPage - getSetSpecificRarityOptions] Error fetching rarities for set ${setId}:`, error);
-    return ["All Rarities"]; // Fallback
+    return ["All Rarities"];
   }
 }
 
@@ -231,21 +225,17 @@ async function getSelectedSetDetails(setId: string): Promise<SelectedSetDetails 
     const apiResponseData = await response.json();
     console.log(`[CardsPage - getSelectedSetDetails] RAW API RESPONSE for set ${setId}:`, JSON.stringify(apiResponseData, null, 2));
 
-    const setData = apiResponseData.data; // Assuming the /api/sets/[id] route consistently returns { data: { ...set_object... } }
-
-    console.log(`[CardsPage - getSelectedSetDetails] setData (apiResponseData.data) for set ${setId}:`, JSON.stringify(setData, null, 2));
-
+    const setData = apiResponseData.data;
 
     if (!setData || !setData.id) {
-      console.error(`[CardsPage - getSelectedSetDetails] No valid data.id found for set ${setId} in response from ${fetchUrl}. 'setData' (expected from apiResponseData.data) was:`, setData);
+      console.error(`[CardsPage - getSelectedSetDetails] No valid data.id found for set ${setId} in response from ${fetchUrl}. 'setData' was:`, setData);
       return null;
     }
-
-    // Both APIs confirmed to use 'printedTotal' and 'total'
+    
     const pTotal: number | undefined = setData.printedTotal !== undefined ? Number(setData.printedTotal) : undefined;
     const oTotal: number | undefined = setData.total !== undefined ? Number(setData.total) : undefined;
 
-    console.log(`[CardsPage - getSelectedSetDetails] Successfully fetched details for set ${setId}. Name: ${setData.name}, Mapped Printed: ${pTotal}, Mapped Official: ${oTotal}`);
+    console.log(`[CardsPage - getSelectedSetDetails] Successfully fetched details for set ${setId}. Name: ${setData.name}, Parsed PrintedTotal: ${pTotal}, Parsed OfficialTotal (from 'total'): ${oTotal}`);
     return {
       id: setData.id,
       name: setData.name,
@@ -268,7 +258,6 @@ function naturalSortCompare(aStr: string, bStr: string): number {
     const aPart = aParts[i];
     const bPart = bParts[i];
 
-    // If both parts are numbers, compare them numerically
     if (/\d/.test(aPart) && /\d/.test(bPart)) {
       const aNum = parseInt(aPart, 10);
       const bNum = parseInt(bPart, 10);
@@ -276,7 +265,6 @@ function naturalSortCompare(aStr: string, bStr: string): number {
         return aNum - bNum;
       }
     } else {
-      // Otherwise, compare them as strings (case-insensitive for stability)
       const aPartLower = aPart.toLowerCase();
       const bPartLower = bPart.toLowerCase();
       if (aPartLower !== bPartLower) {
@@ -284,7 +272,6 @@ function naturalSortCompare(aStr: string, bStr: string): number {
       }
     }
   }
-  // If one string is a prefix of the other, the shorter string comes first
   return aParts.length - bParts.length;
 }
 
@@ -303,7 +290,6 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     queryParts.push(`types:${filters.type}`);
   }
   if (filters.rarity && filters.rarity !== "All Rarities") {
-    // Handle rarities with spaces by quoting them if necessary (though typically not needed for API query values directly)
     const rarityValue = filters.rarity.includes(" ") ? `"${filters.rarity}"` : filters.rarity;
     queryParts.push(`rarity:${rarityValue}`);
   }
@@ -315,16 +301,14 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
   const currentPage = filters.page || 1;
   queryParams.set('page', currentPage.toString());
 
-  // Determine API and parameters based on whether PRIMARY_EXTERNAL_API_BASE_URL is set
   const usePrimaryApi = !!PRIMARY_EXTERNAL_API_BASE_URL;
-  const pageSizeParamName = usePrimaryApi ? 'limit' : 'pageSize'; // Primary uses 'limit', backup uses 'pageSize'
+  const pageSizeParamName = usePrimaryApi ? 'limit' : 'pageSize';
   queryParams.set(pageSizeParamName, REQUESTED_PAGE_SIZE.toString());
 
-  // Set orderBy: 'number_int' for primary if set is selected, 'number' for backup if set is selected, otherwise 'name'
   if (filters.set && filters.set !== "All Sets") {
     queryParams.set('orderBy', usePrimaryApi ? 'number_int' : 'number');
   } else {
-    queryParams.set('orderBy', 'name'); // Default sort by name if no specific set
+    queryParams.set('orderBy', 'name');
   }
   const queryString = queryParams.toString();
 
@@ -336,9 +320,9 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     name: apiCard.name,
     setName: apiCard.set?.name || "Unknown Set",
     rarity: apiCard.rarity || "Unknown",
-    type: apiCard.types?.[0] || "Colorless", // Get primary type
-    imageUrl: apiCard.images?.large || apiCard.images?.small || `https://placehold.co/245x342.png`, // Prioritize large image
-    number: apiCard.number || "??", // Card number in set
+    type: apiCard.types?.[0] || "Colorless",
+    imageUrl: apiCard.images?.large || apiCard.images?.small || `https://placehold.co/245x342.png`,
+    number: apiCard.number || "??",
     artist: apiCard.artist || "N/A",
   });
 
@@ -348,43 +332,36 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     if (!response.ok) {
       const errorData = await response.text();
       console.warn(`${source} API (${fetchUrl}) failed: ${response.status}`, errorData);
-      if (source === 'Primary' && PRIMARY_EXTERNAL_API_BASE_URL) return defaultReturn; // Allow fallback if primary fails non-critically
+      if (source === 'Primary' && PRIMARY_EXTERNAL_API_BASE_URL) return defaultReturn;
       throw new Error(`${source} API error: ${response.status}`);
     }
     const responseData = await response.json();
     let cards = (responseData.data || []).map(mapApiCardToPokemonCard);
 
-    // Client-side sort if a specific set is selected, to ensure correct collector number order
     if (filters.set && filters.set !== "All Sets" && cards.length > 0) {
       console.log(`[CardsPage - getCards - processResponse] Client-side sorting cards for set ${filters.set} by collector number.`);
       cards.sort((a, b) => naturalSortCompare(a.number, b.number));
     }
 
-
-    // Determine pagination values from API response (primary might use 'total', backup 'totalCount')
     const apiCurrentPage = responseData.page || 1;
-    const apiPageSize = responseData.limit || responseData.pageSize || REQUESTED_PAGE_SIZE; // Primary: limit, Backup: pageSize
-    const apiCountOnPage = responseData.count || cards.length; // Actual number of items on current page
-    const apiTotalCount = responseData.total || responseData.totalCount || 0; // Primary: total, Backup: totalCount
+    const apiPageSize = responseData.limit || responseData.pageSize || REQUESTED_PAGE_SIZE;
+    const apiCountOnPage = responseData.count || cards.length;
+    const apiTotalCount = responseData.total || responseData.totalCount || 0;
 
-    // Calculate totalPages, ensuring it's at least 1 if there are items, or 0 if no items.
-    let apiTotalPages = responseData.totalPages; // Use if provided by API
-    if (apiTotalPages === undefined) { // If API doesn't provide totalPages directly
+    let apiTotalPages = responseData.totalPages;
+    if (apiTotalPages === undefined) {
       if (apiTotalCount > 0 && apiPageSize > 0) {
         apiTotalPages = Math.ceil(apiTotalCount / apiPageSize);
       } else if (apiCountOnPage > 0 && apiPageSize > 0 && apiCurrentPage === 1 && apiCountOnPage < apiPageSize) {
-        // If only one page of results and less than pageSize, totalPages is 1
         apiTotalPages = 1;
       } else if (apiCountOnPage === 0 && apiCurrentPage === 1) {
-        // No results on the first page means 0 total pages (or 1 if we must show a page)
-        apiTotalPages = 0; // Or 1, depending on desired behavior for "no results"
+        apiTotalPages = 0;
       } else {
-        // Fallback if we can't determine, assume current page is all there is
         apiTotalPages = apiCurrentPage;
       }
     }
-    apiTotalPages = Math.max(1, apiTotalPages); // Ensure totalPages is at least 1 if there are results
-    if (apiTotalCount === 0 && apiCurrentPage === 1) apiTotalPages = 0; // Correct for no results
+    apiTotalPages = Math.max(1, apiTotalPages);
+    if (apiTotalCount === 0 && apiCurrentPage === 1) apiTotalPages = 0;
 
     return { cards, currentPage: apiCurrentPage, totalPages: apiTotalPages, totalCount: apiTotalCount, pageSize: apiPageSize };
   };
@@ -396,18 +373,14 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     try {
       apiResponse = await fetch(fetchUrl);
       const result = await processResponse(apiResponse, 'Primary');
-      // If primary API call was successful (even if it returned no cards), return its result.
       if (apiResponse.ok) return result;
-      // If primary API failed (e.g. 500 error), we will fall through to backup.
     } catch (error) {
       console.warn(`[CardsPage - getCards] Failed to fetch or process from Primary API (${fetchUrl}):`, error);
-      // Fall through to backup API on error.
     }
   } else {
      console.warn("[CardsPage - getCards] Primary External API base URL not configured. Proceeding to backup.");
   }
 
-  // Fallback to Backup API if primary failed or was not configured
   fetchUrl = `${BACKUP_EXTERNAL_API_BASE_URL}/cards${queryString ? `?${queryString}` : ''}`;
   console.log('[CardsPage - getCards] Attempting to fetch cards from Backup API:', fetchUrl);
   try {
@@ -415,30 +388,29 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     return await processResponse(apiResponse, 'Backup');
   } catch (error) {
     console.error(`[CardsPage - getCards] Failed to fetch or process from Backup API (${fetchUrl}):`, error);
-    return defaultReturn; // Return default on critical failure of backup
+    return defaultReturn;
   }
 }
 
 export default async function CardsPage({
-  searchParams = {} // Default to empty object if not provided
+  searchParams = {}
 }: {
   searchParams?: {
     search?: string;
     set?: string;
     type?: string;
     rarity?: string;
-    page?: string; // Page should be a string from URL
+    page?: string;
   };
 }) {
-  // Ensure searchParams is always defined
   const safeSearchParams = searchParams || {};
   
   const currentSearch = safeSearchParams.search ?? "";
   const currentSetId = safeSearchParams.set ?? "All Sets";
   const currentType = safeSearchParams.type ?? "All Types";
   const currentRarity = safeSearchParams.rarity ?? "All Rarities";
-  const currentPageParam = safeSearchParams.page ?? "1"; // Default to page 1 if not specified
-  const currentPage = parseInt(currentPageParam, 10) || 1; // Ensure page is a number
+  const currentPageParam = safeSearchParams.page ?? "1";
+  const currentPage = parseInt(currentPageParam, 10) || 1;
 
 
   const currentFilters = {
@@ -453,9 +425,9 @@ export default async function CardsPage({
   const [
     { cards, currentPage: apiCurrentPage, totalPages: apiTotalPages, totalCount: apiTotalCount },
     setOptionsData,
-    typeOptionsData, // Will be global or set-specific based on isSpecificSetSelected
-    rarityOptionsData, // Same as typeOptionsData
-    selectedSetDetails // Will be null if no specific set is selected
+    typeOptionsData,
+    rarityOptionsData,
+    selectedSetDetails
   ] = await Promise.all([
     getCards({ ...currentFilters, page: currentPage }),
     getSetOptions(),
@@ -464,10 +436,8 @@ export default async function CardsPage({
     isSpecificSetSelected ? getSelectedSetDetails(currentSetId) : Promise.resolve(null)
   ]);
 
-  // Ensure "All Sets" is always an option and at the beginning
   const allSetOptions: SetOption[] = Array.from(new Map([{ id: "All Sets", name: "All Sets" }, ...setOptionsData].map(item => [item.id, item])).values());
 
-  // Ensure "All Types" / "All Rarities" are present and sorted correctly
   const allTypeOptions: string[] = Array.from(new Set(typeOptionsData)).sort((a,b) => {
     if (a === "All Types") return -1;
     if (b === "All Types") return 1;
@@ -494,34 +464,29 @@ export default async function CardsPage({
   let pageTitle = "Pokémon Cards";
   let pageDescription = "Browse and search for individual Pokémon cards.";
 
-  console.log("[CardsPage - Render] selectedSetDetails object:", JSON.stringify(selectedSetDetails, null, 2));
+  console.log("[CardsPage - Render] Final selectedSetDetails object:", JSON.stringify(selectedSetDetails, null, 2));
 
   if (selectedSetDetails && selectedSetDetails.id && selectedSetDetails.name) {
-    console.log("[CardsPage - Render] selectedSetDetails IS VALID, attempting to set dynamic title/desc.");
     pageTitle = selectedSetDetails.name;
     const printed = selectedSetDetails.printedTotal;
     const official = selectedSetDetails.officialTotal;
 
-    if (typeof official === 'number' && typeof printed === 'number') {
-      if (official > printed) {
-        const secretCount = official - printed;
-        pageDescription = `Total Cards: ${printed} (+${secretCount} Secret). Official Total: ${official}.`;
-      } else {
-        // official might be equal to printed, or printed might be the only one available (if official is 0 or undefined but printed is defined)
-        pageDescription = `Total Cards: ${official}.`; // Or use printed if official isn't what we expect here
-      }
-    } else if (typeof official === 'number') {
-      // Only official total is available
-      pageDescription = `Total Cards: ${official}. (Printed count unavailable)`;
-    } else if (typeof printed === 'number') {
-      // Only printed total is available
-      pageDescription = `Printed Cards: ${printed}. (Official total unavailable)`;
+    const hasPrinted = typeof printed === 'number' && !isNaN(printed);
+    const hasOfficial = typeof official === 'number' && !isNaN(official);
+
+    console.log(`[CardsPage - Render] Formatting description for ${selectedSetDetails.name}: Printed=${printed} (isNumber: ${hasPrinted}), Official=${official} (isNumber: ${hasOfficial})`);
+
+    if (hasPrinted && hasOfficial) {
+      const secretCount = Math.max(0, official - printed);
+      pageDescription = `Printed: ${printed} (+${secretCount} Secret). Official Total: ${official}.`;
+    } else if (hasOfficial) {
+      pageDescription = `Official Total: ${official} cards. (Printed count unavailable).`;
+    } else if (hasPrinted) {
+      pageDescription = `Printed Cards: ${printed}. (Official total unavailable).`;
     } else {
-      // Neither is available reliably
-      pageDescription = `Details for set: ${selectedSetDetails.name}. Card counts unavailable.`;
+      pageDescription = `Set: ${selectedSetDetails.name}. Card counts unavailable.`;
     }
-  } else {
-    console.log("[CardsPage - Render] selectedSetDetails IS NULL or INVALID, using default title/desc.");
+    console.log(`[CardsPage - Render] Resulting pageDescription for ${selectedSetDetails.name}: "${pageDescription}"`);
   }
 
 
@@ -564,10 +529,9 @@ export default async function CardsPage({
                       alt={card.name}
                       width={245}
                       height={342}
-                      quality={100} // Using 100 for sharp card images
+                      quality={100}
                       className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
                       data-ai-hint={card.imageUrl.includes('placehold.co') ? "pokemon card" : undefined}
-
                     />
                 </CardHeader>
                 <CardContent className="p-3 flex-grow">
@@ -591,7 +555,6 @@ export default async function CardsPage({
             ))}
           </div>
 
-          {/* Pagination controls */}
           {apiTotalPages > 1 && (
             <div className="mt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
               <div className="text-sm text-muted-foreground">
@@ -618,4 +581,3 @@ export default async function CardsPage({
     </>
   );
 }
-
