@@ -53,6 +53,9 @@ export default function CardFiltersForm({
       setSelectedSet(targetSet);
     }
 
+    // If type/rarity are explicitly in URL, use them. Otherwise, use initial prop (which defaults to "All...").
+    // This ensures that if a user navigates with a URL having type/rarity, it's respected.
+    // If they select a new set via UI, the onValueChange for Set will reset these.
     const targetType = typeFromUrl !== null ? typeFromUrl : initialTypeProp;
     if (targetType !== selectedType) {
       setSelectedType(targetType);
@@ -62,6 +65,7 @@ export default function CardFiltersForm({
     if (targetRarity !== selectedRarity) {
       setSelectedRarity(targetRarity);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSearchParams, initialSearchProp, initialSetProp, initialTypeProp, initialRarityProp]);
 
 
@@ -84,6 +88,13 @@ export default function CardFiltersForm({
     router.push('/cards');
   };
 
+  const handleSetChange = (newSetId: string) => {
+    setSelectedSet(newSetId);
+    // When a new set is selected, reset type and rarity to "All"
+    setSelectedType("All Types");
+    setSelectedRarity("All Rarities");
+  };
+
   return (
     <form onSubmit={handleSubmit} className="mb-6 p-4 border rounded-lg bg-card shadow">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
@@ -100,7 +111,7 @@ export default function CardFiltersForm({
         </div>
         <div>
           <label htmlFor="set-filter" className="block text-sm font-medium text-muted-foreground mb-1">Filter by Set</label>
-          <Select name="set" value={selectedSet} onValueChange={setSelectedSet}>
+          <Select name="set" value={selectedSet} onValueChange={handleSetChange}>
             <SelectTrigger id="set-filter">
               <SelectValue placeholder="Select Set" />
             </SelectTrigger>
@@ -143,3 +154,4 @@ export default function CardFiltersForm({
     </form>
   );
 }
+
