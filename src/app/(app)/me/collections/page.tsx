@@ -79,15 +79,25 @@ export default function MyCollectionsPage() {
         });
         const result: UserCollectionApiResponse = await response.json();
 
-        if (!response.ok || !result.data) {
-          const errorMsg = result.message || `Failed to fetch collection: ${response.status}`;
-          console.error(errorMsg, result);
+        if (!response.ok) { // Handle actual HTTP errors first
+          const errorMsg = result.message || `Failed to fetch collection (HTTP ${response.status})`;
+          console.error(`[CollectionsPage] HTTP Error: ${errorMsg}`, result);
           setError(errorMsg);
           toast({ title: "Error Fetching Collection", description: errorMsg, variant: "destructive" });
           setCollectedSets([]);
           return;
         }
 
+        // Response is OK (2xx status)
+        // Now check the content of result.data
+        // result.data could be null or an empty array for an empty collection
+        if (!result.data || !Array.isArray(result.data) || result.data.length === 0) {
+          console.log("[CollectionsPage] Collection is empty or data field is null/empty. API response:", result);
+          setCollectedSets([]); // This will trigger the "No Cards Collected Yet" UI
+          // No toast needed here, it's a valid empty state.
+          return;
+        }
+        
         const rawCards = result.data;
         
         // Group cards by set
@@ -115,38 +125,33 @@ export default function MyCollectionsPage() {
             quantity: card.quantity,
           });
           groupedBySet[setId].totalQuantityInSet += card.quantity;
-          groupedBySet[setId].uniqueCardsInSet += 1; // This assumes each entry is unique by cardId for that set
+          groupedBySet[setId].uniqueCardsInSet += 1; 
         });
 
         const displaySetsArray = Object.values(groupedBySet).sort((a, b) => {
-             // Sort by release date descending, then by name
             if (a.releaseDate && b.releaseDate) {
                 const dateComparison = new Date(b.releaseDate).getTime() - new Date(a.releaseDate).getTime();
                 if (dateComparison !== 0) return dateComparison;
             } else if (a.releaseDate) {
-                return -1; // a comes first
+                return -1; 
             } else if (b.releaseDate) {
-                return 1; // b comes first
+                return 1; 
             }
             return a.name.localeCompare(b.name);
         });
         
-        // Sort cards within each set by card number (natural sort)
         displaySetsArray.forEach(set => {
             set.cards.sort((a,b) => naturalSortCompare(a.number, b.number));
         });
 
-
         setCollectedSets(displaySetsArray);
-        // Optionally open the first few accordions by default
         if (displaySetsArray.length > 0) {
              setActiveAccordionItems(displaySetsArray.slice(0, 3).map(s => s.id));
         }
 
-
-      } catch (err) {
+      } catch (err) { // Catch for network errors or JSON parsing errors
         const errorMsg = err instanceof Error ? err.message : "An unknown error occurred while fetching collection.";
-        console.error("Error fetching collection:", err);
+        console.error("[CollectionsPage] Catch block error:", err);
         setError(errorMsg);
         toast({ title: "Failed to Load Collection", description: errorMsg, variant: "destructive" });
         setCollectedSets([]);
@@ -158,7 +163,6 @@ export default function MyCollectionsPage() {
     fetchCollection();
   }, [toast]);
 
-  // Natural sort comparison function for strings containing numbers
   function naturalSortCompare(aStr: string, bStr: string): number {
     const re = /(\D+)|(\d+)/g;
     const aParts = String(aStr).match(re) || [];
@@ -324,3 +328,4 @@ export default function MyCollectionsPage() {
     </>
   );
 }
+
