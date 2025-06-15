@@ -61,7 +61,7 @@ export interface PokemonCard {
   setName: string;
   rarity: string;
   type: string; // Primary type
-  imageUrl: string; // Small image for list view, with fallback
+  imageUrl: string; // Image for list view, prioritizing high-resolution
   number: string;
   artist: string;
 }
@@ -224,7 +224,7 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     setName: apiCard.set?.name || "Unknown Set",
     rarity: apiCard.rarity || "Unknown",
     type: apiCard.types?.[0] || "Colorless",
-    imageUrl: apiCard.images?.small || apiCard.images?.large || `https://placehold.co/245x342.png`,
+    imageUrl: apiCard.images?.large || apiCard.images?.small || `https://placehold.co/245x342.png`, // Prioritize large image
     number: apiCard.number || "??",
     artist: apiCard.artist || "N/A",
   });
