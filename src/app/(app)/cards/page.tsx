@@ -89,70 +89,100 @@ interface SelectedSetDetails {
 }
 
 
-const APP_URL = process.env.APP_URL || "";
 const PRIMARY_EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
 const BACKUP_EXTERNAL_API_BASE_URL = 'https://api.pokemontcg.io/v2';
 const REQUESTED_PAGE_SIZE = 24;
-const BACKUP_API_FOR_FILTERS_URL = 'https://api.pokemontcg.io/v2';
+const BACKUP_API_FOR_FILTERS_URL = 'https://api.pokemontcg.io/v2'; // For type/rarity specific to set
+
+function getBaseUrlForApi(): string {
+  const appUrlEnv = process.env.APP_URL;
+  if (appUrlEnv) {
+    try {
+      const parsedAppUrl = new URL(appUrlEnv);
+      // Ensure it returns just the origin (scheme://hostname:port)
+      return parsedAppUrl.origin;
+    } catch (error) {
+      console.error(`[CardsPage - getBaseUrlForApi] Invalid APP_URL: ${appUrlEnv}. Error: ${error}. Falling back to localhost.`);
+      // Fallback for invalid APP_URL, especially in dev
+    }
+  }
+  // Fallback for local development if APP_URL is not set.
+  // For production, APP_URL should always be set.
+  const port = process.env.PORT || "9002"; // Default Next.js port or your app's port
+  const defaultUrl = `http://localhost:${port}`;
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn(`[CardsPage - getBaseUrlForApi] APP_URL not set. Defaulting to ${defaultUrl} for internal API calls. This is okay for local development but ensure APP_URL is set in deployed environments.`);
+  } else {
+    // In production, if APP_URL is missing, this is a critical misconfiguration.
+    // Throwing an error or logging a severe warning might be appropriate,
+    // but for now, we'll return a localhost URL which will likely fail,
+    // highlighting the need for APP_URL.
+    console.error(`[CardsPage - getBaseUrlForApi] CRITICAL: APP_URL is not set in production. Internal API calls will likely fail. Defaulting to ${defaultUrl}.`);
+  }
+  return defaultUrl;
+}
 
 
 async function getSetOptions(): Promise<SetOption[]> {
-  if (!APP_URL) {
-    console.error("APP_URL is not defined. Cannot fetch set options.");
+  const baseUrl = getBaseUrlForApi();
+  if (!baseUrl) {
+    console.error("[CardsPage - getSetOptions] Base URL for API is not available. Cannot fetch set options.");
     return [];
   }
   try {
-    // Fetch all sets for options by omitting pagination params or using a specific 'all' flag if API supports
-    const response = await fetch(`${APP_URL}/api/sets?select=id,name&orderBy=name&limit=500`); // Assuming limit=500 gets most/all sets
-    if (!response.ok) throw new Error('Failed to fetch sets from internal API');
+    const response = await fetch(`${baseUrl}/api/sets?select=id,name&orderBy=name&limit=500`);
+    if (!response.ok) throw new Error(`Failed to fetch sets from internal API: ${response.status}`);
     const data = await response.json();
     return (data.data || []).map((set: any) => ({ id: set.id, name: set.name }));
   } catch (error) {
-    console.error("Error fetching set options from internal API:", error);
+    console.error("[CardsPage - getSetOptions] Error fetching set options from internal API:", error);
     return [];
   }
 }
 
 async function getTypeOptions(): Promise<string[]> {
-  if (!APP_URL) {
-    console.error("APP_URL is not defined. Cannot fetch type options.");
+  const baseUrl = getBaseUrlForApi();
+   if (!baseUrl) {
+    console.error("[CardsPage - getTypeOptions] Base URL for API is not available. Cannot fetch type options.");
     return ["All Types"];
   }
   try {
-    const response = await fetch(`${APP_URL}/api/types`);
-    if (!response.ok) throw new Error('Failed to fetch types from internal API');
+    const response = await fetch(`${baseUrl}/api/types`);
+    if (!response.ok) throw new Error(`Failed to fetch types from internal API: ${response.status}`);
     const data = await response.json();
     const types = data.data || [];
     return ["All Types", ...types.sort()];
   } catch (error) {
-    console.error("Error fetching type options from internal API:", error);
+    console.error("[CardsPage - getTypeOptions] Error fetching type options from internal API:", error);
     return ["All Types"];
   }
 }
 
 async function getRarityOptions(): Promise<string[]> {
-  if (!APP_URL) {
-    console.error("APP_URL is not defined. Cannot fetch rarity options.");
+  const baseUrl = getBaseUrlForApi();
+  if (!baseUrl) {
+    console.error("[CardsPage - getRarityOptions] Base URL for API is not available. Cannot fetch rarity options.");
     return ["All Rarities"];
   }
   try {
-    const response = await fetch(`${APP_URL}/api/rarities`);
-    if (!response.ok) throw new Error('Failed to fetch rarities from internal API');
+    const response = await fetch(`${baseUrl}/api/rarities`);
+    if (!response.ok) throw new Error(`Failed to fetch rarities from internal API: ${response.status}`);
     const data = await response.json();
     const rarities = (data.data || []).filter((r: string | null) => r && r.trim() !== "");
     return ["All Rarities", ...rarities.sort()];
   } catch (error) {
-    console.error("Error fetching rarity options from internal API:", error);
+    console.error("[CardsPage - getRarityOptions] Error fetching rarity options from internal API:", error);
     return ["All Rarities"];
   }
 }
 
 async function getSetSpecificTypeOptions(setId: string): Promise<string[]> {
-  if (!setId || setId === "All Sets") return ["All Types"]; // Should not happen if called correctly
+  if (!setId || setId === "All Sets") return ["All Types"];
+  // This function fetches directly from an external API, so getBaseUrlForApi() is not needed here.
   try {
     const response = await fetch(`${BACKUP_API_FOR_FILTERS_URL}/cards?q=set.id:${setId}&select=types&pageSize=250`);
     if (!response.ok) {
-      console.error(`Failed to fetch types for set ${setId}: ${response.status}`);
+      console.error(`[CardsPage - getSetSpecificTypeOptions] Failed to fetch types for set ${setId}: ${response.status}`);
       return ["All Types"];
     }
     const data = await response.json();
@@ -162,17 +192,18 @@ async function getSetSpecificTypeOptions(setId: string): Promise<string[]> {
     const uniqueTypes = Array.from(new Set(allTypesInSet)).sort();
     return ["All Types", ...uniqueTypes];
   } catch (error) {
-    console.error(`Error fetching types for set ${setId}:`, error);
-    return ["All Types"]; // Fallback
+    console.error(`[CardsPage - getSetSpecificTypeOptions] Error fetching types for set ${setId}:`, error);
+    return ["All Types"]; 
   }
 }
 
 async function getSetSpecificRarityOptions(setId: string): Promise<string[]> {
-  if (!setId || setId === "All Sets") return ["All Rarities"]; // Should not happen
+  if (!setId || setId === "All Sets") return ["All Rarities"];
+  // This function fetches directly from an external API.
   try {
     const response = await fetch(`${BACKUP_API_FOR_FILTERS_URL}/cards?q=set.id:${setId}&select=rarity&pageSize=250`);
     if (!response.ok) {
-      console.error(`Failed to fetch rarities for set ${setId}: ${response.status}`);
+      console.error(`[CardsPage - getSetSpecificRarityOptions] Failed to fetch rarities for set ${setId}: ${response.status}`);
       return ["All Rarities"];
     }
     const data = await response.json();
@@ -182,36 +213,39 @@ async function getSetSpecificRarityOptions(setId: string): Promise<string[]> {
     const uniqueRarities = Array.from(new Set(allRaritiesInSet)).sort();
     return ["All Rarities", ...uniqueRarities];
   } catch (error) {
-    console.error(`Error fetching rarities for set ${setId}:`, error);
-    return ["All Rarities"]; // Fallback
+    console.error(`[CardsPage - getSetSpecificRarityOptions] Error fetching rarities for set ${setId}:`, error);
+    return ["All Rarities"];
   }
 }
 
 async function getSelectedSetDetails(setId: string): Promise<SelectedSetDetails | null> {
-  if (!APP_URL || !setId || setId === "All Sets") {
+  const baseUrl = getBaseUrlForApi();
+  if (!baseUrl || !setId || setId === "All Sets") {
     return null;
   }
   try {
-    const response = await fetch(`${APP_URL}/api/sets/${setId}`);
+    const fetchUrl = `${baseUrl}/api/sets/${setId}`;
+    console.log(`[CardsPage - getSelectedSetDetails] Fetching set details from: ${fetchUrl}`);
+    const response = await fetch(fetchUrl);
     if (!response.ok) {
-      console.error(`Failed to fetch details for set ${setId} from internal API: ${response.status}`);
+      console.error(`[CardsPage - getSelectedSetDetails] Failed to fetch details for set ${setId} from internal API ${fetchUrl}: ${response.status}, Body: ${await response.text()}`);
       return null;
     }
     const data = await response.json();
-    // The single set endpoint might return data nested under a 'data' key, or directly
     const setData = data.data || data; 
     if (!setData || !setData.id) {
-        console.error(`No valid data found for set ${setId} in response:`, data);
+        console.error(`[CardsPage - getSelectedSetDetails] No valid data found for set ${setId} in response from ${fetchUrl}:`, data);
         return null;
     }
+    console.log(`[CardsPage - getSelectedSetDetails] Successfully fetched details for set ${setId}:`, setData);
     return {
       id: setData.id,
       name: setData.name,
       printedTotal: setData.printedTotal,
-      officialTotal: setData.total, // 'total' often means official total from APIs like pokemontcg.io
+      officialTotal: setData.total, 
     };
   } catch (error) {
-    console.error(`Error fetching details for set ${setId} from internal API:`, error);
+    console.error(`[CardsPage - getSelectedSetDetails] Error fetching details for set ${setId} from internal API:`, error);
     return null;
   }
 }
@@ -247,7 +281,7 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
   queryParams.set(pageSizeParamName, REQUESTED_PAGE_SIZE.toString());
   
   if (filters.set && filters.set !== "All Sets") {
-    queryParams.set('orderBy', 'number'); 
+    queryParams.set('orderBy', usePrimaryApi ? 'number_int' : 'number'); 
   } else {
     queryParams.set('orderBy', 'name'); 
   }
@@ -262,7 +296,7 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     setName: apiCard.set?.name || "Unknown Set",
     rarity: apiCard.rarity || "Unknown",
     type: apiCard.types?.[0] || "Colorless",
-    imageUrl: apiCard.images?.large || apiCard.images?.small || `https://placehold.co/245x342.png`, // Prioritize large image
+    imageUrl: apiCard.images?.large || apiCard.images?.small || `https://placehold.co/245x342.png`,
     number: apiCard.number || "??",
     artist: apiCard.artist || "N/A",
   });
@@ -304,25 +338,25 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
 
   if (PRIMARY_EXTERNAL_API_BASE_URL) {
     fetchUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/v2/cards${queryString ? `?${queryString}` : ''}`;
-    console.log('Fetching cards with URL (getCards function - Primary Attempt):', fetchUrl);
+    console.log('[CardsPage - getCards] Fetching cards with URL (Primary Attempt):', fetchUrl);
     try {
       apiResponse = await fetch(fetchUrl);
       const result = await processResponse(apiResponse, 'Primary');
       if (apiResponse.ok) return result; 
     } catch (error) {
-      console.warn(`Failed to fetch or process from Primary API (${fetchUrl}):`, error);
+      console.warn(`[CardsPage - getCards] Failed to fetch or process from Primary API (${fetchUrl}):`, error);
     }
   } else {
-     console.warn("Primary External API base URL not configured. Proceeding to backup.");
+     console.warn("[CardsPage - getCards] Primary External API base URL not configured. Proceeding to backup.");
   }
 
   fetchUrl = `${BACKUP_EXTERNAL_API_BASE_URL}/cards${queryString ? `?${queryString}` : ''}`;
-  console.log('Attempting to fetch cards from Backup API (getCards function):', fetchUrl);
+  console.log('[CardsPage - getCards] Attempting to fetch cards from Backup API:', fetchUrl);
   try {
     apiResponse = await fetch(fetchUrl);
     return await processResponse(apiResponse, 'Backup');
   } catch (error) {
-    console.error(`Failed to fetch or process from Backup API (${fetchUrl}):`, error);
+    console.error(`[CardsPage - getCards] Failed to fetch or process from Backup API (${fetchUrl}):`, error);
     return defaultReturn;
   }
 }
@@ -360,13 +394,13 @@ export default async function CardsPage({
     setOptionsData, 
     typeOptionsData, 
     rarityOptionsData,
-    selectedSetDetails // New variable to hold fetched set details
+    selectedSetDetails
   ] = await Promise.all([
     getCards({ ...currentFilters, page: currentPage }),
     getSetOptions(),
     isSpecificSetSelected ? getSetSpecificTypeOptions(currentSetId) : getTypeOptions(),
     isSpecificSetSelected ? getSetSpecificRarityOptions(currentSetId) : getRarityOptions(),
-    isSpecificSetSelected ? getSelectedSetDetails(currentSetId) : Promise.resolve(null) // Fetch set details if a specific set is selected
+    isSpecificSetSelected ? getSelectedSetDetails(currentSetId) : Promise.resolve(null) 
   ]);
 
   const allSetOptions: SetOption[] = Array.from(new Map([{ id: "All Sets", name: "All Sets" }, ...setOptionsData].map(item => [item.id, item])).values());
@@ -420,8 +454,8 @@ export default async function CardsPage({
           {selectedSetDetails.printedTotal !== undefined && selectedSetDetails.officialTotal !== undefined && (
             <p className="text-md text-muted-foreground">
               Total: {selectedSetDetails.printedTotal}
-              {selectedSetDetails.officialTotal > selectedSetDetails.printedTotal &&
-                ` (+${selectedSetDetails.officialTotal - selectedSetDetails.printedTotal} Secret)`}
+              {Number(selectedSetDetails.officialTotal) > Number(selectedSetDetails.printedTotal) &&
+                ` (+${Number(selectedSetDetails.officialTotal) - Number(selectedSetDetails.printedTotal)} Secret)`}
               {' '}cards
             </p>
           )}
@@ -503,5 +537,3 @@ export default async function CardsPage({
     </>
   );
 }
-
-    
