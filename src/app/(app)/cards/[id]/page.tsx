@@ -188,6 +188,7 @@ export default async function CardDetailPage({ params }: { params: { id: string 
               height={557}
               className="w-full h-auto object-contain"
               priority
+              quality={100}
               data-ai-hint={displayImageUrl.includes('placehold.co') ? "pokemon card" : undefined}
             />
           </Card>

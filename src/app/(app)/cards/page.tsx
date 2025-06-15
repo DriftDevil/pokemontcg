@@ -395,6 +395,7 @@ export default async function CardsPage({
                       alt={card.name}
                       width={245}
                       height={342}
+                      quality={100}
                       className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
                       data-ai-hint={card.imageUrl.includes('placehold.co') ? "pokemon card" : undefined}
                     />
