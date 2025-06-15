@@ -3,13 +3,24 @@ import PageHeader from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Zap, Flame, Droplet, Leaf, EyeIcon, Brain, ShieldHalf, Palette, Star, Dna, HelpCircle } from "lucide-react";
+import { ArrowLeft, Zap, Flame, Droplet, Leaf, EyeIcon, Brain, ShieldHalf, Palette, Star, Dna, HelpCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import type { PokemonCard as PokemonCardSummary } from "../page"; // Represents the summary card structure
+import type { PokemonCard as PokemonCardSummaryBase } from "../page"; 
 
-// Detailed type for the card detail page, extending summary
-// Fields not in openapi.yaml for the primary API should be optional.
+// Self-contained definition for card summary aspects for clarity on this page
+interface PokemonCardSummary {
+  id: string;
+  name: string;
+  setName: string;
+  rarity: string;
+  type: string; 
+  imageUrl: string; 
+  number: string;
+  artist: string;
+}
+
+// Detailed type for the card detail page
 interface PokemonCardDetail extends PokemonCardSummary {
   supertype?: string;
   subtypes?: string[];
@@ -28,11 +39,25 @@ interface PokemonCardDetail extends PokemonCardSummary {
   retreatCost?: string[];
   flavorText?: string;
   nationalPokedexNumbers?: number[];
-  largeImageUrl?: string; // Dedicated large image URL for detail view
+  largeImageUrl?: string;
 }
 
-// Interface for the raw API response, accommodating differences
-// between primary (sparse, based on openapi.yaml) and backup (rich) APIs.
+// Interface for cards within a set, used for next/previous navigation
+interface CardInSet {
+  id: string;
+  name: string;
+  number: string;
+}
+
+// Interface for the card detail page component, including navigation context
+interface CardDetailWithContext extends PokemonCardDetail {
+  previousCardId?: string | null;
+  nextCardId?: string | null;
+  currentSetId?: string | null;
+  currentSetName?: string | null;
+}
+
+// Interface for the raw API response
 interface ApiPokemonCardDetailSource {
   id: string;
   name: string;
@@ -54,17 +79,17 @@ interface ApiPokemonCardDetailSource {
   resistances?: { type: string; value: string }[];
   retreatCost?: string[];
   convertedRetreatCost?: number;
-  set: { // Set structure can also vary.
+  set: {
     id: string;
     name: string;
     series?: string;
-    printedTotal?: number; // More common in pokemontcg.io
-    total?: number; // Matches openapi.yaml 'total' and also in pokemontcg.io (different meaning)
+    printedTotal?: number;
+    total?: number;
     releaseDate?: string;
     updatedAt?: string;
     images?: { symbol: string; logo: string };
-    legalities?: { [key: string]: string }; // Not in openapi.yaml Set schema
-    ptcgoCode?: string; // Not in openapi.yaml Set schema
+    legalities?: { [key: string]: string };
+    ptcgoCode?: string;
   };
   number?: string;
   artist?: string;
@@ -72,18 +97,48 @@ interface ApiPokemonCardDetailSource {
   flavorText?: string;
   nationalPokedexNumbers?: number[];
   legalities?: { [key: string]: string };
-  images?: { small?: string; large?: string }; // Both small and large are optional
+  images?: { small?: string; large?: string };
   tcgplayer?: any;
   cardmarket?: any;
 }
 
 const APP_URL = process.env.APP_URL || "";
 
-async function getCardDetails(id: string): Promise<PokemonCardDetail | null> {
+// Helper function to map API source to PokemonCardDetail
+function mapApiToPokemonCardDetail(apiCard: ApiPokemonCardDetailSource): PokemonCardDetail {
+  const summaryImageUrl = apiCard.images?.small || apiCard.images?.large || "https://placehold.co/245x342.png";
+  const detailLargeImageUrl = apiCard.images?.large || apiCard.images?.small || "https://placehold.co/400x557.png";
+  return {
+    id: apiCard.id,
+    name: apiCard.name,
+    setName: apiCard.set?.name || "Unknown Set",
+    rarity: apiCard.rarity || "Unknown",
+    type: apiCard.types?.[0] || "Colorless",
+    imageUrl: summaryImageUrl,
+    number: apiCard.number || "??",
+    artist: apiCard.artist || "N/A",
+    largeImageUrl: detailLargeImageUrl,
+    supertype: apiCard.supertype,
+    subtypes: apiCard.subtypes,
+    hp: apiCard.hp,
+    evolvesFrom: apiCard.evolvesFrom,
+    abilities: apiCard.abilities,
+    attacks: apiCard.attacks,
+    weaknesses: apiCard.weaknesses,
+    resistances: apiCard.resistances,
+    retreatCost: apiCard.retreatCost,
+    flavorText: apiCard.flavorText,
+    nationalPokedexNumbers: apiCard.nationalPokedexNumbers,
+  };
+}
+
+async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithContext | null> {
   if (!APP_URL) {
     console.error("APP_URL is not defined. Cannot fetch card details.");
     return null;
   }
+
+  let apiCardSource: ApiPokemonCardDetailSource | null = null;
   try {
     const response = await fetch(`${APP_URL}/api/cards/${id}`);
     if (!response.ok) {
@@ -92,42 +147,72 @@ async function getCardDetails(id: string): Promise<PokemonCardDetail | null> {
       return null;
     }
     const data = await response.json();
-    const apiCard: ApiPokemonCardDetailSource = data.data;
-
-    if (!apiCard) return null;
-
-    // PokemonCardSummary part
-    const summaryImageUrl = apiCard.images?.small || apiCard.images?.large || "https://placehold.co/245x342.png";
-    const detailLargeImageUrl = apiCard.images?.large || apiCard.images?.small || "https://placehold.co/400x557.png";
-
-
-    return {
-      id: apiCard.id,
-      name: apiCard.name,
-      setName: apiCard.set?.name || "Unknown Set",
-      rarity: apiCard.rarity || "Unknown",
-      type: apiCard.types?.[0] || "Colorless",
-      imageUrl: summaryImageUrl, // Use small for summary, fallback to large or placeholder
-      number: apiCard.number || "??",
-      artist: apiCard.artist || "N/A",
-      // PokemonCardDetail specific extensions
-      largeImageUrl: detailLargeImageUrl, // Use large for detail, fallback to small or placeholder
-      supertype: apiCard.supertype,
-      subtypes: apiCard.subtypes,
-      hp: apiCard.hp,
-      evolvesFrom: apiCard.evolvesFrom,
-      abilities: apiCard.abilities,
-      attacks: apiCard.attacks,
-      weaknesses: apiCard.weaknesses,
-      resistances: apiCard.resistances,
-      retreatCost: apiCard.retreatCost,
-      flavorText: apiCard.flavorText,
-      nationalPokedexNumbers: apiCard.nationalPokedexNumbers,
-    };
+    apiCardSource = data.data;
   } catch (error) {
     console.error("Error fetching card details from internal API:", error);
     return null;
   }
+
+  if (!apiCardSource) return null;
+
+  const cardDetail = mapApiToPokemonCardDetail(apiCardSource);
+
+  if (!apiCardSource.set || !apiCardSource.set.id) {
+    console.warn(`Card ${id} has no set information. Cannot provide next/previous navigation.`);
+    return cardDetail; // Return card detail without next/prev context
+  }
+
+  const setId = apiCardSource.set.id;
+
+  let cardsInSet: CardInSet[] = [];
+  const primaryExternalApiBaseUrl = process.env.EXTERNAL_API_BASE_URL;
+  const backupExternalApiBaseUrl = 'https://api.pokemontcg.io/v2';
+  let setQueryBaseUrl = '';
+
+  if (primaryExternalApiBaseUrl) {
+    setQueryBaseUrl = `${primaryExternalApiBaseUrl}/v2`;
+  } else {
+    setQueryBaseUrl = backupExternalApiBaseUrl; // Fallback to backup if primary isn't set
+  }
+  
+  try {
+    const setCardsUrl = `${setQueryBaseUrl}/cards?q=set.id:${setId}&orderBy=number&select=id,name,number&pageSize=250`;
+    const res = await fetch(setCardsUrl);
+    if (res.ok) {
+      const setData = await res.json();
+      // Ensure data is an array before mapping
+      cardsInSet = Array.isArray(setData.data) ? setData.data.map((c: any) => ({ id: c.id, name: c.name, number: c.number })) : [];
+    } else {
+      console.warn(`Failed to fetch cards for set ${setId} from ${setQueryBaseUrl}: ${res.status}`);
+    }
+  } catch (e) {
+    console.warn(`Error fetching cards for set ${setId} from ${setQueryBaseUrl}:`, e);
+  }
+  
+  let previousCardId: string | null = null;
+  let nextCardId: string | null = null;
+
+  if (cardsInSet.length > 0) {
+    const currentIndex = cardsInSet.findIndex(cardInSetItem => cardInSetItem.id === id);
+    if (currentIndex !== -1) {
+      if (currentIndex > 0) {
+        previousCardId = cardsInSet[currentIndex - 1].id;
+      }
+      if (currentIndex < cardsInSet.length - 1) {
+        nextCardId = cardsInSet[currentIndex + 1].id;
+      }
+    } else {
+        console.warn(`Card ${id} not found in its own set ${setId} list. This could be due to data inconsistency or pageSize limit if set is very large.`);
+    }
+  }
+
+  return {
+    ...cardDetail,
+    previousCardId,
+    nextCardId,
+    currentSetId: setId,
+    currentSetName: cardDetail.setName,
+  };
 }
 
 const typeIcons: { [key: string]: React.ElementType } = {
@@ -146,9 +231,9 @@ const typeIcons: { [key: string]: React.ElementType } = {
 };
 
 export default async function CardDetailPage({ params }: { params: { id: string } }) {
-  const card = await getCardDetails(params.id);
+  const cardWithContext = await getCardDetailsWithSetContext(params.id);
 
-  if (!card) {
+  if (!cardWithContext) {
     return (
       <div className="text-center py-12">
         <PageHeader title="Card Not Found" description="The requested Pokémon card could not be found or an error occurred." />
@@ -160,9 +245,35 @@ export default async function CardDetailPage({ params }: { params: { id: string 
       </div>
     );
   }
-
+  const card = cardWithContext; // For easier referencing
   const TypeIcon = typeIcons[card.type] || typeIcons.Unknown;
   const displayImageUrl = card.largeImageUrl || "https://placehold.co/400x557.png";
+  
+  const pageActions = (
+    <div className="flex flex-wrap gap-2 items-center">
+      {card.currentSetId && ( // Only show prev/next if in set context
+        <>
+          <Button asChild variant="outline" size="sm" disabled={!card.previousCardId}>
+            <Link href={card.previousCardId ? `/cards/${card.previousCardId}` : "#"}>
+              <ChevronLeft className="mr-2 h-4 w-4" />
+              Previous
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" disabled={!card.nextCardId}>
+            <Link href={card.nextCardId ? `/cards/${card.nextCardId}` : "#"}>
+              Next
+              <ChevronRight className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
+        </>
+      )}
+      <Button asChild variant="outline" size="sm">
+        <Link href="/cards">
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back to All Cards
+        </Link>
+      </Button>
+    </div>
+  );
 
   return (
     <>
@@ -170,13 +281,7 @@ export default async function CardDetailPage({ params }: { params: { id: string 
         title={card.name}
         description={`Details for ${card.name} from the ${card.setName} set.`}
         icon={TypeIcon}
-        actions={
-          <Button asChild variant="outline">
-            <Link href="/cards">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Back to All Cards
-            </Link>
-          </Button>
-        }
+        actions={pageActions}
       />
       <div className="grid md:grid-cols-3 gap-8">
         <div className="md:col-span-1">
