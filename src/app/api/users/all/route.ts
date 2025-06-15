@@ -5,6 +5,30 @@ import { cookies } from 'next/headers';
 
 const EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
 
+// Mock user data, aligning with the structure expected by the frontend (ApiUser interface)
+const MOCK_ADMIN_FOR_USER_LIST = {
+  id: 'mock-admin-id-007',
+  name: 'Mock Admin Dev',
+  email: 'mockadmin@develop.ment',
+  preferredUsername: 'mockadmin',
+  avatarUrl: `https://placehold.co/96x96.png?text=MA`,
+  isAdmin: true,
+  createdAt: new Date().toISOString(),
+  lastSeen: new Date().toISOString(),
+};
+
+const MOCK_USER_2 = {
+  id: 'mock-user-id-002',
+  name: 'Mock User Two',
+  email: 'mockuser2@develop.ment',
+  preferredUsername: 'mockuser2',
+  avatarUrl: `https://placehold.co/96x96.png?text=MU`,
+  isAdmin: false,
+  createdAt: new Date(Date.now() - 86400000).toISOString(), // Yesterday
+  lastSeen: new Date(Date.now() - 3600000).toISOString(),   // An hour ago
+};
+
+
 function getTokenFromRequest(request: NextRequest): string | undefined {
   const authHeader = request.headers.get('Authorization');
   if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -31,6 +55,17 @@ function getTokenFromRequest(request: NextRequest): string | undefined {
 }
 
 export async function GET(request: NextRequest) {
+  // --- Development Mock Users ---
+  if (process.env.NODE_ENV === 'development' && process.env.MOCK_ADMIN_USER === 'true') {
+    console.warn("[API /api/users/all] MOCK ADMIN USER ENABLED. Returning mock user list.");
+    const mockUsersResponse = {
+      data: [MOCK_ADMIN_FOR_USER_LIST, MOCK_USER_2],
+      total: 2, // Corresponds to total users count
+    };
+    return NextResponse.json(mockUsersResponse);
+  }
+  // --- End Development Mock Users ---
+
   console.log(`[API ${request.nextUrl.pathname}] GET request received. URL: ${request.url}`);
 
   if (!EXTERNAL_API_BASE_URL) {

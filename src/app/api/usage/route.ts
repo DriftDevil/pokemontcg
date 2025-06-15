@@ -30,6 +30,18 @@ function getTokenFromRequest(request: NextRequest): string | undefined {
 }
 
 export async function GET(request: NextRequest) {
+  // --- Development Mock Usage ---
+  if (process.env.NODE_ENV === 'development' && process.env.MOCK_ADMIN_USER === 'true') {
+    console.warn("[API /api/usage] MOCK ADMIN USER ENABLED. Returning mock API usage data.");
+    const mockUsageResponse = {
+      requestCountLast24h: 1337, // Mock value for API requests in the last 24h
+      // Add other mock fields if your component expects them from the /usage endpoint.
+      // For example, if AdminDashboardPage expects other stats from this endpoint.
+    };
+    return NextResponse.json(mockUsageResponse);
+  }
+  // --- End Development Mock Usage ---
+
   if (!EXTERNAL_API_BASE_URL) {
     console.error('[API /api/usage] External API base URL not configured.');
     return NextResponse.json({ error: 'External API URL not configured' }, { status: 500 });
