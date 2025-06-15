@@ -76,6 +76,10 @@ export default function HomePage() {
     }
   };
 
+  const handleLogout = () => {
+    window.location.href = '/api/auth/logout';
+  };
+
   const getAvatarFallbackText = (user: AppUser | null) => {
     if (!user) return 'U';
     const nameOrEmail = user.name || user.email;
@@ -244,8 +248,8 @@ export default function HomePage() {
               <p className="text-sm text-muted-foreground">Sign out of your current session.</p>
             </CardContent>
             <CardFooter>
-              <Button asChild className="w-full" variant="destructive">
-                <Link href="/api/auth/logout">Sign Out</Link>
+              <Button onClick={handleLogout} className="w-full" variant="destructive">
+                Sign Out
               </Button>
             </CardFooter>
           </Card>
@@ -330,3 +334,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    
