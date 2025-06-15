@@ -84,8 +84,8 @@ interface SetOption {
 interface SelectedSetDetails {
   id: string;
   name: string;
-  printedTotal?: number; // Standard cards in set (Number(setData.printedTotal))
-  officialTotal?: number; // Total cards including secrets (Number(setData.total))
+  printedTotal?: number; // Standard cards in set
+  officialTotal?: number; // Total cards including secrets
 }
 
 
@@ -232,8 +232,8 @@ async function getSelectedSetDetails(setId: string): Promise<SelectedSetDetails 
       return null;
     }
     
-    const pTotal: number | undefined = setData.printedTotal !== undefined ? Number(setData.printedTotal) : undefined;
-    const oTotal: number | undefined = setData.total !== undefined ? Number(setData.total) : undefined;
+    const pTotal: number | undefined = Number(setData.printedTotal);
+    const oTotal: number | undefined = Number(setData.total);
 
     console.log(`[CardsPage - getSelectedSetDetails] Successfully fetched details for set ${setId}. Name: ${setData.name}, Parsed PrintedTotal: ${pTotal}, Parsed OfficialTotal (from 'total'): ${oTotal}`);
     return {
@@ -475,14 +475,16 @@ export default async function CardsPage({
     const hasOfficial = typeof official === 'number' && !isNaN(official);
 
     console.log(`[CardsPage - Render] Formatting description for ${selectedSetDetails.name}: Printed=${printed} (isNumber: ${hasPrinted}), Official=${official} (isNumber: ${hasOfficial})`);
-
-    if (hasPrinted && hasOfficial) {
-      const secretCount = Math.max(0, official - printed);
-      pageDescription = `Printed: ${printed} (+${secretCount} Secret). Official Total: ${official}.`;
+    
+    if (hasPrinted) {
+      if (hasOfficial && official > printed) {
+        const secretCount = official - printed;
+        pageDescription = `Total: ${printed} (+${secretCount} Secret)`;
+      } else {
+        pageDescription = `Total: ${printed}`;
+      }
     } else if (hasOfficial) {
-      pageDescription = `Official Total: ${official} cards. (Printed count unavailable).`;
-    } else if (hasPrinted) {
-      pageDescription = `Printed Cards: ${printed}. (Official total unavailable).`;
+      pageDescription = `Official Total: ${official} cards. (Printed count for 'Total:' format unavailable).`;
     } else {
       pageDescription = `Set: ${selectedSetDetails.name}. Card counts unavailable.`;
     }
