@@ -150,7 +150,7 @@ h1, h2, h3, h4, h5, h6 {
   .dark .swagger-ui .info .base-url,
   .dark .swagger-ui .info .link,
   .dark .swagger-ui .info a {
-    color: hsl(var(--foreground)); /* Changed from muted-foreground */
+    color: hsl(var(--foreground));
   }
   .dark .swagger-ui .info a:hover {
     color: hsl(var(--primary));
@@ -173,12 +173,12 @@ h1, h2, h3, h4, h5, h6 {
   .dark .swagger-ui .opblock-tag-section .opblock-tag:hover {
      background: hsl(var(--muted));
   }
-  .dark .swagger-ui .opblock-tag {
+  .dark .swagger-ui .opblock-tag { /* Path/Tag section header */
     color: hsl(var(--foreground));
     border-bottom: 1px solid hsl(var(--border));
   }
    .dark .swagger-ui .opblock-tag small { /* Tag description */
-      color: hsl(var(--foreground)); /* Changed from muted-foreground */
+      color: hsl(var(--foreground));
    }
 
   .dark .swagger-ui .opblock {
@@ -212,14 +212,14 @@ h1, h2, h3, h4, h5, h6 {
     border-bottom-color: hsl(var(--border));
   }
   .dark .swagger-ui .opblock .opblock-section-header h4 {
-    color: hsl(var(--foreground)); /* Was muted-foreground, made brighter */
+    color: hsl(var(--foreground));
   }
 
   /* Descriptions for operations, parameters, responses, and schema properties */
   .dark .swagger-ui .opblock-description-wrapper p,
   .dark .swagger-ui .response-col_description__inner p,
   .dark .swagger-ui .parameter__description {
-    color: hsl(var(--foreground)); /* Changed from muted-foreground */
+    color: hsl(var(--foreground));
   }
 
   .dark .swagger-ui .responses-table td,
@@ -228,28 +228,46 @@ h1, h2, h3, h4, h5, h6 {
     color: hsl(var(--card-foreground));
   }
   .dark .swagger-ui .response-col_status {
-     color: hsl(var(--primary)); /* Or a specific success color */
+     color: hsl(var(--primary));
   }
-  .dark .swagger-ui .model-container,
+
+  /* Schemas section general background and border */
   .dark .swagger-ui .models {
     background-color: hsl(var(--card));
     border-color: hsl(var(--border));
-    color: hsl(var(--card-foreground)); /* Ensure general text in models section is readable */
   }
-  .dark .swagger-ui .model-container .model-title,
-  .dark .swagger-ui .models .model-title,
-  .dark .swagger-ui .model {
-    color: hsl(var(--card-foreground));
+
+  /* Target the clickable box for each schema definition */
+  .dark .swagger-ui .models .model-box {
+    color: hsl(var(--foreground)); /* Default text color for the schema line */
   }
-   .dark .swagger-ui .model .prop .prop-type {
-     color: hsl(var(--accent)); /* Using accent for type for some highlight */
-   }
-  .dark .swagger-ui .model .prop .prop-name {
-     color: hsl(var(--card-foreground)); /* Property name */
+  /* Schema name specifically */
+  .dark .swagger-ui .models .model-box .model-title .model-title__name {
+    color: hsl(var(--foreground)); /* Explicitly set schema name color */
   }
-   .dark .swagger-ui .prop-format { /* Data type format (e.g., date-time) */
+  /* Links within the schema line ("Expand all", "object" if it's a link) */
+  .dark .swagger-ui .models .model-box a {
+    color: hsl(var(--primary)); /* Use bright primary color for links */
+  }
+  .dark .swagger-ui .models .model-box a:hover {
+    color: hsl(var(--accent)); 
+  }
+  /* If "object" or other type indicators are spans, not links */
+  .dark .swagger-ui .models .model-box span:not(.model-title__name) { /* Exclude model-title__name as it's already styled */
+    color: hsl(var(--foreground)); /* Ensure other spans are also bright */
+  }
+  
+  /* Property details when schema is expanded */
+  .dark .swagger-ui .model .prop .prop-name { /* Property name e.g. "id", "email" */
+     color: hsl(var(--card-foreground));
+  }
+  .dark .swagger-ui .model .prop .prop-type { /* Property type e.g. "string", "boolean" */
+     color: hsl(var(--accent)); /* Use accent for some differentiation */
+  }
+   .dark .swagger-ui .prop-format { /* e.g. (date-time) */
      color: hsl(var(--secondary-foreground));
    }
+
 
   .dark .swagger-ui table thead tr th,
   .dark .swagger-ui table thead tr td {
