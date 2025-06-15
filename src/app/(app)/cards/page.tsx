@@ -61,7 +61,7 @@ export interface PokemonCard {
   setName: string;
   rarity: string;
   type: string; // Primary type
-  imageUrl: string; // Image for list view, prioritizing high-resolution
+  imageUrl: string; // Image for list view, prioritizing high-resolution (large)
   number: string;
   artist: string;
 }
@@ -139,7 +139,7 @@ async function getRarityOptions(): Promise<string[]> {
 }
 
 async function getSetSpecificTypeOptions(setId: string): Promise<string[]> {
-  if (!setId || setId === "All Sets") return ["All Types"];
+  if (!setId || setId === "All Sets") return ["All Types"]; // Should not happen if called correctly
   try {
     const response = await fetch(`${BACKUP_API_FOR_FILTERS_URL}/cards?q=set.id:${setId}&select=types&pageSize=250`);
     if (!response.ok) {
@@ -159,7 +159,7 @@ async function getSetSpecificTypeOptions(setId: string): Promise<string[]> {
 }
 
 async function getSetSpecificRarityOptions(setId: string): Promise<string[]> {
-  if (!setId || setId === "All Sets") return ["All Rarities"];
+  if (!setId || setId === "All Sets") return ["All Rarities"]; // Should not happen
   try {
     const response = await fetch(`${BACKUP_API_FOR_FILTERS_URL}/cards?q=set.id:${setId}&select=rarity&pageSize=250`);
     if (!response.ok) {
