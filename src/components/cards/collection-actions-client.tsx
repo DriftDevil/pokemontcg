@@ -13,14 +13,17 @@ interface CollectionActionsClientProps {
   user: AppUser | null;
 }
 
-interface CollectedCard {
-  cardId: string;
+// This interface should match the structure of objects within the 'data' array
+// returned by /api/user/collection/set/[setId]
+// Based on UserCardDetail struct, the card's ID is 'id'
+interface CollectedCardInSet {
+  id: string; // Changed from cardId to id
   quantity: number;
-  // cardDetails?: any; // Assuming backend might also send full card details
+  // Potentially other fields like name, imageSmall, if your /user/collection/set/{setId} returns them
 }
 
 interface CollectionSetResponse {
-  data?: CollectedCard[];
+  data?: CollectedCardInSet[];
   // other potential fields like totalUniqueItems, totalQuantity
 }
 
@@ -33,21 +36,23 @@ export default function CollectionActionsClient({ cardId, setId, user }: Collect
   const fetchCollectionQuantity = useCallback(async () => {
     if (!user || !setId) {
       setIsFetchingInitial(false);
+      setQuantityInCollection(0); // Ensure it's 0 if no user or setId
       return;
     }
     setIsFetchingInitial(true);
     try {
       const response = await fetch(`/api/user/collection/set/${setId}`, {
         credentials: 'include', // ensure cookies are sent
+        cache: 'no-store', // Ensure fresh data
       });
       if (!response.ok) {
-        // Don't toast error for initial fetch failure, could be common (e.g., no collection yet)
         console.error(`Failed to fetch collection for set ${setId}: ${response.status}`);
         setQuantityInCollection(0);
         return;
       }
       const result: CollectionSetResponse = await response.json();
-      const cardInCollection = result.data?.find(c => c.cardId === cardId);
+      // Ensure result.data is an array before calling find
+      const cardInCollection = Array.isArray(result.data) ? result.data.find(c => c.id === cardId) : undefined;
       setQuantityInCollection(cardInCollection?.quantity || 0);
     } catch (error) {
       console.error("Error fetching collection quantity:", error);
@@ -81,11 +86,12 @@ export default function CollectionActionsClient({ cardId, setId, user }: Collect
       });
 
       if (response.ok) {
-        const newQuantity = action === 'add' ? quantityInCollection + 1 : Math.max(0, quantityInCollection - 1);
-        setQuantityInCollection(newQuantity);
+        // Instead of just incrementing/decrementing, re-fetch the quantity
+        // This ensures consistency if multiple actions happen quickly or if backend logic changes quantity differently
+        await fetchCollectionQuantity(); 
         toast({
           title: `Card ${action === 'add' ? 'Added' : 'Removed'}`,
-          description: `Successfully ${action === 'add' ? 'added 1 copy to' : 'removed 1 copy from'} your collection.`,
+          description: `Successfully updated your collection.`,
         });
       } else {
         const errorData = await response.json().catch(() => ({ message: `Failed to ${action} card.` }));
@@ -104,8 +110,6 @@ export default function CollectionActionsClient({ cardId, setId, user }: Collect
   };
 
   if (!user || !setId) {
-    // Don't render anything if user is not logged in or if the card has no associated set
-    // (collections are per-set)
     return null;
   }
 
@@ -154,3 +158,4 @@ export default function CollectionActionsClient({ cardId, setId, user }: Collect
     </div>
   );
 }
+
