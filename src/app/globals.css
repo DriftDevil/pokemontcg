@@ -150,7 +150,7 @@ h1, h2, h3, h4, h5, h6 {
   .dark .swagger-ui .info .base-url,
   .dark .swagger-ui .info .link,
   .dark .swagger-ui .info a {
-    color: hsl(var(--muted-foreground)); /* Uses the now brighter muted-foreground */
+    color: hsl(var(--foreground)); /* Changed from muted-foreground */
   }
   .dark .swagger-ui .info a:hover {
     color: hsl(var(--primary));
@@ -177,8 +177,8 @@ h1, h2, h3, h4, h5, h6 {
     color: hsl(var(--foreground));
     border-bottom: 1px solid hsl(var(--border));
   }
-   .dark .swagger-ui .opblock-tag small {
-      color: hsl(var(--muted-foreground));
+   .dark .swagger-ui .opblock-tag small { /* Tag description */
+      color: hsl(var(--foreground)); /* Changed from muted-foreground */
    }
 
   .dark .swagger-ui .opblock {
@@ -214,11 +214,14 @@ h1, h2, h3, h4, h5, h6 {
   .dark .swagger-ui .opblock .opblock-section-header h4 {
     color: hsl(var(--foreground)); /* Was muted-foreground, made brighter */
   }
+
+  /* Descriptions for operations, parameters, responses, and schema properties */
   .dark .swagger-ui .opblock-description-wrapper p,
   .dark .swagger-ui .response-col_description__inner p,
   .dark .swagger-ui .parameter__description {
-    color: hsl(var(--muted-foreground)); /* Uses the now brighter muted-foreground */
+    color: hsl(var(--foreground)); /* Changed from muted-foreground */
   }
+
   .dark .swagger-ui .responses-table td,
   .dark .swagger-ui .responses-table th {
     border-color: hsl(var(--border));
@@ -231,7 +234,7 @@ h1, h2, h3, h4, h5, h6 {
   .dark .swagger-ui .models {
     background-color: hsl(var(--card));
     border-color: hsl(var(--border));
-    color: hsl(var(--card-foreground)); /* Ensure text in models section is readable */
+    color: hsl(var(--card-foreground)); /* Ensure general text in models section is readable */
   }
   .dark .swagger-ui .model-container .model-title,
   .dark .swagger-ui .models .model-title,
