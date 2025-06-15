@@ -286,11 +286,11 @@ paths:
       responses:
         "200":
           description: Synced user 
-  /user/add:
+  /user/create:
     post:
-      summary: Add a new user (admin only)
+      summary: Creates a new user (admin only)
       description: >
-        Adds a new user to the system. This endpoint supports both local-auth users
+        Creates a new user to the system. This endpoint supports both local-auth users
         (with a password) and OIDC-only users (without a password). Only admins can access this.
       tags:
         - Users
