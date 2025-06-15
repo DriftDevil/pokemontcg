@@ -224,7 +224,11 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
     const res = await fetch(setCardsUrl);
     if (res.ok) {
       const setData = await res.json();
-      cardsInSet = Array.isArray(setData.data) ? setData.data.map((c: any) => ({ id: c.id, name: c.name, number: c.number })) : [];
+      cardsInSet = Array.isArray(setData.data) ? setData.data.map((c: any) => ({ 
+        id: c.id, 
+        name: c.name, 
+        number: String(c.number || "") // Ensure number is a string, default to "" if null/undefined
+      })) : [];
       
       // Robust natural sorting of cardsInSet by card number
       if (cardsInSet.length > 0) {
