@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
-import { Rocket, BookOpen, Moon, Sun, LayoutDashboard, UserCircle, Layers, CreditCard, LogOut, Loader2, ShoppingBag } from "lucide-react";
+import { Rocket, BookOpen, Moon, Sun, LayoutDashboard, UserCircle, Layers, CreditCard, LogOut, LogIn, Loader2, ShoppingBag } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +19,6 @@ export interface AppUser { // Exporting AppUser
 }
 
 export default function HomePage() {
-  console.log("[HomePage] Component mounted or updated.");
   const [theme, setTheme] = useState("light");
   const [loggedInUser, setLoggedInUser] = useState<AppUser | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
@@ -162,7 +161,7 @@ export default function HomePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">View site analytics and manage content.</p>
+                <p className="text-sm text-muted-foreground">View site analytics, manage users, and more.</p>
               </CardContent>
               <CardFooter>
                 <Button asChild className="w-full"> 
@@ -196,7 +195,7 @@ export default function HomePage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">View and manage your collected Pokémon cards by set.</p>
+              <p className="text-sm text-muted-foreground">View and manage your collected Pokémon cards.</p>
             </CardContent>
             <CardFooter>
               <Button asChild className="w-full"> 
@@ -262,7 +261,7 @@ export default function HomePage() {
     );
   }
 
-  // Guest View (existing content)
+  // Guest View (Not Logged In)
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-background to-secondary/30 p-4 relative">
       <Button
@@ -288,18 +287,18 @@ export default function HomePage() {
         <Card className="shadow-xl hover:shadow-2xl transition-shadow duration-300">
           <CardHeader>
             <CardTitle className="font-headline flex items-center text-2xl">
-              <Rocket className="mr-2 h-6 w-6 text-accent" />
-              Get Started
+              <LogIn className="mr-2 h-6 w-6 text-accent" />
+              Access Your Account
             </CardTitle>
             <CardDescription>
-              Access the admin dashboard to manage data, users, and view API metrics.
+              Login to manage your card collections, view your profile, and access other user features.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p>Login to unlock the full potential of the PokeAPI Admin panel.</p>
+            <p>Unlock the full potential of the PokeAPI portal by signing in.</p>
           </CardContent>
           <CardFooter>
-            <Button asChild className="w-full" size="lg"><Link href="/login">Admin Login</Link></Button>
+            <Button asChild className="w-full" size="lg"><Link href="/login">Login / Sign Up</Link></Button>
           </CardFooter>
         </Card>
 
@@ -307,16 +306,16 @@ export default function HomePage() {
           <CardHeader>
             <CardTitle className="font-headline flex items-center text-2xl">
               <BookOpen className="mr-2 h-6 w-6 text-accent" />
-              Explore API
+              Explore TCG Data
             </CardTitle>
             <CardDescription>
-              Discover available card sets and individual card data through our public endpoints.
+              Discover available Pokémon card sets and individual card data through our public interface.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p>Check out the card sets and card data available via the API.</p>
+            <p>Check out the card sets and card data available for browsing.</p>
           </CardContent>
-          <CardFooter className="flex space-x-4">
+          <CardFooter className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
             <Button asChild variant="outline" className="w-full">
               <Link href="/sets">View Card Sets</Link>
             </Button>
@@ -334,5 +333,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-    
