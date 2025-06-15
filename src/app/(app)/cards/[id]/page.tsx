@@ -8,6 +8,10 @@ import Image from "next/image";
 import Link from "next/link";
 import type { PokemonCard as PokemonCardSummaryBase } from "../page"; 
 import { cn } from "@/lib/utils";
+import CollectionActionsClient from "@/components/cards/collection-actions-client";
+import { cookies } from "next/headers"; // To fetch user session server-side
+import type { AppUser } from "@/app/page"; // Assuming AppUser is defined here
+
 
 // Self-contained definition for card summary aspects for clarity on this page
 interface PokemonCardSummary {
@@ -139,7 +143,7 @@ function mapApiToPokemonCardDetail(apiCard: ApiPokemonCardDetailSource): Pokemon
     flavorText: apiCard.flavorText,
     nationalPokedexNumbers: apiCard.nationalPokedexNumbers,
     setPrintedTotal: apiCard.set?.printedTotal,
-    setOfficialTotal: apiCard.set?.total,
+    setOfficialTotal: apiCard.set?.total, // PokemonTCG.io uses 'total' for official count
     setSeries: apiCard.set?.series,
     setReleaseDate: apiCard.set?.releaseDate,
     setSymbolUrl: apiCard.set?.images?.symbol,
@@ -157,7 +161,6 @@ function naturalSortCompare(aStr: string, bStr: string): number {
     const aPart = aParts[i];
     const bPart = bParts[i];
 
-    // If both parts are numbers, compare them numerically
     if (/\d/.test(aPart) && /\d/.test(bPart)) {
       const aNum = parseInt(aPart, 10);
       const bNum = parseInt(bPart, 10);
@@ -222,12 +225,14 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
     const basePath = `${primaryExternalApiBaseUrl}/v2/sets/${setId}/cards`;
     const orderByParamValue = 'number_int'; 
     const fieldsParamName = 'fields'; 
+    // Use 'limit' for primary API as indicated by user's API structure
     finalSetCardsUrl = `${basePath}?${fieldsParamName}=${fieldsToFetch}&limit=${itemsToRequestForSet}&orderBy=${orderByParamValue}`;
     console.log(`[CardDetailPage - getCardDetailsWithSetContext] Primary API URL for set cards: ${finalSetCardsUrl}`);
   } else {
     const basePath = `${backupExternalApiBaseUrl}/cards`;
     const orderByParamValue = 'number'; 
     const fieldsParamName = 'select'; 
+    // pokemontcg.io uses 'pageSize'
     finalSetCardsUrl = `${basePath}?q=set.id:${setId}&${fieldsParamName}=${fieldsToFetch}&pageSize=${itemsToRequestForSet}&orderBy=${orderByParamValue}`;
     console.log(`[CardDetailPage - getCardDetailsWithSetContext] Backup API URL for set cards: ${finalSetCardsUrl}`);
   }
@@ -239,14 +244,15 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
     if (res.ok) {
       const setData = await res.json();
 
+      // Log if primary API pagination is occurring
       if (primaryExternalApiBaseUrl && finalSetCardsUrl.startsWith(primaryExternalApiBaseUrl) && setData.totalPages && setData.page && setData.totalPages > setData.page) {
-        console.warn(`[CardDetailPage - getCardDetailsWithSetContext] WARNING: The primary API for set '${setId}' returned paginated data (page ${setData.page} of ${setData.totalPages}, total items ${setData.total}). This fetch strategy gets only the first page. 'Next'/'Previous' navigation might be incomplete if total items exceed items on this page (${setData.data?.length || 0}).`);
+        console.warn(`[CardDetailPage - getCardDetailsWithSetContext] WARNING: The primary API for set '${setId}' returned paginated data (page ${setData.page} of ${setData.totalPages}, total items ${setData.total}). Current fetch strategy gets only the first page (limit=${itemsToRequestForSet}). 'Next'/'Previous' navigation might be incomplete if total items for the set exceed ${itemsToRequestForSet}. Consider implementing full pagination for this API call if issues persist.`);
       }
       
       cardsInSet = Array.isArray(setData.data) ? setData.data.map((c: any) => ({ 
         id: c.id, 
         name: c.name, 
-        number: String(c.number || "") 
+        number: String(c.number || "") // Ensure number is a string for sorting
       })) : [];
 
       if (cardsInSet.length > 0) {
@@ -287,6 +293,29 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
   };
 }
 
+// Helper to fetch user session on the server
+async function getUserSession(): Promise<AppUser | null> {
+  const cookieStore = cookies();
+  const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 9002}`;
+  
+  try {
+    const response = await fetch(`${appUrl}/api/auth/user`, {
+      headers: {
+        'Cookie': cookieStore.toString(), // Forward cookies
+      },
+      cache: 'no-store',
+    });
+    if (response.ok) {
+      const user = await response.json();
+      return user && user.id ? user : null;
+    }
+  } catch (error) {
+    console.error("[CardDetailPage - getUserSession] Error fetching user session:", error);
+  }
+  return null;
+}
+
+
 const typeIcons: { [key: string]: React.ElementType } = {
   Fire: Flame,
   Lightning: Zap,
@@ -302,8 +331,9 @@ const typeIcons: { [key: string]: React.ElementType } = {
   Unknown: HelpCircle,
 };
 
-export default async function CardDetailPage({ params }: { params: { id: string } }) {
+export default async function CardDetailPage({ params }: { params: { id:string } }) {
   const cardWithContext = await getCardDetailsWithSetContext(params.id);
+  const user = await getUserSession();
 
   if (!cardWithContext) {
     return (
@@ -409,6 +439,9 @@ export default async function CardDetailPage({ params }: { params: { id: string 
 
             />
           </Card>
+           {card.currentSetId && (
+            <CollectionActionsClient cardId={card.id} setId={card.currentSetId} user={user} />
+           )}
         </div>
         <div className="md:col-span-2">
           <Card className="shadow-lg">
@@ -552,8 +585,7 @@ export default async function CardDetailPage({ params }: { params: { id: string 
                       )}
                       {card.setPrintedTotal && card.setOfficialTotal && card.setOfficialTotal >= card.setPrintedTotal ? (
                         <p className="text-sm text-muted-foreground">
-                          Total: {card.setPrintedTotal}
-                          {card.setOfficialTotal > card.setPrintedTotal && ` (+${card.setOfficialTotal - card.setPrintedTotal} Secret)`}
+                          Total: {card.setPrintedTotal} (+{card.setOfficialTotal - card.setPrintedTotal} Secret)
                         </p>
                       ) : card.setOfficialTotal ? (
                          <p className="text-sm text-muted-foreground">Total Cards: {card.setOfficialTotal}</p>
@@ -577,6 +609,3 @@ export default async function CardDetailPage({ params }: { params: { id: string 
     </>
   );
 }
-        
-
-    

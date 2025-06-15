@@ -5,11 +5,11 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
-import { Rocket, BookOpen, Moon, Sun, LayoutDashboard, UserCircle, Layers, CreditCard, LogOut, Loader2 } from "lucide-react";
+import { Rocket, BookOpen, Moon, Sun, LayoutDashboard, UserCircle, Layers, CreditCard, LogOut, Loader2, ShoppingBag } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
-interface AppUser {
+export interface AppUser { // Exporting AppUser
   id: string;
   name?: string;
   email?: string;
@@ -146,8 +146,8 @@ export default function HomePage() {
         <div className={cn(
           "grid grid-cols-1 gap-6 w-full",
           loggedInUser.isAdmin
-            ? "sm:grid-cols-2 lg:grid-cols-3 max-w-4xl"
-            : "sm:grid-cols-2 max-w-2xl" 
+            ? "sm:grid-cols-2 lg:grid-cols-3 max-w-4xl" // Admin has more options
+            : "sm:grid-cols-2 max-w-3xl" // Regular user might have collections + sets + cards
         )}>
           {loggedInUser.isAdmin && (
             <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
@@ -183,6 +183,25 @@ export default function HomePage() {
               </Button>
             </CardFooter>
           </Card>
+          
+          {/* My Collections Card - Visible to all logged-in users */}
+          <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+            <CardHeader>
+              <CardTitle className="font-headline flex items-center text-xl">
+                <ShoppingBag className="mr-2 h-5 w-5 text-accent" />
+                My Collections
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">View and manage your collected Pokémon cards by set.</p>
+            </CardContent>
+            <CardFooter>
+              <Button asChild className="w-full"> 
+                <Link href="/me/collections">View My Collections</Link>
+              </Button>
+            </CardFooter>
+          </Card>
+
           <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
             <CardHeader>
               <CardTitle className="font-headline flex items-center text-xl">
