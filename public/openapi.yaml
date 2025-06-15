@@ -502,6 +502,20 @@ paths:
                 properties:
                   message:
                     type: string
+  /user/collection/cards:
+    get:
+      summary: Get the authenticated user's card collection
+      tags: [Users]
+      security:
+        - oauth2: [openid]
+        - localAuth: []
+      responses:
+        "200":
+          description: List of cards in the user's collection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserCardsResponse'
   /user/{userID}/cards:
     get:
       summary: Get user’s cards
