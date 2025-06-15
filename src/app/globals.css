@@ -237,24 +237,28 @@ h1, h2, h3, h4, h5, h6 {
     border-color: hsl(var(--border));
   }
 
-  /* Target the clickable box for each schema definition */
-  .dark .swagger-ui .models .model-box {
-    color: hsl(var(--foreground)); /* Default text color for the schema line */
+  /* Brighter text for Schema names and associated links in collapsed view */
+  .dark .swagger-ui .models .model-box .model-title,
+  .dark .swagger-ui .models .model-box .model-title__name {
+    color: hsl(var(--foreground)) !important;
   }
-  /* Schema name specifically */
-  .dark .swagger-ui .models .model-box .model-title .model-title__name {
-    color: hsl(var(--foreground)); /* Explicitly set schema name color */
+  .dark .swagger-ui .models .model-box .model-toggle, /* "Expand all" link */
+  .dark .swagger-ui .models .model-box .model-title a,  /* Any 'a' tag inside model-title, like 'object' if it's a link */
+  .dark .swagger-ui .models .model-box > a { /* Any direct 'a' tag child of model-box */
+    color: hsl(var(--primary)) !important;
   }
-  /* Links within the schema line ("Expand all", "object" if it's a link) */
-  .dark .swagger-ui .models .model-box a {
-    color: hsl(var(--primary)); /* Use bright primary color for links */
+  .dark .swagger-ui .models .model-box .model-toggle:hover,
+  .dark .swagger-ui .models .model-box .model-title a:hover,
+  .dark .swagger-ui .models .model-box > a:hover {
+    color: hsl(var(--accent)) !important;
   }
-  .dark .swagger-ui .models .model-box a:hover {
-    color: hsl(var(--accent)); 
+  /* If 'object' is a span directly in model-title and not model-title_name */
+  .dark .swagger-ui .models .model-box .model-title > span:not(.model-title__name) {
+     color: hsl(var(--primary)) !important; /* Style it like a link */
   }
-  /* If "object" or other type indicators are spans, not links */
-  .dark .swagger-ui .models .model-box span:not(.model-title__name) { /* Exclude model-title__name as it's already styled */
-    color: hsl(var(--foreground)); /* Ensure other spans are also bright */
+  /* Fallback to ensure general text inside the model-box is bright if not caught by specifics */
+  .dark .swagger-ui .models .model-box { /* This makes sure any other text in the line is also bright */
+    color: hsl(var(--foreground));
   }
   
   /* Property details when schema is expanded */
