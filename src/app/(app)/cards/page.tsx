@@ -61,7 +61,7 @@ export interface PokemonCard {
   setName: string;
   rarity: string;
   type: string; // Primary type
-  imageUrl: string; // Image for list view, prioritizing high-resolution (large)
+  imageUrl: string; // Image for list view, prioritizing large image
   number: string;
   artist: string;
 }
@@ -79,6 +79,15 @@ interface SetOption {
   id: string;
   name: string;
 }
+
+// Interface for the details of a single selected set
+interface SelectedSetDetails {
+  id: string;
+  name: string;
+  printedTotal?: number;
+  officialTotal?: number; // This will typically come from `set.total` from API
+}
+
 
 const APP_URL = process.env.APP_URL || "";
 const PRIMARY_EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
@@ -175,6 +184,35 @@ async function getSetSpecificRarityOptions(setId: string): Promise<string[]> {
   } catch (error) {
     console.error(`Error fetching rarities for set ${setId}:`, error);
     return ["All Rarities"]; // Fallback
+  }
+}
+
+async function getSelectedSetDetails(setId: string): Promise<SelectedSetDetails | null> {
+  if (!APP_URL || !setId || setId === "All Sets") {
+    return null;
+  }
+  try {
+    const response = await fetch(`${APP_URL}/api/sets/${setId}`);
+    if (!response.ok) {
+      console.error(`Failed to fetch details for set ${setId} from internal API: ${response.status}`);
+      return null;
+    }
+    const data = await response.json();
+    // The single set endpoint might return data nested under a 'data' key, or directly
+    const setData = data.data || data; 
+    if (!setData || !setData.id) {
+        console.error(`No valid data found for set ${setId} in response:`, data);
+        return null;
+    }
+    return {
+      id: setData.id,
+      name: setData.name,
+      printedTotal: setData.printedTotal,
+      officialTotal: setData.total, // 'total' often means official total from APIs like pokemontcg.io
+    };
+  } catch (error) {
+    console.error(`Error fetching details for set ${setId} from internal API:`, error);
+    return null;
   }
 }
 
@@ -301,7 +339,7 @@ export default async function CardsPage({
   };
 }) {
   const currentSearch = searchParams.search ?? "";
-  const currentSet = searchParams.set ?? "All Sets";
+  const currentSetId = searchParams.set ?? "All Sets";
   const currentType = searchParams.type ?? "All Types";
   const currentRarity = searchParams.rarity ?? "All Rarities";
   const currentPageParam = searchParams.page ?? "1";
@@ -310,28 +348,29 @@ export default async function CardsPage({
 
   const currentFilters = {
     search: currentSearch,
-    set: currentSet,
+    set: currentSetId,
     type: currentType,
     rarity: currentRarity,
   };
   
-  const isSpecificSetSelected = currentSet && currentSet !== "All Sets";
+  const isSpecificSetSelected = currentSetId && currentSetId !== "All Sets";
 
   const [
     { cards, currentPage: apiCurrentPage, totalPages: apiTotalPages, totalCount: apiTotalCount }, 
     setOptionsData, 
     typeOptionsData, 
-    rarityOptionsData
+    rarityOptionsData,
+    selectedSetDetails // New variable to hold fetched set details
   ] = await Promise.all([
     getCards({ ...currentFilters, page: currentPage }),
     getSetOptions(),
-    isSpecificSetSelected ? getSetSpecificTypeOptions(currentSet) : getTypeOptions(),
-    isSpecificSetSelected ? getSetSpecificRarityOptions(currentSet) : getRarityOptions()
+    isSpecificSetSelected ? getSetSpecificTypeOptions(currentSetId) : getTypeOptions(),
+    isSpecificSetSelected ? getSetSpecificRarityOptions(currentSetId) : getRarityOptions(),
+    isSpecificSetSelected ? getSelectedSetDetails(currentSetId) : Promise.resolve(null) // Fetch set details if a specific set is selected
   ]);
 
   const allSetOptions: SetOption[] = Array.from(new Map([{ id: "All Sets", name: "All Sets" }, ...setOptionsData].map(item => [item.id, item])).values());
   
-  // Ensure "All Types" / "All Rarities" are present and list is unique
   const allTypeOptions: string[] = Array.from(new Set(typeOptionsData)).sort((a,b) => {
     if (a === "All Types") return -1;
     if (b === "All Types") return 1;
@@ -365,13 +404,30 @@ export default async function CardsPage({
       />
       <CardFiltersForm
         initialSearch={currentSearch}
-        initialSet={currentSet}
+        initialSet={currentSetId}
         initialType={currentType}
         initialRarity={currentRarity}
         setOptions={allSetOptions}
         typeOptions={allTypeOptions}
         rarityOptions={allRarityOptions}
       />
+
+      {selectedSetDetails && (
+        <div className="mb-6 md:mb-8 text-center md:text-left">
+          <h2 className="font-headline text-3xl md:text-4xl font-bold text-foreground mb-1">
+            {selectedSetDetails.name}
+          </h2>
+          {selectedSetDetails.printedTotal !== undefined && selectedSetDetails.officialTotal !== undefined && (
+            <p className="text-md text-muted-foreground">
+              Total: {selectedSetDetails.printedTotal}
+              {selectedSetDetails.officialTotal > selectedSetDetails.printedTotal &&
+                ` (+${selectedSetDetails.officialTotal - selectedSetDetails.printedTotal} Secret)`}
+              {' '}cards
+            </p>
+          )}
+        </div>
+      )}
+
 
       {cards.length === 0 ? (
         <div className="text-center py-12">
