@@ -116,10 +116,15 @@ export default function MyCollectionsPage() {
               uniqueCardsInSet: 0,
             };
           }
+          
+          const placeholderText = (typeof card.cardName === 'string' && card.cardName.length > 0)
+            ? card.cardName.substring(0,3) 
+            : 'Card';
+
           groupedBySet[setId].cards.push({
             id: card.cardId,
-            name: card.cardName,
-            imageUrl: card.cardImageUrl || `https://placehold.co/96x134.png?text=${card.cardName.substring(0,3)}`,
+            name: card.cardName || 'Unknown Card',
+            imageUrl: card.cardImageUrl || `https://placehold.co/96x134.png?text=${placeholderText}`,
             number: card.cardNumber,
             rarity: card.rarity,
             quantity: card.quantity,
