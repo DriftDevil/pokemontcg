@@ -149,8 +149,8 @@ export default function HomePage() {
         <div className={cn(
           "grid grid-cols-1 gap-6 w-full",
           loggedInUser.isAdmin
-            ? "sm:grid-cols-2 lg:grid-cols-3 max-w-4xl" 
-            : "sm:grid-cols-2 max-w-3xl" 
+            ? "sm:grid-cols-2 lg:grid-cols-3 max-w-4xl"
+            : "sm:grid-cols-2 max-w-3xl"
         )}>
           {loggedInUser.isAdmin && (
             <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
@@ -164,7 +164,7 @@ export default function HomePage() {
                 <p className="text-sm text-muted-foreground">View site analytics, manage users, and more.</p>
               </CardContent>
               <CardFooter>
-                <Button asChild className="w-full"> 
+                <Button asChild className="w-full">
                   <Link href="/admin/dashboard">Go to Dashboard</Link>
                 </Button>
               </CardFooter>
@@ -181,12 +181,12 @@ export default function HomePage() {
               <p className="text-sm text-muted-foreground">View and manage your profile settings.</p>
             </CardContent>
             <CardFooter>
-              <Button asChild className="w-full"> 
+              <Button asChild className="w-full">
                 <Link href="/admin/profile">View Profile</Link>
               </Button>
             </CardFooter>
           </Card>
-          
+
           <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
             <CardHeader>
               <CardTitle className="font-headline flex items-center text-xl">
@@ -198,7 +198,7 @@ export default function HomePage() {
               <p className="text-sm text-muted-foreground">View and manage your collected Pokémon cards.</p>
             </CardContent>
             <CardFooter>
-              <Button asChild className="w-full"> 
+              <Button asChild className="w-full">
                 <Link href="/me/collections">View My Collections</Link>
               </Button>
             </CardFooter>
@@ -215,7 +215,7 @@ export default function HomePage() {
               <p className="text-sm text-muted-foreground">Explore all available Pokémon TCG sets.</p>
             </CardContent>
             <CardFooter>
-              <Button asChild className="w-full"> 
+              <Button asChild className="w-full">
                 <Link href="/sets">Browse Sets</Link>
               </Button>
             </CardFooter>
@@ -254,7 +254,7 @@ export default function HomePage() {
           </Card>
         </div>
          <footer className="mt-12 md:mt-16 text-center text-muted-foreground text-sm">
-          <p>&copy; {new Date().getFullYear()} PokeAPI. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} PokemonTCG. All rights reserved.</p>
           <p>Pokémon and Pokémon character names are trademarks of Nintendo.</p>
         </footer>
       </div>
@@ -276,7 +276,7 @@ export default function HomePage() {
 
       <header className="text-center mb-12 pt-16 sm:pt-0">
         <h1 className="font-headline text-5xl md:text-7xl font-bold text-primary mb-4">
-          PokeAPI Admin
+          PokemonTCG
         </h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
           Your central hub for managing Pokémon TCG data, powered by an intelligent API and intuitive tools.
@@ -295,7 +295,7 @@ export default function HomePage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p>Unlock the full potential of the PokeAPI portal by signing in.</p>
+            <p>Unlock the full potential of the PokemonTCG portal by signing in.</p>
           </CardContent>
           <CardFooter>
             <Button asChild className="w-full" size="lg"><Link href="/login">Login / Sign Up</Link></Button>
@@ -327,9 +327,10 @@ export default function HomePage() {
       </div>
 
       <footer className="mt-16 text-center text-muted-foreground text-sm">
-        <p>&copy; {new Date().getFullYear()} PokeAPI. All rights reserved.</p>
+        <p>&copy; {new Date().getFullYear()} PokemonTCG. All rights reserved.</p>
         <p>Pokémon and Pokémon character names are trademarks of Nintendo.</p>
       </footer>
     </div>
   );
 }
+

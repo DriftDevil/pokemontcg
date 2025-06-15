@@ -52,13 +52,13 @@ function LoginContent() {
         description: decodeURIComponent(error),
         variant: "destructive",
       });
-      router.replace('/login', { scroll: false }); 
+      router.replace('/login', { scroll: false });
     }
   }, [searchParams, router, toast]);
 
   const handleOidcLogin = () => {
     setIsSubmittingOidc(true);
-    window.location.assign("/api/auth/login"); 
+    window.location.assign("/api/auth/login");
   };
 
   const onPasswordSubmit: SubmitHandler<PasswordLoginInputs> = async (data) => {
@@ -75,13 +75,13 @@ function LoginContent() {
 
       if (response.ok && responseData.success) {
         toast({ title: "Login Successful", description: "Redirecting to dashboard..." });
-        router.push('/admin/dashboard'); 
-      } else { 
+        router.push('/admin/dashboard');
+      } else {
         const errorDetails = responseData.details || responseData.message || "Login failed. Please check credentials or contact support.";
-        toast({ 
-          title: "Login Failed", 
-          description: errorDetails, 
-          variant: "destructive" 
+        toast({
+          title: "Login Failed",
+          description: errorDetails,
+          variant: "destructive"
         });
         setIsSubmittingPassword(false);
       }
@@ -93,19 +93,19 @@ function LoginContent() {
 
       let title = "Login Error";
       let description = "An unexpected error occurred. Please try again.";
-      
+
       if (error instanceof TypeError && error.message.toLowerCase().includes('failed to fetch')) {
         title = "Network Connection Error";
         description = "Could not connect to the login service. Please ensure the server is running and check your network connection and server logs.";
       } else if (error && typeof error.message === 'string') {
         description = error.message;
       }
-      
+
       toast({ title, description, variant: "destructive" });
       setIsSubmittingPassword(false);
     }
   };
-  
+
   const isAnyFormSubmitting = isSubmittingOidc || isSubmittingPassword;
 
   return (
@@ -115,9 +115,9 @@ function LoginContent() {
           <div className="mx-auto mb-4">
             <Gem className="h-16 w-16 text-primary" />
           </div>
-          <CardTitle className="font-headline text-3xl">Admin Portal</CardTitle>
+          <CardTitle className="font-headline text-3xl">PokemonTCG Portal</CardTitle>
           <CardDescription>
-            Access the PokeAPI management dashboard.
+            Access the PokemonTCG management dashboard.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -227,3 +227,4 @@ export default function LoginPage() {
     </Suspense>
   );
 }
+

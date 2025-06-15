@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import { Inter, Space_Grotesk } from 'next/font/google';
 import './globals.css';
@@ -16,7 +17,7 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: 'PokeAPI Admin',
+  title: 'PokemonTCG',
   description: 'Manage and explore Pokémon TCG data.',
 };
 
@@ -35,3 +36,4 @@ export default function RootLayout({
     </html>
   );
 }
+

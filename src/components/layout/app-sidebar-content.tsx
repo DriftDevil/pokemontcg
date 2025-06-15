@@ -15,7 +15,7 @@ export interface NavItem {
   icon: React.ElementType;
   segment?: string;
   isAdmin?: boolean;
-  isUser?: boolean; 
+  isUser?: boolean;
   subItems?: NavItem[];
 }
 
@@ -86,7 +86,7 @@ export default function AppSidebarContent({ navItems, isMobile = false, user }: 
             isActive(item) && "bg-sidebar-accent text-sidebar-accent-foreground font-semibold",
             depth > 0 && "pl-8"
           )}
-          onClick={isMobile ? () => document.dispatchEvent(new Event('closeSheet')) : undefined} 
+          onClick={isMobile ? () => document.dispatchEvent(new Event('closeSheet')) : undefined}
         >
           <item.icon className="h-5 w-5" />
           {item.label}
@@ -95,9 +95,9 @@ export default function AppSidebarContent({ navItems, isMobile = false, user }: 
     </li>
     );
   };
-  
+
   const adminNavItems = navItems.filter(item => item.isAdmin);
-  const primaryUserNavItems = navItems.filter(item => item.isUser && item.href !== '/me/collections'); 
+  const primaryUserNavItems = navItems.filter(item => item.isUser && item.href !== '/me/collections');
   const collectionsNavItem = navItems.find(item => item.href === '/me/collections');
 
   const shouldShowAdminSection = currentUserIsAdmin && adminNavItems.length > 0;
@@ -114,23 +114,23 @@ export default function AppSidebarContent({ navItems, isMobile = false, user }: 
       <div className="flex h-16 items-center border-b border-sidebar-border px-4 lg:px-6 shrink-0">
         <Link href="/" className="flex items-center gap-2 font-semibold text-sidebar-primary-foreground">
           <Gem className="h-7 w-7 text-primary" />
-          <span className="font-headline text-xl">PokeAPI</span>
+          <span className="font-headline text-xl">PokemonTCG</span>
         </Link>
       </div>
       <nav className="flex-1 overflow-auto py-4 px-2 text-sm font-medium">
         <ul className="space-y-1">
           {shouldShowAdminSection && adminNavItems.map(item => renderNavItem(item))}
-          
+
           {sepAdminUser && <Separator className="my-2 bg-sidebar-border" />}
 
           {shouldShowCollectionsSection && collectionsNavItem && renderNavItem(collectionsNavItem)}
 
           {sepUserCollections && <Separator className="my-2 bg-sidebar-border" />}
-          
+
           {shouldShowPrimaryUserSection && primaryUserNavItems.map(item => renderNavItem(item))}
         </ul>
       </nav>
-      {isMobile && user && ( 
+      {isMobile && user && (
          <div className="mt-auto p-4 border-t border-sidebar-border">
             <Button variant="ghost" className="w-full justify-start text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent" asChild>
                 <Link href="/admin/profile"><Settings className="mr-2 h-5 w-5" /> Profile & Settings</Link>
@@ -143,3 +143,4 @@ export default function AppSidebarContent({ navItems, isMobile = false, user }: 
     </>
   );
 }
+

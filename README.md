@@ -10,6 +10,7 @@ This is a Next.js application built within Firebase Studio, designed to serve as
 *   **Card Set Browsing**: View a paginated list of Pokémon TCG sets, search for sets, and see set details like release date and total cards.
 *   **Card Browsing & Filtering**: View individual Pokémon cards with detailed information. Users can filter cards by name, set, type, and rarity.
 *   **User Management (Admin)**: (Currently uses mock data) Interface for viewing and managing users, including roles and statuses.
+*   **User Collections**: Logged-in users can create and manage personal collections of cards.
 *   **Authentication**:
     *   OIDC (OpenID Connect) login via Authentik.
     *   Local email/password based login.
@@ -42,11 +43,14 @@ This project is intended to be run within Firebase Studio.
 ## Key Files & Directories
 
 *   `src/app/(app)`: Main application routes, including admin sections and public-facing card/set pages.
+    *   `src/app/(app)/me/collections`: User's personal card collection page.
 *   `src/app/api`: Next.js API routes for handling authentication (OIDC callback, login, logout, user info) and proxying requests to the external API.
+    *   `src/app/api/user/collection`: API routes for managing user card collections.
 *   `src/components`: Reusable React components.
     *   `src/components/ui`: ShadCN UI components.
     *   `src/components/layout`: Components related to the app's layout (header, sidebar).
     *   `src/components/admin`: Components specific to the admin sections.
+    *   `src/components/cards`: Components related to card display and collection management.
 *   `src/lib`: Utility functions, including OIDC client setup (`oidcClient.ts`).
 *   `openapi.yaml`: OpenAPI specification for the backend API, used by the API documentation viewer.
 *   `globals.css`: Global styles and Tailwind CSS theme configuration, including dark mode overrides for Swagger UI.
@@ -75,4 +79,4 @@ This project is intended to be run within Firebase Studio.
     *   `/api/auth/logout` clears local cookies.
     *   If it was an OIDC session, it attempts to redirect to the OIDC provider's end session endpoint.
 
-This README provides a more comprehensive overview of your Pokémon TCG Admin & Viewer application.
+This README provides a more comprehensive overview of your PokemonTCG Admin & Viewer application.
