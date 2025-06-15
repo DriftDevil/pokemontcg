@@ -171,6 +171,7 @@ export default async function CardSetsPage({ searchParams = {} }: { searchParams
                         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         className="object-contain p-2"
                         priority={index < 4} 
+                        quality={100}
                         data-ai-hint="set logo"
                       />
                     ) : (
@@ -179,6 +180,7 @@ export default async function CardSetsPage({ searchParams = {} }: { searchParams
                         alt="Placeholder set logo"
                         width={200}
                         height={80}
+                        quality={100}
                         className="object-contain p-2 opacity-50"
                         data-ai-hint="set logo placeholder"
                       />
@@ -193,6 +195,7 @@ export default async function CardSetsPage({ searchParams = {} }: { searchParams
                               src={set.symbolUrl} 
                               alt={`${set.name} symbol`} 
                               fill
+                              quality={100}
                               className="object-contain" 
                               data-ai-hint="set symbol"
                           />
@@ -202,6 +205,7 @@ export default async function CardSetsPage({ searchParams = {} }: { searchParams
                             alt="Placeholder set symbol"
                             width={24}
                             height={24}
+                            quality={100}
                             className="object-contain opacity-50"
                             data-ai-hint="set symbol placeholder"
                         />
