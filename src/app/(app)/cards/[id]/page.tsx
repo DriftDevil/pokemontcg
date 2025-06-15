@@ -182,15 +182,22 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
   const primaryExternalApiBaseUrl = process.env.EXTERNAL_API_BASE_URL;
   const backupExternalApiBaseUrl = 'https://api.pokemontcg.io/v2';
   let setQueryBaseUrl = '';
+  let orderByParamValue = 'number'; // Default for pokemontcg.io (backup)
 
   if (primaryExternalApiBaseUrl) {
-    setQueryBaseUrl = `${primaryExternalApiBaseUrl}/v2`;
+    setQueryBaseUrl = `${primaryExternalApiBaseUrl}/v2`; // Assumes primary API also has /v2
+    // If using the primary API (and it's the user's custom one based on env var), use number_int
+    orderByParamValue = 'number_int'; 
   } else {
-    setQueryBaseUrl = backupExternalApiBaseUrl; 
+    setQueryBaseUrl = backupExternalApiBaseUrl;
+     // For pokemontcg.io, 'number' is typically sufficient and correct
   }
   
+  const orderByQuery = `orderBy=${orderByParamValue}`;
+
   try {
-    const setCardsUrl = `${setQueryBaseUrl}/cards?q=set.id:${setId}&select=id,name,number&pageSize=250&orderBy=number`;
+    // Construct URL to fetch all cards in the set, sorted by number
+    const setCardsUrl = `${setQueryBaseUrl}/cards?q=set.id:${setId}&select=id,name,number&pageSize=250&${orderByQuery}`;
     console.log(`[CardDetailPage - getCardDetailsWithSetContext] Fetching cards in set URL: ${setCardsUrl}`);
     const res = await fetch(setCardsUrl);
     if (res.ok) {
@@ -201,10 +208,10 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
         number: String(c.number || "") 
       })) : [];
     } else {
-      console.warn(`Failed to fetch cards for set ${setId} from ${setQueryBaseUrl}: ${res.status}`);
+      console.warn(`Failed to fetch cards for set ${setId} from ${setQueryBaseUrl} (using ${orderByQuery}): ${res.status}`);
     }
   } catch (e) {
-    console.warn(`Error fetching cards for set ${setId} from ${setQueryBaseUrl}:`, e);
+    console.warn(`Error fetching cards for set ${setId} from ${setQueryBaseUrl} (using ${orderByQuery}):`, e);
   }
   
   let previousCardId: string | null = null;
@@ -220,7 +227,7 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
         nextCardId = cardsInSet[currentIndex + 1].id;
       }
     } else {
-        console.warn(`Card ${id} not found in its own set ${setId} list. This could be due to data inconsistency or pageSize limit if set is very large.`);
+        console.warn(`Card ${id} not found in its own set ${setId} list after API sort. This could be due to data inconsistency, pageSize limit if set is very large, or API sort issues.`);
     }
   }
 
@@ -511,3 +518,5 @@ export default async function CardDetailPage({ params }: { params: { id: string 
   );
 }
         
+
+    
