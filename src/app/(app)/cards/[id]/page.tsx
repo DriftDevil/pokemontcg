@@ -3,7 +3,7 @@ import PageHeader from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Zap, Flame, Droplet, Leaf, EyeIcon, Brain, ShieldHalf, Palette, Star, Dna, HelpCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Zap, Flame, Droplet, Leaf, EyeIcon, Brain, ShieldHalf, Palette, Star, Dna, HelpCircle, ChevronLeft, ChevronRight, Layers } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import type { PokemonCard as PokemonCardSummaryBase } from "../page"; 
@@ -302,7 +302,16 @@ export default async function CardDetailPage({ params }: { params: { id: string 
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="font-headline text-3xl">{card.name}</CardTitle>
-              <CardDescription>Card Number: {card.number} &bull; Set: {card.setName}</CardDescription>
+              <CardDescription>
+                Card Number: {card.number} &bull; Set:{" "}
+                {card.currentSetId ? (
+                  <Link href={`/cards?set=${encodeURIComponent(card.currentSetId)}`} className="underline hover:text-primary">
+                    {card.setName}
+                  </Link>
+                ) : (
+                  card.setName
+                )}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
@@ -414,3 +423,4 @@ export default async function CardDetailPage({ params }: { params: { id: string 
     </>
   );
 }
+
