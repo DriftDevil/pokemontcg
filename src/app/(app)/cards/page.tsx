@@ -193,7 +193,7 @@ async function getSetSpecificTypeOptions(setId: string): Promise<string[]> {
     return ["All Types", ...uniqueTypes];
   } catch (error) {
     console.error(`[CardsPage - getSetSpecificTypeOptions] Error fetching types for set ${setId}:`, error);
-    return ["All Types"]; 
+    return ["All Types"];
   }
 }
 
@@ -232,7 +232,7 @@ async function getSelectedSetDetails(setId: string): Promise<SelectedSetDetails 
       return null;
     }
     const data = await response.json();
-    const setData = data.data || data; 
+    const setData = data.data || data;
     if (!setData || !setData.id) {
         console.error(`[CardsPage - getSelectedSetDetails] No valid data found for set ${setId} in response from ${fetchUrl}:`, data);
         return null;
@@ -242,12 +242,42 @@ async function getSelectedSetDetails(setId: string): Promise<SelectedSetDetails 
       id: setData.id,
       name: setData.name,
       printedTotal: setData.printedTotal,
-      officialTotal: setData.total, 
+      officialTotal: setData.total,
     };
   } catch (error) {
     console.error(`[CardsPage - getSelectedSetDetails] Error fetching details for set ${setId} from internal API:`, error);
     return null;
   }
+}
+
+// Natural sort comparison function for strings containing numbers
+function naturalSortCompare(aStr: string, bStr: string): number {
+  const re = /(\D+)|(\d+)/g; // Match non-digits or digits
+  const aParts = String(aStr).match(re) || [];
+  const bParts = String(bStr).match(re) || [];
+
+  for (let i = 0; i < Math.min(aParts.length, bParts.length); i++) {
+    const aPart = aParts[i];
+    const bPart = bParts[i];
+
+    // If both parts are numbers, compare them numerically
+    if (/\d/.test(aPart) && /\d/.test(bPart)) {
+      const aNum = parseInt(aPart, 10);
+      const bNum = parseInt(bPart, 10);
+      if (aNum !== bNum) {
+        return aNum - bNum;
+      }
+    } else {
+      // Otherwise, compare them as strings (case-insensitive for stability)
+      const aPartLower = aPart.toLowerCase();
+      const bPartLower = bPart.toLowerCase();
+      if (aPartLower !== bPartLower) {
+        return aPartLower.localeCompare(bPartLower);
+      }
+    }
+  }
+  // If one string is a prefix of the other, the shorter string comes first
+  return aParts.length - bParts.length;
 }
 
 
@@ -275,20 +305,20 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
 
   const currentPage = filters.page || 1;
   queryParams.set('page', currentPage.toString());
-  
+
   const usePrimaryApi = !!PRIMARY_EXTERNAL_API_BASE_URL;
   const pageSizeParamName = usePrimaryApi ? 'limit' : 'pageSize';
   queryParams.set(pageSizeParamName, REQUESTED_PAGE_SIZE.toString());
-  
+
   if (filters.set && filters.set !== "All Sets") {
-    queryParams.set('orderBy', usePrimaryApi ? 'number_int' : 'number'); 
+    queryParams.set('orderBy', usePrimaryApi ? 'number_int' : 'number');
   } else {
-    queryParams.set('orderBy', 'name'); 
+    queryParams.set('orderBy', 'name');
   }
   const queryString = queryParams.toString();
 
   let apiResponse;
-  let fetchUrl = ""; 
+  let fetchUrl = "";
 
   const mapApiCardToPokemonCard = (apiCard: ApiPokemonCardSource): PokemonCard => ({
     id: apiCard.id,
@@ -300,18 +330,24 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     number: apiCard.number || "??",
     artist: apiCard.artist || "N/A",
   });
-  
+
   const defaultReturn: PokemonCardListResult = { cards: [], currentPage: 1, totalPages: 1, totalCount: 0, pageSize: REQUESTED_PAGE_SIZE };
 
   const processResponse = async (response: Response, source: 'Primary' | 'Backup'): Promise<PokemonCardListResult> => {
     if (!response.ok) {
       const errorData = await response.text();
       console.warn(`${source} API (${fetchUrl}) failed: ${response.status}`, errorData);
-      if (source === 'Primary' && PRIMARY_EXTERNAL_API_BASE_URL) return defaultReturn; 
+      if (source === 'Primary' && PRIMARY_EXTERNAL_API_BASE_URL) return defaultReturn;
       throw new Error(`${source} API error: ${response.status}`);
     }
     const responseData = await response.json();
-    const cards = (responseData.data || []).map(mapApiCardToPokemonCard);
+    let cards = (responseData.data || []).map(mapApiCardToPokemonCard);
+
+    // Client-side sorting if a specific set is filtered
+    if (filters.set && filters.set !== "All Sets" && cards.length > 0) {
+      console.log(`[CardsPage - getCards - processResponse] Client-side sorting cards for set ${filters.set} by collector number.`);
+      cards.sort((a, b) => naturalSortCompare(a.number, b.number));
+    }
 
     const apiCurrentPage = responseData.page || 1;
     const apiPageSize = responseData.limit || responseData.pageSize || REQUESTED_PAGE_SIZE;
@@ -325,12 +361,12 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
       } else if (apiCountOnPage > 0 && apiPageSize > 0 && apiCurrentPage === 1 && apiCountOnPage < apiPageSize) {
         apiTotalPages = 1;
       } else if (apiCountOnPage === 0 && apiCurrentPage === 1) {
-        apiTotalPages = 0; 
+        apiTotalPages = 0;
       } else {
-        apiTotalPages = apiCurrentPage; 
+        apiTotalPages = apiCurrentPage;
       }
     }
-    apiTotalPages = Math.max(1, apiTotalPages); 
+    apiTotalPages = Math.max(1, apiTotalPages);
 
     return { cards, currentPage: apiCurrentPage, totalPages: apiTotalPages, totalCount: apiTotalCount, pageSize: apiPageSize };
   };
@@ -342,7 +378,7 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     try {
       apiResponse = await fetch(fetchUrl);
       const result = await processResponse(apiResponse, 'Primary');
-      if (apiResponse.ok) return result; 
+      if (apiResponse.ok) return result;
     } catch (error) {
       console.warn(`[CardsPage - getCards] Failed to fetch or process from Primary API (${fetchUrl}):`, error);
     }
@@ -386,13 +422,13 @@ export default async function CardsPage({
     type: currentType,
     rarity: currentRarity,
   };
-  
+
   const isSpecificSetSelected = currentSetId && currentSetId !== "All Sets";
 
   const [
-    { cards, currentPage: apiCurrentPage, totalPages: apiTotalPages, totalCount: apiTotalCount }, 
-    setOptionsData, 
-    typeOptionsData, 
+    { cards, currentPage: apiCurrentPage, totalPages: apiTotalPages, totalCount: apiTotalCount },
+    setOptionsData,
+    typeOptionsData,
     rarityOptionsData,
     selectedSetDetails
   ] = await Promise.all([
@@ -400,11 +436,11 @@ export default async function CardsPage({
     getSetOptions(),
     isSpecificSetSelected ? getSetSpecificTypeOptions(currentSetId) : getTypeOptions(),
     isSpecificSetSelected ? getSetSpecificRarityOptions(currentSetId) : getRarityOptions(),
-    isSpecificSetSelected ? getSelectedSetDetails(currentSetId) : Promise.resolve(null) 
+    isSpecificSetSelected ? getSelectedSetDetails(currentSetId) : Promise.resolve(null)
   ]);
 
   const allSetOptions: SetOption[] = Array.from(new Map([{ id: "All Sets", name: "All Sets" }, ...setOptionsData].map(item => [item.id, item])).values());
-  
+
   const allTypeOptions: string[] = Array.from(new Set(typeOptionsData)).sort((a,b) => {
     if (a === "All Types") return -1;
     if (b === "All Types") return 1;
@@ -481,7 +517,7 @@ export default async function CardsPage({
               <Card key={card.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 group">
                 <CardHeader className="p-0 relative aspect-[245/342] bg-muted flex items-center justify-center">
                   <Image
-                      src={card.imageUrl} 
+                      src={card.imageUrl}
                       alt={card.name}
                       width={245}
                       height={342}
