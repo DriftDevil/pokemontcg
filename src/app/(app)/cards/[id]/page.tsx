@@ -216,22 +216,20 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
   
   let finalSetCardsUrl;
   const fieldsToFetch = 'id,name,number'; 
-  const itemsToRequestForSet = 250; // Request up to 250 cards, hoping to get all.
+  const itemsToRequestForSet = 250; 
 
   if (primaryExternalApiBaseUrl) {
     const basePath = `${primaryExternalApiBaseUrl}/v2/sets/${setId}/cards`;
     const orderByParamValue = 'number_int'; 
     const fieldsParamName = 'fields'; 
-    // Use 'limit' for primary API as suggested by user's API response structure
     finalSetCardsUrl = `${basePath}?${fieldsParamName}=${fieldsToFetch}&limit=${itemsToRequestForSet}&orderBy=${orderByParamValue}`;
-    console.log(`[CardDetailPage - getCardDetailsWithSetContext] Primary API URL for set cards (using 'limit'): ${finalSetCardsUrl}`);
+    console.log(`[CardDetailPage - getCardDetailsWithSetContext] Primary API URL for set cards: ${finalSetCardsUrl}`);
   } else {
-    // Backup API (pokemontcg.io) uses 'pageSize'
     const basePath = `${backupExternalApiBaseUrl}/cards`;
     const orderByParamValue = 'number'; 
     const fieldsParamName = 'select'; 
     finalSetCardsUrl = `${basePath}?q=set.id:${setId}&${fieldsParamName}=${fieldsToFetch}&pageSize=${itemsToRequestForSet}&orderBy=${orderByParamValue}`;
-    console.log(`[CardDetailPage - getCardDetailsWithSetContext] Backup API URL for set cards (using 'pageSize'): ${finalSetCardsUrl}`);
+    console.log(`[CardDetailPage - getCardDetailsWithSetContext] Backup API URL for set cards: ${finalSetCardsUrl}`);
   }
   
   console.log(`[CardDetailPage - getCardDetailsWithSetContext] Fetching cards in set URL: ${finalSetCardsUrl}`);
@@ -252,6 +250,7 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
       })) : [];
 
       if (cardsInSet.length > 0) {
+        // Client-side sort as a fallback/guarantee
         cardsInSet.sort((a, b) => naturalSortCompare(a.number, b.number));
       }
 
@@ -351,13 +350,19 @@ export default async function CardDetailPage({ params }: { params: { id: string 
 
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-3 border rounded-lg bg-card shadow-sm">
         <div className="flex-1 flex justify-start">
-          {card.currentSetId && (
-            <Button asChild variant="outline" size="sm" disabled={!card.previousCardId}>
-              <Link href={card.previousCardId ? `/cards/${card.previousCardId}` : "#"}>
+          {card.currentSetId ? (
+            card.previousCardId ? (
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/cards/${card.previousCardId}`}>
+                  <ChevronLeft className="mr-2 h-4 w-4" /> Previous
+                </Link>
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" disabled>
                 <ChevronLeft className="mr-2 h-4 w-4" /> Previous
-              </Link>
-            </Button>
-          )}
+              </Button>
+            )
+          ) : null}
         </div>
         
         <div className="flex-shrink-0 text-center">
@@ -372,13 +377,19 @@ export default async function CardDetailPage({ params }: { params: { id: string 
         </div>
 
         <div className="flex-1 flex justify-end">
-           {card.currentSetId && (
-            <Button asChild variant="outline" size="sm" disabled={!card.nextCardId}>
-              <Link href={card.nextCardId ? `/cards/${card.nextCardId}` : "#"}>
+           {card.currentSetId ? (
+            card.nextCardId ? (
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/cards/${card.nextCardId}`}>
+                  Next <ChevronRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" disabled>
                 Next <ChevronRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-          )}
+              </Button>
+            )
+          ) : null}
         </div>
       </div>
 
@@ -569,4 +580,3 @@ export default async function CardDetailPage({ params }: { params: { id: string 
         
 
     
-
