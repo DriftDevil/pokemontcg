@@ -9,9 +9,9 @@ interface AppUser {
   id: string;
   name?: string;
   email?: string;
-  avatarUrl?: string; // Changed from picture to avatarUrl
+  avatarUrl?: string;
   isAdmin?: boolean;
-  authSource: 'oidc' | 'local';
+  authSource: 'oidc' | 'local' | 'mock'; // Added 'mock' for clarity
 }
 
 // Represents the structure of the User object from the external API's /auth/local/me
@@ -23,7 +23,7 @@ interface ExternalApiUser {
     isAdmin?: boolean;
     createdAt?: string;
     lastSeen?: string;
-    avatarUrl?: string; // Added avatarUrl
+    avatarUrl?: string;
 }
 
 // Represents the structure of the response from /auth/local/me which is UserWithAuthSource
@@ -36,6 +36,21 @@ interface ExternalApiUserResponse {
 const EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
 
 export async function GET() {
+  // --- Development Mock Admin User ---
+  if (process.env.NODE_ENV === 'development' && process.env.MOCK_ADMIN_USER === 'true') {
+    console.warn("[API User - GET /api/auth/user] MOCK ADMIN USER ENABLED. Returning mock admin data.");
+    const mockAdminUser: AppUser = {
+      id: 'mock-admin-id-007',
+      name: 'Mock Admin Dev',
+      email: 'mockadmin@develop.ment',
+      avatarUrl: `https://placehold.co/96x96.png?text=MA`,
+      isAdmin: true,
+      authSource: 'mock',
+    };
+    return NextResponse.json(mockAdminUser);
+  }
+  // --- End Development Mock Admin User ---
+
   const cookieStore = cookies();
   
   const receivedCookiesForLog: { [key: string]: string } = {};
@@ -54,14 +69,13 @@ export async function GET() {
     try {
       const idTokenValue = idTokenCookie.value;
       const claims = jose.decodeJwt(idTokenValue);
-      console.log("[API User] OIDC ID token decoded. Relevant claims (sub, name, email, preferred_username, picture, avatarUrl, is_admin, groups):", 
+      console.log("[API User] OIDC ID token decoded. Relevant claims (sub, name, email, preferred_username, avatarUrl, is_admin, groups):", 
         { 
           sub: claims.sub, 
           name: claims.name, 
           email: claims.email,
           preferred_username: claims.preferred_username,
-          picture: claims.picture, // Keep logging original picture claim for reference
-          avatarUrl: claims.avatarUrl || claims.picture, // Use avatarUrl if present, fallback to picture
+          avatarUrl: claims.avatarUrl || claims.picture, 
           is_admin: claims.is_admin,
           groups: claims.groups
         });
@@ -72,7 +86,7 @@ export async function GET() {
           id: claims.sub,
           name: (claims.name as string | undefined) || (claims.preferred_username as string | undefined),
           email: claims.email as string | undefined,
-          avatarUrl: (claims.avatarUrl || claims.picture) as string | undefined, // Use avatarUrl or picture
+          avatarUrl: (claims.avatarUrl || claims.picture) as string | undefined,
           isAdmin: (claims.is_admin === true) || (Array.isArray(claims.groups) && (claims.groups as string[]).includes('admin')),
           authSource: 'oidc',
         };
@@ -85,7 +99,7 @@ export async function GET() {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error(`[API User] Error decoding OIDC ID token: ${errorMessage}. Token snippet: ${idTokenCookie.value.substring(0, 30)}... Clearing OIDC token and falling back if session_token exists.`);
       const errResponse = NextResponse.json(null, { status: 500, statusText: "Error processing OIDC token." });
-      errResponse.cookies.delete('id_token'); // Clear invalid OIDC token
+      errResponse.cookies.delete('id_token');
       // Do not return yet, proceed to check session_token
     }
   } else {
@@ -127,7 +141,6 @@ export async function GET() {
             }
         } catch (parseError) {
             console.error(`[API User] Failed to parse JSON response from ${externalUserUrl}. Status: ${response.status}. Body: ${responseBodyText.substring(0,300)}...`);
-            // Only treat as session invalidation if response was OK but unparseable
             if (response.ok) {
                 const clearCookieResponse = NextResponse.json(null, { status: 502, statusText: "Invalid JSON response from authentication service." });
                 clearCookieResponse.cookies.delete('session_token');
@@ -135,7 +148,6 @@ export async function GET() {
                 console.log("[API User] External API returned OK but unparseable JSON; clearing local session cookies.");
                 return clearCookieResponse;
             }
-            // For non-OK responses with parse errors, fall through to generic error handling
         }
 
         if (!response.ok) {
@@ -164,9 +176,9 @@ export async function GET() {
             id: externalUser.id,
             name: externalUser.name || externalUser.preferredUsername,
             email: externalUser.email,
-            avatarUrl: externalUser.avatarUrl, // Use avatarUrl from external API
+            avatarUrl: externalUser.avatarUrl,
             isAdmin: externalUser.isAdmin,
-            authSource: responseData.authSource || 'local', // Use authSource from response if available
+            authSource: responseData.authSource || 'local',
         };
         console.log("[API User] Local user constructed. Returning user:", user);
         return NextResponse.json(user);
