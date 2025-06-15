@@ -14,22 +14,24 @@ import Image from "next/image";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 
-// Raw structure from your backend's /user/collection/cards
-// Assuming it's a flat list where each card has its set info nested.
+// Interface aligned with the backend UserCardDetail struct's JSON output
+interface BackendSet {
+  id: string;
+  name: string;
+  symbolUrl?: string;
+  series?: string;
+  releaseDate?: string;
+  // Add other fields from your backend Set struct if needed
+}
 interface RawCollectedCard {
-  cardId: string;
-  cardName: string;
-  cardNumber: string; 
-  cardImageUrl: string;
-  rarity?: string;
-  quantity: number;
-  set: {
-    id: string;
-    name: string;
-    symbolUrl?: string;
-    series?: string;
-    releaseDate?: string;
-  };
+  id: string;           // from UserCardDetail.ID json:"id"
+  name: string;         // from UserCardDetail.Name json:"name"
+  number: string;       // from UserCardDetail.Number json:"number"
+  imageSmall?: string;  // from UserCardDetail.SmallImage json:"imageSmall"
+  imageLarge?: string;  // from UserCardDetail.LargeImage json:"imageLarge"
+  rarity?: string | null; // from UserCardDetail.Rarity json:"rarity,omitempty" which is *string
+  quantity: number;     // from UserCardDetail.Quantity json:"quantity"
+  set: BackendSet;      // from UserCardDetail.Set json:"set"
 }
 
 interface UserCollectionApiResponse {
@@ -79,7 +81,7 @@ export default function MyCollectionsPage() {
         });
         const result: UserCollectionApiResponse = await response.json();
 
-        if (!response.ok) { // Handle actual HTTP errors first
+        if (!response.ok) { 
           const errorMsg = result.message || `Failed to fetch collection (HTTP ${response.status})`;
           console.error(`[CollectionsPage] HTTP Error: ${errorMsg}`, result);
           setError(errorMsg);
@@ -88,19 +90,14 @@ export default function MyCollectionsPage() {
           return;
         }
 
-        // Response is OK (2xx status)
-        // Now check the content of result.data
-        // result.data could be null or an empty array for an empty collection
         if (!result.data || !Array.isArray(result.data) || result.data.length === 0) {
           console.log("[CollectionsPage] Collection is empty or data field is null/empty. API response:", result);
-          setCollectedSets([]); // This will trigger the "No Cards Collected Yet" UI
-          // No toast needed here, it's a valid empty state.
+          setCollectedSets([]); 
           return;
         }
         
         const rawCards = result.data;
         
-        // Group cards by set
         const groupedBySet: Record<string, DisplayCollectedSet> = {};
         rawCards.forEach(card => {
           const setId = card.set.id;
@@ -117,16 +114,16 @@ export default function MyCollectionsPage() {
             };
           }
           
-          const placeholderText = (typeof card.cardName === 'string' && card.cardName.length > 0)
-            ? card.cardName.substring(0,3) 
+          const placeholderText = (typeof card.name === 'string' && card.name.length > 0)
+            ? card.name.substring(0,3) 
             : 'Card';
 
           groupedBySet[setId].cards.push({
-            id: card.cardId,
-            name: card.cardName || 'Unknown Card',
-            imageUrl: card.cardImageUrl || `https://placehold.co/96x134.png?text=${placeholderText}`,
-            number: card.cardNumber,
-            rarity: card.rarity,
+            id: card.id, // Use card.id from backend
+            name: card.name || 'Unknown Card', // Use card.name from backend
+            imageUrl: card.imageSmall || card.imageLarge || `https://placehold.co/96x134.png?text=${encodeURIComponent(placeholderText)}`, // Prioritize imageSmall, then imageLarge
+            number: card.number, // Use card.number from backend
+            rarity: card.rarity || undefined, // Handle nullable rarity
             quantity: card.quantity,
           });
           groupedBySet[setId].totalQuantityInSet += card.quantity;
@@ -154,7 +151,7 @@ export default function MyCollectionsPage() {
              setActiveAccordionItems(displaySetsArray.slice(0, 3).map(s => s.id));
         }
 
-      } catch (err) { // Catch for network errors or JSON parsing errors
+      } catch (err) { 
         const errorMsg = err instanceof Error ? err.message : "An unknown error occurred while fetching collection.";
         console.error("[CollectionsPage] Catch block error:", err);
         setError(errorMsg);
@@ -333,4 +330,3 @@ export default function MyCollectionsPage() {
     </>
   );
 }
-
