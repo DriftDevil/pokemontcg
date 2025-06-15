@@ -32,6 +32,7 @@ async function getUserProfile(): Promise<AppUser | null> {
         'Cookie': cookieStore.toString(), 
       },
       cache: 'no-store',
+      credentials: 'include', // Added for consistency, though less critical for server-to-server
     });
 
     if (!response.ok) {
@@ -70,10 +71,12 @@ export default async function ProfilePage() {
   const getAvatarFallbackText = (currentUser: AppUser) => {
     const name = currentUser.name;
     if (name) {
-        return name.split(' ').map(n => n[0]).join('').toUpperCase() || (currentUser.email ? currentUser.email[0].toUpperCase() : 'U');
+        return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0,2) || (currentUser.email ? currentUser.email[0].toUpperCase() : 'U');
     }
     return currentUser.email ? currentUser.email[0].toUpperCase() : 'U';
   }
+  
+  const avatarSrc = user.picture || `https://placehold.co/96x96.png?text=${getAvatarFallbackText(user)}`;
 
   return (
     <>
@@ -83,9 +86,9 @@ export default async function ProfilePage() {
           <CardHeader className="items-center text-center">
             <Avatar className="h-24 w-24 mb-4">
               <AvatarImage 
-                src={user.picture || `https://placehold.co/96x96.png?text=${getAvatarFallbackText(user)}`} 
+                src={avatarSrc} 
                 alt={user.name || 'User Avatar'} 
-                data-ai-hint="user avatar"
+                data-ai-hint={user.picture ? "user avatar" : "user avatar placeholder"}
               />
               <AvatarFallback className="text-3xl">{getAvatarFallbackText(user)}</AvatarFallback>
             </Avatar>

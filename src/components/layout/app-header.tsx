@@ -66,49 +66,38 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
   const pathname = usePathname(); 
 
   const fetchUser = useCallback(async () => {
-    console.log("[AppHeader] fetchUser: Attempting to fetch user session...");
     setIsLoadingSession(true);
     let newUserData: AppUser | null = null;
     try {
       const res = await fetch(`/api/auth/user?t=${Date.now()}`, { 
         cache: 'no-store',
-        credentials: 'include', // Ensure cookies are sent
+        credentials: 'include', 
       });
-      console.log(`[AppHeader] fetchUser: /api/auth/user responded with status: ${res.status}`);
       
       if (res.ok) {
         const data = await res.json();
         if (data && data.id) { 
-          console.log("[AppHeader] fetchUser: User data fetched successfully:", 
-            {id: data.id, name: data.name, email: data.email, isAdmin: data.isAdmin, authSource: data.authSource });
           newUserData = data;
         } else {
-          console.log("[AppHeader] fetchUser: User data received, but it's null or invalid (no ID). User is not logged in.", data);
           newUserData = null;
         }
       } else {
-        const errorBody = await res.text().catch(() => "Could not read error body");
-        console.warn(`[AppHeader] fetchUser: Failed to fetch user. Status: ${res.status}. Body: ${errorBody.substring(0, 300)}`);
         newUserData = null;
       }
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error("[AppHeader] fetchUser: Network or other error fetching user session:", errorMsg);
       newUserData = null;
     } finally {
       setUser(newUserData);
-      // The 'user' variable in the log below is from the closure of the current execution,
-      // not the state that will be active after this update.
+      setIsLoadingSession(false);
       console.log(`[AppHeader] fetchUser: Processing complete. isLoadingSession is now false. User state will update to:`, newUserData);
     }
-  }, []); // Empty dependency array: fetchUser itself doesn't depend on other state/props for its definition
+  }, []); 
 
   useEffect(() => {
     console.log(`[AppHeader] Pathname changed to: ${pathname}. Triggering user fetch.`);
     fetchUser();
   }, [pathname, fetchUser]);
 
-  // This effect logs the actual user state after re-renders
   useEffect(() => {
     console.log("[AppHeader RENDERED] isLoadingSession:", isLoadingSession, "User state is now:", user);
   }, [user, isLoadingSession]);
@@ -119,14 +108,17 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
   };
   
   const getAvatarFallback = () => {
-    if (user?.name) {
+    if (!user) return 'U';
+    if (user.name) {
       return user.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0,2);
     }
-    if (user?.email) {
+    if (user.email) {
       return user.email.charAt(0).toUpperCase();
     }
     return 'U';
   };
+
+  const avatarSrc = user?.picture || `https://placehold.co/40x40.png?text=${getAvatarFallback()}`;
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
@@ -157,9 +149,9 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
                 <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                   <Avatar className="h-9 w-9">
                     <AvatarImage 
-                      src={user.picture || `https://placehold.co/40x40.png?text=${getAvatarFallback()}`} 
+                      src={avatarSrc}
                       alt={user.name || 'User'} 
-                      data-ai-hint="user avatar" 
+                      data-ai-hint={user.picture ? "user avatar" : "user avatar placeholder"}
                     />
                     <AvatarFallback>{getAvatarFallback()}</AvatarFallback>
                   </Avatar>

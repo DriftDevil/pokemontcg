@@ -18,12 +18,12 @@ interface AppUser {
 }
 
 export default function HomePage() {
+  console.log("[HomePage] Component mounted or updated.");
   const [theme, setTheme] = useState("light");
   const [loggedInUser, setLoggedInUser] = useState<AppUser | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
 
   useEffect(() => {
-    console.log("[HomePage] Component mounted or updated.");
     const storedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
     setTheme(storedTheme);
     if (storedTheme === 'dark') {
@@ -78,13 +78,15 @@ export default function HomePage() {
     const nameOrEmail = user.name || user.email;
     if (nameOrEmail) {
       const parts = nameOrEmail.split(' ');
-      if (parts.length > 1) {
+      if (parts.length > 1 && parts[0] && parts[parts.length - 1]) {
         return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
       }
-      return nameOrEmail[0].toUpperCase();
+      if (parts[0]) return parts[0][0].toUpperCase();
     }
     return 'U';
   }
+  
+  const loggedInAvatarSrc = loggedInUser?.picture || `https://placehold.co/96x96.png?text=${getAvatarFallbackText(loggedInUser)}`;
 
   if (isLoadingUser) {
     return (
@@ -121,9 +123,9 @@ export default function HomePage() {
           <div className="flex flex-col items-center gap-4 mb-6">
             <Avatar className="h-24 w-24 border-2 border-primary shadow-lg">
               <AvatarImage 
-                src={loggedInUser.picture || `https://placehold.co/96x96.png`} 
+                src={loggedInAvatarSrc} 
                 alt={loggedInUser.name || "User"} 
-                data-ai-hint="user avatar" 
+                data-ai-hint={loggedInUser.picture ? "user avatar" : "user avatar placeholder"}
               />
               <AvatarFallback className="text-3xl">{getAvatarFallbackText(loggedInUser)}</AvatarFallback>
             </Avatar>
