@@ -14,15 +14,15 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, User, LogOut, Settings, Moon, Sun, LogInIcon } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import React, { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import React, { useState, useEffect } from "react";
 import AppSidebarContent, { type NavItem } from "./app-sidebar-content";
 
 interface AppUser {
   id: string;
   name?: string;
   email?: string;
-  avatarUrl?: string; // Changed from picture
+  avatarUrl?: string; 
   isAdmin?: boolean; 
   authSource?: 'oidc' | 'local'; 
 }
@@ -58,54 +58,21 @@ const useThemeToggle = () => {
 };
 
 
-export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
+export default function AppHeader({ 
+  navItems,
+  user,
+  isLoadingUser
+}: { 
+  navItems: NavItem[];
+  user: AppUser | null;
+  isLoadingUser: boolean;
+}) {
   const router = useRouter();
   const { theme, toggleTheme } = useThemeToggle();
-  const [user, setUser] = useState<AppUser | null>(null);
-  const [isLoadingSession, setIsLoadingSession] = useState(true);
-  const pathname = usePathname(); 
-
-  const fetchUser = useCallback(async () => {
-    setIsLoadingSession(true);
-    let newUserData: AppUser | null = null;
-    try {
-      const res = await fetch(`/api/auth/user?t=${Date.now()}`, { 
-        cache: 'no-store',
-        credentials: 'include', 
-      });
-      console.log(`[AppHeader] /api/auth/user responded with status: ${res.status}`);
-      
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.id) { 
-          newUserData = data;
-          console.log("[AppHeader] User data fetched successfully:", newUserData);
-        } else {
-          newUserData = null;
-          console.log("[AppHeader] User data fetched, but no valid user (e.g., null or no ID):", data);
-        }
-      } else {
-        newUserData = null;
-        console.log(`[AppHeader] Failed to fetch user, status: ${res.status}`);
-      }
-    } catch (error) {
-      newUserData = null;
-      console.error("[AppHeader] Error fetching user session:", error);
-    } finally {
-      setUser(newUserData);
-      setIsLoadingSession(false);
-      console.log(`[AppHeader] fetchUser: Processing complete. isLoadingSession is now false. User state will update to:`, newUserData);
-    }
-  }, []); 
-
+  
   useEffect(() => {
-    console.log(`[AppHeader] Pathname changed to: ${pathname}. Triggering user fetch.`);
-    fetchUser();
-  }, [pathname, fetchUser]);
-
-  useEffect(() => {
-    console.log("[AppHeader RENDERED] isLoadingSession:", isLoadingSession, "User state is now:", user);
-  }, [user, isLoadingSession]);
+    console.log("[AppHeader RENDERED] isLoadingUser:", isLoadingUser, "User state (from props) is now:", user);
+  }, [user, isLoadingUser]);
 
 
   const handleLogout = async () => {
@@ -138,7 +105,7 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="flex flex-col p-0 bg-sidebar text-sidebar-foreground w-72">
-             <AppSidebarContent navItems={navItems} isMobile={true} />
+             <AppSidebarContent navItems={navItems} isMobile={true} user={user} />
           </SheetContent>
         </Sheet>
       </div>
@@ -148,7 +115,7 @@ export default function AppHeader({ navItems }: { navItems: NavItem[] }) {
           <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
             {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
           </Button>
-          {isLoadingSession ? (
+          {isLoadingUser ? (
             <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />
           ) : user && user.id ? ( 
             <DropdownMenu>

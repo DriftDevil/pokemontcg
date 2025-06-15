@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Gem, LayoutDashboard, Users, FileText, BookOpen, Layers, CreditCard, Settings, LogOut } from "lucide-react";
+import { Gem, LayoutDashboard, Users, FileText, Layers, CreditCard, Settings, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -15,27 +15,28 @@ export interface NavItem {
   icon: React.ElementType;
   segment?: string;
   isAdmin?: boolean;
-  isUser?: boolean; // for general user sections
+  isUser?: boolean; 
   subItems?: NavItem[];
 }
 
-const defaultNavItems: NavItem[] = [
-  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard, segment: "dashboard", isAdmin: true },
-  { href: "/admin/api-docs", label: "Swagger Docs", icon: FileText, segment: "api-docs", isAdmin: true },
-  { href: "/admin/users", label: "User Management", icon: Users, segment: "users", isAdmin: true },
-  { href: "/sets", label: "Card Sets", icon: Layers, segment: "sets", isUser: true },
-  { href: "/cards", label: "Cards", icon: CreditCard, segment: "cards", isUser: true },
-];
+interface AppUser {
+  id: string;
+  name?: string;
+  email?: string;
+  avatarUrl?: string;
+  isAdmin?: boolean;
+  authSource?: 'oidc' | 'local';
+}
 
-// Mock admin state, in real app this would come from auth context
-const useIsAdmin = () => {
-    const pathname = usePathname();
-    return pathname.startsWith('/admin');
-};
+interface AppSidebarContentProps {
+  navItems: NavItem[];
+  isMobile?: boolean;
+  user: AppUser | null;
+}
 
-export default function AppSidebarContent({ navItems = defaultNavItems, isMobile = false }: { navItems?: NavItem[], isMobile?: boolean }) {
+export default function AppSidebarContent({ navItems, isMobile = false, user }: AppSidebarContentProps) {
   const pathname = usePathname();
-  const isAdminRoute = useIsAdmin(); // This is a mock, replace with real auth check
+  const currentUserIsAdmin = user?.isAdmin ?? false;
 
   const isActive = (item: NavItem) => {
     if (item.segment) {
@@ -74,7 +75,7 @@ export default function AppSidebarContent({ navItems = defaultNavItems, isMobile
             isActive(item) && "bg-sidebar-accent text-sidebar-accent-foreground font-semibold",
             depth > 0 && "pl-8"
           )}
-          onClick={isMobile ? () => document.dispatchEvent(new Event('closeSheet')) : undefined} // Simple way to close sheet
+          onClick={isMobile ? () => document.dispatchEvent(new Event('closeSheet')) : undefined} 
         >
           <item.icon className="h-5 w-5" />
           {item.label}
@@ -82,6 +83,10 @@ export default function AppSidebarContent({ navItems = defaultNavItems, isMobile
       )}
     </li>
   );
+  
+  const adminNavItems = navItems.filter(item => item.isAdmin && currentUserIsAdmin);
+  const userNavItems = navItems.filter(item => item.isUser);
+  const showSeparator = currentUserIsAdmin && adminNavItems.length > 0 && userNavItems.length > 0;
 
   return (
     <>
@@ -93,18 +98,18 @@ export default function AppSidebarContent({ navItems = defaultNavItems, isMobile
       </div>
       <nav className="flex-1 overflow-auto py-4 px-2 text-sm font-medium">
         <ul className="space-y-1">
-          {navItems.filter(item => item.isAdmin && isAdminRoute).map(item => renderNavItem(item))}
-          {isAdminRoute && <Separator className="my-2 bg-sidebar-border" />}
-          {navItems.filter(item => item.isUser).map(item => renderNavItem(item))}
+          {adminNavItems.map(item => renderNavItem(item))}
+          {showSeparator && <Separator className="my-2 bg-sidebar-border" />}
+          {userNavItems.map(item => renderNavItem(item))}
         </ul>
       </nav>
-      {isMobile && (
+      {isMobile && user && ( 
          <div className="mt-auto p-4 border-t border-sidebar-border">
-            <Button variant="ghost" className="w-full justify-start text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent">
-                <Settings className="mr-2 h-5 w-5" /> Settings
+            <Button variant="ghost" className="w-full justify-start text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent" asChild>
+                <Link href="/admin/profile"><Settings className="mr-2 h-5 w-5" /> Profile & Settings</Link>
             </Button>
-            <Button variant="ghost" className="w-full justify-start text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent">
-                <LogOut className="mr-2 h-5 w-5" /> Logout
+            <Button variant="ghost" className="w-full justify-start text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent" asChild>
+                <Link href="/api/auth/logout"><LogOut className="mr-2 h-5 w-5" /> Logout</Link>
             </Button>
          </div>
       )}
