@@ -215,19 +215,23 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
   const backupExternalApiBaseUrl = 'https://api.pokemontcg.io/v2';
   
   let finalSetCardsUrl;
-  const fieldsToFetch = 'id,name,number'; // Fields needed for CardInSet mapping and sorting
-  const pageSize = 250; // Max cards per set is usually around this
+  const fieldsToFetch = 'id,name,number'; 
+  const itemsToRequestForSet = 250; // Request up to 250 cards, hoping to get all.
 
   if (primaryExternalApiBaseUrl) {
     const basePath = `${primaryExternalApiBaseUrl}/v2/sets/${setId}/cards`;
-    const orderByParamValue = 'number_int'; // User's API specific
-    const fieldsParamName = 'fields'; // User's API specific
-    finalSetCardsUrl = `${basePath}?${fieldsParamName}=${fieldsToFetch}&pageSize=${pageSize}&orderBy=${orderByParamValue}`;
+    const orderByParamValue = 'number_int'; 
+    const fieldsParamName = 'fields'; 
+    // Use 'limit' for primary API as suggested by user's API response structure
+    finalSetCardsUrl = `${basePath}?${fieldsParamName}=${fieldsToFetch}&limit=${itemsToRequestForSet}&orderBy=${orderByParamValue}`;
+    console.log(`[CardDetailPage - getCardDetailsWithSetContext] Primary API URL for set cards (using 'limit'): ${finalSetCardsUrl}`);
   } else {
+    // Backup API (pokemontcg.io) uses 'pageSize'
     const basePath = `${backupExternalApiBaseUrl}/cards`;
-    const orderByParamValue = 'number'; // pokemontcg.io specific
-    const fieldsParamName = 'select'; // pokemontcg.io specific
-    finalSetCardsUrl = `${basePath}?q=set.id:${setId}&${fieldsParamName}=${fieldsToFetch}&pageSize=${pageSize}&orderBy=${orderByParamValue}`;
+    const orderByParamValue = 'number'; 
+    const fieldsParamName = 'select'; 
+    finalSetCardsUrl = `${basePath}?q=set.id:${setId}&${fieldsParamName}=${fieldsToFetch}&pageSize=${itemsToRequestForSet}&orderBy=${orderByParamValue}`;
+    console.log(`[CardDetailPage - getCardDetailsWithSetContext] Backup API URL for set cards (using 'pageSize'): ${finalSetCardsUrl}`);
   }
   
   console.log(`[CardDetailPage - getCardDetailsWithSetContext] Fetching cards in set URL: ${finalSetCardsUrl}`);
@@ -236,14 +240,17 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
     const res = await fetch(finalSetCardsUrl);
     if (res.ok) {
       const setData = await res.json();
-      // Ensure c.number is treated as a string for sorting and CardInSet interface
+
+      if (primaryExternalApiBaseUrl && finalSetCardsUrl.startsWith(primaryExternalApiBaseUrl) && setData.totalPages && setData.page && setData.totalPages > setData.page) {
+        console.warn(`[CardDetailPage - getCardDetailsWithSetContext] WARNING: The primary API for set '${setId}' returned paginated data (page ${setData.page} of ${setData.totalPages}, total items ${setData.total}). This fetch strategy gets only the first page. 'Next'/'Previous' navigation might be incomplete if total items exceed items on this page (${setData.data?.length || 0}).`);
+      }
+      
       cardsInSet = Array.isArray(setData.data) ? setData.data.map((c: any) => ({ 
         id: c.id, 
         name: c.name, 
-        number: String(c.number || "") // Crucial: ensure 'number' is string for naturalSort
+        number: String(c.number || "") 
       })) : [];
 
-      // Perform client-side natural sort on the 'number' field as a final guarantee
       if (cardsInSet.length > 0) {
         cardsInSet.sort((a, b) => naturalSortCompare(a.number, b.number));
       }
@@ -268,7 +275,7 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
         nextCardId = cardsInSet[currentIndex + 1].id;
       }
     } else {
-        console.warn(`Card ${id} not found in its own set ${setId} list after API sort and client sort. This could be due to data inconsistency or pageSize limit if set is very large.`);
+        console.warn(`Card ${id} not found in its own set ${setId} list after API sort and client sort. This could be due to data inconsistency or if the fetch did not retrieve all cards in the set.`);
     }
   }
 
@@ -562,3 +569,4 @@ export default async function CardDetailPage({ params }: { params: { id: string 
         
 
     
+
