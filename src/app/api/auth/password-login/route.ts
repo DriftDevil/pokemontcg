@@ -20,18 +20,18 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { email, password } = await request.json();
+    const { identifier, password } = await request.json();
 
-    if (!email || !password) {
-      return NextResponse.json({ success: false, message: 'Email and password are required.', details: 'Missing credentials in request.' }, { status: 400 });
+    if (!identifier || !password) {
+      return NextResponse.json({ success: false, message: 'Email/Username and password are required.', details: 'Missing credentials in request.' }, { status: 400 });
     }
 
-    console.log(`[API Password Login] Attempting password login for email: ${email} to external API: ${currentExternalApiBaseUrl}/auth/local/login (Password NOT logged)`);
+    console.log(`[API Password Login] Attempting password login for identifier: ${identifier} to external API: ${currentExternalApiBaseUrl}/auth/local/login (Password NOT logged)`);
 
     const apiResponse = await fetch(`${currentExternalApiBaseUrl}/auth/local/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ identifier, password }), // Send identifier to backend
     });
 
     const responseBodyText = await apiResponse.text();
@@ -50,14 +50,14 @@ export async function POST(request: NextRequest) {
         }
       } else if (responseBodyText && responseBodyText.toLowerCase().includes('<html')) {
         errorDetails = `External API returned an HTML page (status ${apiResponse.status}). URL: ${currentExternalApiBaseUrl}/auth/local/login. Check API configuration or if the external API is down.`;
-        console.warn(`[API Password Login] External API returned HTML for email ${email}: ${responseBodyText.substring(0, 200)}...`);
+        console.warn(`[API Password Login] External API returned HTML for identifier ${identifier}: ${responseBodyText.substring(0, 200)}...`);
       } else if (responseBodyText) {
         errorDetails = `External API request failed with status ${apiResponse.status}. Response: ${responseBodyText.substring(0, 500)}`;
       } else {
         errorDetails = `External API request failed with status ${apiResponse.status} and an empty response body. URL: ${currentExternalApiBaseUrl}/auth/local/login.`;
       }
 
-      console.error(`[API Password Login] External API login failed for email ${email}: ${apiResponse.status}`, errorDetails);
+      console.error(`[API Password Login] External API login failed for identifier ${identifier}: ${apiResponse.status}`, errorDetails);
       return NextResponse.json(
         { success: false, message: 'Login failed at external API.', details: errorDetails },
         { status: apiResponse.status }
@@ -69,14 +69,14 @@ export async function POST(request: NextRequest) {
         if (contentType && contentType.includes("application/json")) {
             responseData = JSON.parse(responseBodyText);
         } else {
-            console.error(`[API Password Login] External API success response for email ${email} was not JSON. Content-Type: ${contentType}. Body: ${responseBodyText.substring(0,500)}...`);
+            console.error(`[API Password Login] External API success response for identifier ${identifier} was not JSON. Content-Type: ${contentType}. Body: ${responseBodyText.substring(0,500)}...`);
             return NextResponse.json(
                 { success: false, message: 'Received invalid data format from authentication service despite success status.', details: 'The authentication service responded successfully but the data was not in the expected JSON format.' },
                 { status: 502 }
             );
         }
     } catch (e: any) {
-        console.error(`[API Password Login] Error parsing successful external API response for email ${email} as JSON:`, e.message, `Body: ${responseBodyText.substring(0,500)}...`);
+        console.error(`[API Password Login] Error parsing successful external API response for identifier ${identifier} as JSON:`, e.message, `Body: ${responseBodyText.substring(0,500)}...`);
         return NextResponse.json(
             { success: false, message: 'Failed to parse response from authentication service.', details: 'The authentication service responded successfully but its data could not be processed.' },
             { status: 502 }
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
 
     const token = responseData.accessToken;
     if (!token) {
-      console.error(`[API Password Login] accessToken not found in external API response for email ${email}. Received:`, responseData);
+      console.error(`[API Password Login] accessToken not found in external API response for identifier ${identifier}. Received:`, responseData);
       return NextResponse.json({ success: false, message: 'Authentication service did not provide an accessToken.', details: 'Check server logs for the full response from the authentication service.' }, { status: 500 });
     }
 
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
         console.log(`[API Password Login] APP_URL not set, NODE_ENV is development. Defaulting effectiveAppUrl for session cookie to ${effectiveAppUrl}`);
       } else {
         console.error(`[API Password Login] CRITICAL: APP_URL is not set in a non-development environment (${process.env.NODE_ENV}). Session cookie settings will likely be incorrect, expecting an HTTPS URL. Defaulting to http://localhost:9002 for context, but this requires correction by setting APP_URL.`);
-        effectiveAppUrl = 'http://localhost:9002'; // Fallback that will likely lead to Secure=false
+        effectiveAppUrl = 'http://localhost:9002'; 
       }
     }
     
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
     const response = NextResponse.json({ success: true, message: "Login successful" });
     response.cookies.set(sessionTokenCookie);
 
-    console.log(`[API Password Login] Successfully processed login for ${email}. Returning JSON success response with Set-Cookie header.`);
+    console.log(`[API Password Login] Successfully processed login for ${identifier}. Returning JSON success response with Set-Cookie header.`);
     return response;
 
   } catch (error: any) {
@@ -145,3 +145,4 @@ export async function POST(request: NextRequest) {
   }
 }
     
+

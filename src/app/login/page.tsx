@@ -23,7 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 
 const passwordLoginSchema = z.object({
-  email: z.string().email({ message: "Invalid email address" }),
+  identifier: z.string().min(1, { message: "Email or Username is required" }),
   password: z.string().min(1, { message: "Password is required" }),
 });
 
@@ -67,8 +67,8 @@ function LoginContent() {
       const response = await fetch('/api/auth/password-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-        credentials: 'include', // Ensure cookies are sent if API route expects them
+        body: JSON.stringify(data), // data will contain { identifier, password }
+        credentials: 'include', 
       });
 
       const responseData = await response.json();
@@ -123,18 +123,18 @@ function LoginContent() {
         <CardContent className="space-y-6">
           <form onSubmit={handleSubmit(onPasswordSubmit)} className="space-y-4">
             <div>
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="identifier">Email or Username</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="admin@example.com"
-                {...register("email")}
-                className={errors.email ? "border-destructive" : ""}
+                id="identifier"
+                type="text"
+                placeholder="your.email@example.com or username"
+                {...register("identifier")}
+                className={errors.identifier ? "border-destructive" : ""}
                 disabled={isAnyFormSubmitting}
               />
-              {errors.email && (
+              {errors.identifier && (
                 <p className="text-xs text-destructive mt-1">
-                  {errors.email.message}
+                  {errors.identifier.message}
                 </p>
               )}
             </div>
