@@ -31,8 +31,11 @@ export default function SetReleaseChart({ data, config }: SetReleaseChartProps) 
           <XAxis
             dataKey="year"
             tickLine={false}
-            tickMargin={10}
+            tickMargin={5} // Slightly reduced margin
             axisLine={false}
+            interval="preserveStartEnd" // Allows Recharts to skip labels to prevent overlap
+            // Consider adding minTickGap if labels are still too dense on some views:
+            // minTickGap={10} 
           />
           <YAxis allowDecimals={false} tickMargin={10} axisLine={false} />
           <RechartsTooltip
@@ -46,3 +49,4 @@ export default function SetReleaseChart({ data, config }: SetReleaseChartProps) 
     </ChartContainer>
   );
 }
+
