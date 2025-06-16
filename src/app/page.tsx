@@ -257,7 +257,7 @@ export default function HomePage() {
             <p>Unlock the full potential of the PokemonTCG portal by signing in.</p>
           </CardContent>
           <CardFooter>
-            <Button asChild className="w-full" size="lg"><Link href="/login">Login / Sign Up</Link></Button>
+            <Button asChild className="w-full" size="lg"><Link href="/login">Login</Link></Button>
           </CardFooter>
         </Card>
 
@@ -292,3 +292,4 @@ export default function HomePage() {
     </div>
   );
 }
+
