@@ -35,7 +35,7 @@ function getTokenFromRequest(request: NextRequest): string | undefined {
     console.log(`[API ${request.nextUrl.pathname}] Token found in Authorization header.`);
     return authHeader.substring(7); // Remove "Bearer "
   }
-  console.log(`[API ${request.nextUrl.pathname}] Token NOT found in Authorization header. All headers:`, JSON.stringify(Object.fromEntries(request.headers.entries())));
+  // console.log(`[API ${request.nextUrl.pathname}] Token NOT found in Authorization header. All headers:`, JSON.stringify(Object.fromEntries(request.headers.entries())));
 
 
   try {
@@ -45,7 +45,7 @@ function getTokenFromRequest(request: NextRequest): string | undefined {
       console.log(`[API ${request.nextUrl.pathname}] Token found in session_token cookie as fallback.`);
       return tokenFromCookie;
     }
-    console.log(`[API ${request.nextUrl.pathname}] Token NOT found in session_token cookie as fallback. All request cookies:`, JSON.stringify(cookieStore.getAll()));
+    // console.log(`[API ${request.nextUrl.pathname}] Token NOT found in session_token cookie as fallback. All request cookies:`, JSON.stringify(cookieStore.getAll()));
   } catch (e) {
     console.warn(`[API ${request.nextUrl.pathname}] Error accessing cookies using next/headers.cookies() for fallback:`, e);
   }
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
   }
   // --- End Development Mock Users ---
 
-  console.log(`[API ${request.nextUrl.pathname}] GET request received. URL: ${request.url}`);
+  // console.log(`[API ${request.nextUrl.pathname}] GET request received. URL: ${request.url}`);
 
   if (!EXTERNAL_API_BASE_URL) {
     console.error(`[API ${request.nextUrl.pathname}] External API base URL not configured.`);
@@ -75,13 +75,16 @@ export async function GET(request: NextRequest) {
 
   const tokenToForward = getTokenFromRequest(request);
   
-  if (!tokenToForward) {
-    console.warn(`[API ${request.nextUrl.pathname}] No token found for request. Responding with 401.`);
+  // Enhanced logging for the token
+  if (tokenToForward) {
+    console.log(`[API ${request.nextUrl.pathname}] Token to forward to external API (first 15 chars): ${tokenToForward.substring(0, 15)}...`);
+  } else {
+    console.warn(`[API ${request.nextUrl.pathname}] No token found to forward. Responding with 401.`);
     return NextResponse.json({ error: 'Unauthorized. No token provided.' }, { status: 401 });
   }
 
   const externalUrl = `${EXTERNAL_API_BASE_URL}/user/admin/all`;
-  console.log(`[API ${request.nextUrl.pathname}] Forwarding request to external API: ${externalUrl} with token.`);
+  // console.log(`[API ${request.nextUrl.pathname}] Forwarding request to external API: ${externalUrl} with token.`);
   
   try {
     const response = await fetch(externalUrl, {
@@ -105,4 +108,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch data from external API', details: error.message }, { status: 500 });
   }
 }
-
