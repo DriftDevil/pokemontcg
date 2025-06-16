@@ -1,0 +1,1370 @@
+openapi: 3.0.3
+info:
+  title: Pokémon TCG API
+  version: v2
+  description: |-
+    An API for accessing Pokémon Trading Card Game data, including cards and sets.
+    This specification details the v2 version of the API.
+    It supports filtering, pagination, and ordering for most endpoints.
+    Authentication is required for user-specific and administrative actions.
+  contact:
+    name: API Support
+    email: support@example.com # Replace with actual support email
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: '{protocol}://{hostname}/v2' # Default for public card/set data
+    variables:
+      protocol:
+        default: https
+        enum: [http, https]
+      hostname:
+        default: api.pokemontcg.io # Default backup public API
+        description: The hostname of the Pokémon TCG API.
+  - url: '{protocol}://{hostname}' # For auth and user-specific routes
+    variables:
+      protocol:
+        default: http # Assume local dev default
+        enum: [http, https]
+      hostname:
+        default: localhost:8080 # Default for local backend dev
+        description: The hostname for auth and user management.
+
+components:
+  schemas:
+    Set:
+      type: object
+      required:
+        - id
+        - name
+        - releaseDate
+        - total # Official total cards in the set
+      properties:
+        id:
+          type: string
+          description: The unique identifier for the set.
+          example: sv3pt5
+        name:
+          type: string
+          description: The name of the set.
+          example: 151
+        series:
+          type: string
+          description: The series the set belongs to.
+          example: Scarlet & Violet
+        printedTotal:
+          type: integer
+          format: int32
+          description: The number of cards officially printed in the set (excluding secret rares for some definitions).
+          example: 165
+        total:
+          type: integer
+          format: int32
+          description: The official total number of cards in the set, typically including secret rares.
+          example: 207
+        legalities:
+          $ref: '#/components/schemas/Legalities'
+        ptcgoCode:
+          type: string
+          description: The code used for this set in Pokémon TCG Online.
+          example: MEW
+        releaseDate:
+          type: string
+          format: date
+          description: The date the set was released.
+          example: "2023-09-22"
+        updatedAt:
+          type: string
+          format: date-time # Changed from date to date-time for more precision
+          description: The date and time the set was last updated in the API.
+          example: "2024-05-01T12:00:00Z"
+        images:
+          type: object
+          properties:
+            symbol:
+              type: string
+              format: url
+              description: URL to an image of the set's symbol.
+              example: https://images.pokemontcg.io/sv3pt5/symbol.png
+            logo:
+              type: string
+              format: url
+              description: URL to an image of the set's logo.
+              example: https://images.pokemontcg.io/sv3pt5/logo.png
+      description: Represents a Pokémon TCG card set.
+
+    Card:
+      type: object
+      required:
+        - id
+        - name
+        - number # Collector number
+        - set
+      properties:
+        id:
+          type: string
+          description: The unique identifier for the card.
+          example: sv3pt5-1
+        name:
+          type: string
+          description: The name of the Pokémon or card.
+          example: Bulbasaur
+        supertype:
+          type: string
+          description: The supertype of the card (e.g., Pokémon, Trainer, Energy).
+          example: Pokémon
+        subtypes:
+          type: array
+          items:
+            type: string
+          description: A list of subtypes (e.g., Basic, Stage 1, Item, Supporter).
+          example: ["Basic"]
+        level:
+          type: string
+          description: The level of the Pokémon, if applicable. (Note: Often not present on modern cards)
+          example: "12"
+        hp:
+          type: string
+          description: The Hit Points of the Pokémon.
+          example: "70"
+        types:
+          type: array
+          items:
+            type: string
+          description: The energy types of the Pokémon (e.g., Grass, Fire, Water).
+          example: ["Grass"]
+        evolvesFrom:
+          type: string
+          description: The name of the Pokémon this card evolves from.
+          example: ""
+        evolvesTo:
+          type: array
+          items:
+            type: string
+          description: Names of Pokémon this card can evolve into.
+          example: ["Ivysaur"]
+        abilities:
+          type: array
+          items:
+            $ref: '#/components/schemas/Ability'
+          description: A list of abilities the Pokémon has.
+        attacks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attack'
+          description: A list of attacks the Pokémon has.
+        weaknesses:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeaknessResistance'
+          description: A list of weaknesses.
+        resistances:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeaknessResistance'
+          description: A list of resistances.
+        retreatCost:
+          type: array
+          items:
+            type: string
+          description: The energy cost to retreat this Pokémon.
+          example: ["Colorless", "Colorless"]
+        convertedRetreatCost:
+          type: integer
+          format: int32
+          description: The numeric converted retreat cost.
+          example: 2
+        set:
+          $ref: '#/components/schemas/Set' # Reference to the Set object
+        number:
+          type: string
+          description: The collector number of the card within its set (e.g., "1", "RC1").
+          example: "1"
+        numberInt:
+          type: integer
+          format: int32
+          description: The collector number as an integer, used for sorting. Secret rares or special numbering might affect this.
+          example: 1
+        artist:
+          type: string
+          description: The artist who illustrated the card.
+          example: Yuka Morii
+        rarity:
+          type: string
+          description: The rarity of the card (e.g., Common, Uncommon, Rare, Holo Rare).
+          example: Common
+        flavorText:
+          type: string
+          description: The flavor text on the card.
+          example: "For some time after its birth, it grows by gaining nourishment from the seed on its back."
+        nationalPokedexNumbers:
+          type: array
+          items:
+            type: integer
+            format: int32
+          description: The National Pokédex numbers for this Pokémon.
+          example: [1]
+        legalities:
+          $ref: '#/components/schemas/Legalities'
+        regulationMark:
+          type: string
+          description: The regulation mark on the card, if any.
+          example: "G"
+        images:
+          type: object
+          properties:
+            small:
+              type: string
+              format: url
+              description: URL to a small image of the card.
+              example: https://images.pokemontcg.io/sv3pt5/1.png
+            large:
+              type: string
+              format: url
+              description: URL to a large image of the card.
+              example: https://images.pokemontcg.io/sv3pt5/1_hires.png
+        tcgplayer:
+          $ref: '#/components/schemas/TCGPlayerPricing'
+        cardmarket:
+          $ref: '#/components/schemas/CardmarketPricing'
+        apiUpdatedAt: # New field for when this card was last updated by the API
+          type: string
+          format: date-time
+          description: The timestamp of when this card's data was last updated from the external API.
+          example: "2024-05-15T10:30:00Z"
+      description: Represents a Pokémon TCG card with detailed information.
+
+    Ability:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the ability.
+          example: "Solid Root"
+        text:
+          type: string
+          description: The text description of the ability.
+          example: "This Pokémon's Retreat Cost is Colorless Colorless less."
+        type: # This 'type' refers to the kind of ability (e.g., Poké-Power, Poké-Body, Ability)
+          type: string
+          description: The type of ability (e.g., Ability, Poké-Power).
+          example: Ability
+
+    Attack:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the attack.
+          example: "Razor Leaf"
+        cost:
+          type: array
+          items:
+            type: string
+          description: The energy cost of the attack.
+          example: ["Grass", "Colorless"]
+        convertedEnergyCost:
+          type: integer
+          format: int32
+          description: The numeric converted energy cost.
+          example: 2
+        damage:
+          type: string
+          description: The damage dealt by the attack.
+          example: "20"
+        text:
+          type: string
+          description: The text description of the attack.
+          example: "Flip a coin. If heads, this attack does 20 more damage."
+
+    WeaknessResistance:
+      type: object
+      properties:
+        type:
+          type: string
+          description: The energy type of the weakness or resistance.
+          example: Fire
+        value:
+          type: string
+          description: The value of the weakness or resistance (e.g., "×2", "-30").
+          example: "×2"
+
+    Legalities:
+      type: object
+      properties:
+        standard:
+          type: string
+          enum: [Legal, Banned, Not Legal]
+          description: Standard format legality.
+        expanded:
+          type: string
+          enum: [Legal, Banned, Not Legal]
+          description: Expanded format legality.
+        unlimited: # Some APIs use 'unlimited', some use 'legacy'
+          type: string
+          enum: [Legal, Banned, Not Legal]
+          description: Unlimited/Legacy format legality.
+      example:
+        standard: Legal
+        expanded: Legal
+        unlimited: Legal
+      description: Legality information for different Pokémon TCG formats.
+
+    TCGPlayerPricing:
+      type: object
+      description: Pricing information from TCGPlayer.
+      properties:
+        url:
+          type: string
+          format: url
+          description: URL to the TCGPlayer page for this card.
+        updatedAt:
+          type: string
+          format: date
+          description: Date the pricing was last updated.
+        prices:
+          type: object
+          additionalProperties: # Allows for various price types (normal, holofoil, reverseHolofoil, etc.)
+            $ref: '#/components/schemas/PriceDetails'
+      example:
+        url: "https://prices.pokemontcg.io/tcgplayer/sv3pt5-1"
+        updatedAt: "2023-10-25"
+        prices:
+          normal:
+            low: 0.05
+            mid: 0.15
+            high: 1.00
+            market: 0.12
+            directLow: null # Can be null if no direct price
+          holofoil: # Example, may not apply to all cards
+            low: 0.50
+            mid: 1.25
+            high: 5.00
+            market: 1.15
+            directLow: 1.05
+
+    CardmarketPricing:
+      type: object
+      description: Pricing information from Cardmarket.
+      properties:
+        url:
+          type: string
+          format: url
+          description: URL to the Cardmarket page for this card.
+        updatedAt:
+          type: string
+          format: date
+          description: Date the pricing was last updated.
+        prices:
+          type: object
+          properties:
+            averageSellPrice:
+              type: number
+              format: float
+            lowPrice:
+              type: number
+              format: float
+            trendPrice:
+              type: number
+              format: float
+            # Add other specific Cardmarket price fields as needed
+      example:
+        url: "https://www.cardmarket.com/en/Pokemon/Products/Singles/151/Bulbasaur-VMAX" # Example URL
+        updatedAt: "2023-10-25"
+        prices:
+          averageSellPrice: 0.10
+          lowPrice: 0.02
+          trendPrice: 0.09
+
+    PriceDetails:
+      type: object
+      description: Detailed price points for a specific card variant.
+      properties:
+        low:
+          type: number
+          format: float
+          nullable: true
+        mid:
+          type: number
+          format: float
+          nullable: true
+        high:
+          type: number
+          format: float
+          nullable: true
+        market:
+          type: number
+          format: float
+          nullable: true
+        directLow:
+          type: number
+          format: float
+          nullable: true
+
+    PaginatedSetsResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Set'
+        page:
+          type: integer
+          format: int32
+        limit: # Changed from pageSize to limit to match primary API
+          type: integer
+          format: int32
+        count: # Number of items on the current page
+          type: integer
+          format: int32
+        total: # Total number of items matching query
+          type: integer
+          format: int32
+        totalPages: # New: Total pages available
+            type: integer
+            format: int32
+
+    PaginatedCardsResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Card'
+        page:
+          type: integer
+          format: int32
+        limit: # Changed from pageSize to limit
+          type: integer
+          format: int32
+        count:
+          type: integer
+          format: int32
+        total: # Total number of items matching query
+          type: integer
+          format: int32
+        totalPages: # New: Total pages available
+            type: integer
+            format: int32
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: integer
+              format: int32
+            message:
+              type: string
+      example:
+        error:
+          code: 404
+          message: "Set with ID 'invalid-set' not found."
+
+    # --- User and Auth Schemas ---
+    User:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          format: uuid # Assuming UUID for user IDs
+          description: Unique identifier for the user.
+        email:
+          type: string
+          format: email
+          description: User's email address (unique).
+        name:
+          type: string
+          description: User's full name or display name.
+          nullable: true
+        preferredUsername:
+          type: string
+          description: User's preferred username (e.g. from OIDC).
+          nullable: true
+        isAdmin:
+          type: boolean
+          description: Indicates if the user has administrative privileges.
+          default: false
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp of when the user account was created.
+          readOnly: true
+        lastSeen:
+          type: string
+          format: date-time
+          description: Timestamp of when the user was last active.
+          readOnly: true
+        avatarUrl:
+          type: string
+          format: url
+          description: URL to the user's avatar image.
+          nullable: true
+      example:
+        id: "eda0e052-b5b0-473d-ad16-ad52dd0bc491"
+        email: "admin@example.com"
+        name: "Administrator"
+        preferredUsername: "admin"
+        isAdmin: true
+        createdAt: "2024-01-01T10:00:00Z"
+        lastSeen: "2024-06-10T14:30:00Z"
+        avatarUrl: "https://example.com/avatars/admin.png"
+
+    UserWithAuthSource:
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          properties:
+            authSource:
+              type: string
+              enum: [local, oidc]
+              description: The source of authentication for this user session.
+              example: local
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          # minLength: 8 # Consider adding if backend enforces it
+
+    LoginResponse:
+      type: object
+      properties:
+        accessToken: # Assuming 'accessToken' matches Go backend
+          type: string
+          description: JWT access token for the authenticated session.
+        # Potentially other fields like refreshToken, expiresIn, user details
+        # For simplicity, only accessToken is shown here.
+
+    PasswordChangeRequest:
+      type: object
+      required:
+        - currentPassword
+        - newPassword
+      properties:
+        currentPassword:
+          type: string
+          format: password
+        newPassword:
+          type: string
+          format: password
+          # minLength: 8
+
+    AddUserRequest: # For admin creating a new user
+      type: object
+      required:
+        - email
+        - password
+        - name # Added name as required
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          # minLength: 8
+        name:
+          type: string
+          description: Full name of the new user.
+        preferredUsername:
+          type: string
+          description: Optional preferred username.
+          nullable: true
+        isAdmin:
+          type: boolean
+          default: false
+          description: Whether to grant admin privileges to the new user.
+        # avatarUrl: (Consider if admin can set this on creation)
+
+    UserListResponse: # For admin fetching all users
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        total:
+          type: integer
+          format: int32
+          description: Total number of users in the system.
+
+    UserCard: # Represents a card in a user's collection, with quantity
+      type: object
+      required:
+        - cardId
+        - quantity
+      properties:
+        cardId:
+          type: string
+          description: The ID of the Pokémon card.
+          example: sv3pt5-1
+        quantity:
+          type: integer
+          format: int32
+          description: The quantity of this card in the user's collection.
+          minimum: 1
+        # Optionally, include some basic card details if returned by backend:
+        # name:
+        #   type: string
+        # imageUrlSmall:
+        #   type: string
+        #   format: url
+        # set:
+        #   type: object
+        #   properties:
+        #     id: string
+        #     name: string
+
+    UserCardDetail: # Full card details as stored in user's collection context (includes quantity & set)
+      type: object
+      properties:
+        id:
+          type: string
+          description: The ID of the Pokémon card from the main cards table.
+        name:
+          type: string
+        supertype:
+          type: string
+        subtypes:
+          type: array
+          items: { type: string }
+        types:
+          type: array
+          items: { type: string }
+        level:
+          type: string
+          nullable: true
+        hp:
+          type: string
+          nullable: true
+        evolvesFrom:
+          type: string
+          nullable: true
+        evolvesTo:
+          type: array
+          items: { type: string }
+          nullable: true
+        rarity:
+          type: string
+          nullable: true
+        artist:
+          type: string
+          nullable: true
+        number:
+          type: string
+        flavorText:
+          type: string
+          nullable: true
+        imageSmall:
+          type: string
+          format: url
+          nullable: true
+        imageLarge:
+          type: string
+          format: url
+          nullable: true
+        apiUpdatedAt: # When the card's base data was last synced from external API
+          type: string
+          format: date-time
+          nullable: true
+        quantity:
+          type: integer
+          format: int32
+          description: How many of this card the user has in their collection.
+        set:
+          $ref: '#/components/schemas/SetSummaryForCollection' # References a simplified set object for collection context
+
+    SetSummaryForCollection: # Simplified Set info for UserCardDetail
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        series:
+          type: string
+          nullable: true
+        releaseDate:
+          type: string
+          format: date
+          nullable: true
+        symbolUrl:
+          type: string
+          format: url
+          nullable: true
+        # No need for printedTotal/total here unless specifically displayed in collection item
+
+    UserCollectionResponse: # Response for /user/me/collection/cards
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserCardDetail'
+        totalUniqueCards:
+          type: integer
+          format: int32
+          description: Total number of unique cards in the collection.
+        totalCards:
+          type: integer
+          format: int32
+          description: Total quantity of all cards in the collection.
+
+    UserSetCollectionResponse: # Response for /user/me/collection/set/{setID}
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserCardDetail' # Each item now has full card detail + quantity
+        setDetails: # Optional: if backend also returns details of the set itself
+            $ref: '#/components/schemas/Set'
+        totalUniqueCardsInSet:
+          type: integer
+          format: int32
+        totalQuantityInSet:
+          type: integer
+          format: int32
+
+    AddRemoveCardsRequest:
+      type: object
+      required:
+        - cardIds
+      properties:
+        cardIds:
+          type: array
+          items:
+            type: string
+          description: An array of card IDs to add or remove.
+          minItems: 1
+          example: ["sv3pt5-1", "sv3pt5-25"]
+
+    APIUsageStats:
+      type: object
+      properties:
+        requestCountLast24h:
+          type: integer
+          format: int32
+          description: Total number of API requests made in the last 24 hours.
+        # Add other relevant metrics from your /usage endpoint
+        # Example:
+        # uniqueUsersLast24h:
+        #   type: integer
+        # errorRate:
+        #   type: number
+        #   format: float
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "JWT Authentication token. Example: Bearer {token}"
+
+  parameters:
+    SetID:
+      name: setID
+      in: path
+      required: true
+      description: ID of the set to retrieve.
+      schema:
+        type: string
+      example: sv3pt5
+    CardID:
+      name: cardID
+      in: path
+      required: true
+      description: ID of the card to retrieve.
+      schema:
+        type: string
+      example: sv3pt5-1
+    UserIDPath: # Renamed for clarity
+      name: id # Matches Go backend's /user/admin/remove/{id}
+      in: path
+      required: true
+      description: Unique ID of the user.
+      schema:
+        type: string
+        format: uuid
+      example: "eda0e052-b5b0-473d-ad16-ad52dd0bc491"
+    PageParam:
+      name: page
+      in: query
+      description: Page number for pagination.
+      required: false
+      schema:
+        type: integer
+        format: int32
+        default: 1
+        minimum: 1
+    LimitParam: # Changed from PageSize to Limit
+      name: limit
+      in: query
+      description: Number of items per page.
+      required: false
+      schema:
+        type: integer
+        format: int32
+        default: 20 # Adjust default as per API
+        minimum: 1
+        maximum: 250 # Adjust max as per API
+    QueryParam:
+      name: q
+      in: query
+      description: |-
+        Search query string.
+        Format: `field1:value1 field2:value2*`. Wildcard `*` supported for string fields.
+        Available fields for Card: `name`, `supertype`, `subtypes`, `types`, `rarity`, `artist`, `set.id`, `evolvesFrom`, `hp` (e.g. `hp:>=100`), `number` (collector number string), `nationalPokedexNumbers`.
+        Available fields for Set: `name`, `series`, `id`, `ptcgoCode`.
+        Example for cards: `name:Pikachu* types:Lightning rarity:"Holo Rare"`
+        Example for sets: `name:Origins* series:"XY"`
+      required: false
+      schema:
+        type: string
+    OrderByParam:
+      name: orderBy
+      in: query
+      description: |-
+        Field to sort by. Prefix with `-` for descending order.
+        Default sort order varies by endpoint (e.g., sets by -releaseDate, cards by name or set number).
+        Available fields for Card: `name`, `number_int` (numeric collector number), `set.releaseDate`, `rarity`, `hp` (as string, careful with sorting), `supertype`.
+        Available fields for Set: `name`, `releaseDate`, `total` (total cards).
+        Example: `-releaseDate,name` (sort by newest release, then by name ascending)
+      required: false
+      schema:
+        type: string
+    SelectParam:
+      name: select
+      in: query
+      description: |-
+        Comma-separated list of fields to include in the response.
+        Reduces response size by only returning specified fields.
+        Example: `id,name,images.small`
+      required: false
+      schema:
+        type: string
+    AllParam: # Parameter to fetch all items, bypassing pagination (use with caution)
+      name: all
+      in: query
+      description: If true, returns all items matching the query, bypassing pagination. Use with caution for large datasets.
+      required: false
+      schema:
+        type: boolean
+        default: false
+
+paths:
+  /sets:
+    get:
+      summary: List Card Sets
+      description: Retrieves a paginated list of Pokémon TCG sets. Supports filtering and sorting.
+      operationId: listSets
+      tags: [Sets]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/QueryParam' # For searching sets
+        - $ref: '#/components/parameters/OrderByParam' # For sorting sets
+        - $ref: '#/components/parameters/SelectParam' # For field selection
+        - $ref: '#/components/parameters/AllParam'
+      responses:
+        '200':
+          description: A paginated list of sets.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSetsResponse'
+        default:
+          description: Unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sets/{setID}:
+    get:
+      summary: Get Set by ID
+      description: Retrieves details for a specific Pokémon TCG set by its ID.
+      operationId: getSetById
+      tags: [Sets]
+      parameters:
+        - $ref: '#/components/parameters/SetID'
+        - $ref: '#/components/parameters/SelectParam'
+      responses:
+        '200':
+          description: Details of the set.
+          content:
+            application/json:
+              schema:
+                type: object # Response for single set is { "data": SetObject }
+                properties:
+                    data:
+                        $ref: '#/components/schemas/Set'
+        '404':
+          description: Set not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        default:
+          description: Unexpected error.
+
+  /sets/{setID}/cards:
+    get:
+      summary: List Cards in a Set
+      description: Retrieves a paginated list of cards belonging to a specific set.
+      operationId: listCardsInSet
+      tags: [Cards, Sets]
+      parameters:
+        - $ref: '#/components/parameters/SetID'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        # QueryParam might be useful here too if backend supports filtering cards within a set
+        - $ref: '#/components/parameters/OrderByParam' # e.g., orderBy=number_int
+        - $ref: '#/components/parameters/SelectParam'
+      responses:
+        '200':
+          description: A paginated list of cards from the specified set.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCardsResponse'
+        '404':
+          description: Set not found.
+        default:
+          description: Unexpected error.
+
+  /cards:
+    get:
+      summary: List Pokémon Cards
+      description: Retrieves a paginated list of Pokémon TCG cards. Supports advanced filtering, sorting, and field selection.
+      operationId: listCards
+      tags: [Cards]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/QueryParam' # For searching cards
+        - $ref: '#/components/parameters/OrderByParam' # For sorting cards
+        - $ref: '#/components/parameters/SelectParam' # For field selection
+      responses:
+        '200':
+          description: A paginated list of cards.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCardsResponse'
+        default:
+          description: Unexpected error.
+
+  /cards/{cardID}:
+    get:
+      summary: Get Card by ID
+      description: Retrieves details for a specific Pokémon TCG card by its ID.
+      operationId: getCardById
+      tags: [Cards]
+      parameters:
+        - $ref: '#/components/parameters/CardID'
+        - $ref: '#/components/parameters/SelectParam'
+      responses:
+        '200':
+          description: Details of the card.
+          content:
+            application/json:
+              schema:
+                type: object # Response for single card is { "data": CardObject }
+                properties:
+                    data:
+                        $ref: '#/components/schemas/Card'
+        '404':
+          description: Card not found.
+        default:
+          description: Unexpected error.
+
+  /types:
+    get:
+      summary: List Card Types
+      description: Retrieves a list of all available Pokémon TCG card types (e.g., Grass, Fire, Water, Psychic, Trainer).
+      operationId: listTypes
+      tags: [Metadata]
+      responses:
+        '200':
+          description: A list of card types.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: string
+                example:
+                  data: ["Colorless", "Darkness", "Dragon", "Fairy", "Fighting", "Fire", "Grass", "Lightning", "Metal", "Psychic", "Water"]
+        default:
+          description: Unexpected error.
+
+  /supertypes:
+    get:
+      summary: List Card Supertypes
+      description: Retrieves a list of all available Pokémon TCG card supertypes (e.g., Pokémon, Trainer, Energy).
+      operationId: listSupertypes
+      tags: [Metadata]
+      responses:
+        '200':
+          description: A list of card supertypes.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: string
+                example:
+                  data: ["Energy", "Pokémon", "Trainer"]
+        default:
+          description: Unexpected error.
+
+  /rarities:
+    get:
+      summary: List Card Rarities
+      description: Retrieves a list of all available Pokémon TCG card rarities.
+      operationId: listRarities
+      tags: [Metadata]
+      responses:
+        '200':
+          description: A list of card rarities.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: string
+                example:
+                  data: ["Common", "Uncommon", "Rare", "Rare Holo", "Amazing Rare", "Illustration Rare"]
+        default:
+          description: Unexpected error.
+
+  # --- Auth Endpoints (relative to second server URL) ---
+  /auth/local/login:
+    post:
+      summary: Login with Email/Password
+      description: Authenticates a user with their email and password.
+      operationId: loginPassword
+      tags: [Auth, User]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful. Returns an access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Bad request (e.g., missing fields).
+        '401':
+          description: Unauthorized (e.g., invalid credentials).
+        default:
+          description: Unexpected error.
+
+  /auth/local/change-password:
+    post:
+      summary: Change Password
+      description: Allows an authenticated user (via local auth) to change their password.
+      operationId: changePassword
+      tags: [Auth, User]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeRequest'
+      responses:
+        '204': # Typically 204 No Content for successful password change
+          description: Password changed successfully.
+        '400':
+          description: Bad request (e.g., new password doesn't meet criteria, current password missing).
+        '401':
+          description: Unauthorized (e.g., invalid current password, or token invalid/expired).
+        default:
+          description: Unexpected error.
+
+  # --- User Endpoints (relative to second server URL, require auth) ---
+  /user/me:
+    get:
+      summary: Get Current User
+      description: Retrieves details for the currently authenticated user.
+      operationId: getCurrentUser
+      tags: [User]
+      security:
+        - BearerAuth: [] # Indicates JWT is expected
+      responses:
+        '200':
+          description: Current user's details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserWithAuthSource' # Includes authSource
+        '401':
+          description: Unauthorized (e.g., token missing, invalid, or expired).
+        default:
+          description: Unexpected error.
+
+  /user/me/collection/cards:
+    get:
+      summary: Get User's Card Collection
+      description: Retrieves all cards in the authenticated user's collection, grouped by set.
+      operationId: getUserCollection
+      tags: [User Collection]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: The user's card collection.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserCollectionResponse'
+        '401':
+          description: Unauthorized.
+        default:
+          description: Unexpected error.
+
+  /user/me/collection/add:
+    post:
+      summary: Add Card(s) to Collection
+      description: Adds one or more specified cards to the authenticated user's collection.
+      operationId: addCardsToCollection
+      tags: [User Collection]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddRemoveCardsRequest'
+      responses:
+        '200': # Or 201 Created, or 204 No Content if nothing returned
+          description: Card(s) successfully added to collection. May return updated quantities or a success message.
+          content:
+            application/json: # Example: return a summary or just success
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  added: { type: array, items: { $ref: '#/components/schemas/UserCard' } }
+        '400':
+          description: Bad request (e.g., invalid card IDs, missing fields).
+        '401':
+          description: Unauthorized.
+        default:
+          description: Unexpected error.
+
+  /user/me/collection/remove:
+    post:
+      summary: Remove Card(s) from Collection
+      description: Removes one or more specified cards from the authenticated user's collection.
+      operationId: removeCardsFromCollection
+      tags: [User Collection]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddRemoveCardsRequest'
+      responses:
+        '200': # Or 204 No Content
+          description: Card(s) successfully removed from collection.
+          content:
+            application/json: # Example
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  removedCount: { type: integer }
+        '400':
+          description: Bad request.
+        '401':
+          description: Unauthorized.
+        default:
+          description: Unexpected error.
+
+  /user/me/collection/set/{setID}:
+    get:
+      summary: Get User's Collection for a Specific Set
+      description: Retrieves cards the authenticated user has collected from a specific set.
+      operationId: getUserCollectionBySet
+      tags: [User Collection]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SetID'
+      responses:
+        '200':
+          description: Cards collected by the user from the specified set.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSetCollectionResponse'
+        '401':
+          description: Unauthorized.
+        '404':
+          description: Set not found.
+        default:
+          description: Unexpected error.
+
+  # --- Admin Endpoints (relative to second server URL, require admin privileges) ---
+  /user/admin/all:
+    get:
+      summary: List All Users (Admin)
+      description: Retrieves a list of all users in the system. Requires admin privileges.
+      operationId: listAllUsersAdmin
+      tags: [Admin, User]
+      security:
+        - BearerAuth: []
+      parameters:
+        # Add pagination parameters if backend supports it
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: A list of all users.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '401':
+          description: Unauthorized (token missing or invalid).
+        '403':
+          description: Forbidden (user is not an admin).
+        default:
+          description: Unexpected error.
+
+  /user/admin/create: # Corrected path
+    post:
+      summary: Create User (Admin)
+      description: Creates a new user account. Requires admin privileges.
+      operationId: createUserAdmin
+      tags: [Admin, User]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddUserRequest'
+      responses:
+        '201': # HTTP 201 Created is conventional for successful POST creating a resource
+          description: User created successfully. Returns the created user details.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                    data:
+                        $ref: '#/components/schemas/User'
+        '400':
+          description: Bad request (e.g., validation errors, email already exists).
+        '401':
+          description: Unauthorized.
+        '403':
+          description: Forbidden.
+        default:
+          description: Unexpected error.
+
+  /user/admin/remove/{id}: # Path variable should be 'id' not 'userID'
+    delete:
+      summary: Delete User by ID (Admin)
+      description: Deletes a specific user by their ID. Requires admin privileges.
+      operationId: deleteUserAdmin
+      tags: [Admin, User]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserIDPath'
+      responses:
+        '204':
+          description: User deleted successfully.
+        '401':
+          description: Unauthorized.
+        '403':
+          description: Forbidden.
+        '404':
+          description: User not found.
+        default:
+          description: Unexpected error.
+
+  # Usage/Metrics endpoint
+  /usage:
+    get:
+      summary: Get API Usage Statistics
+      description: Retrieves API usage statistics, like request counts. Requires authentication (admin or specific permission).
+      operationId: getApiUsage
+      tags: [Admin, Metrics]
+      security:
+        - BearerAuth: [] # Assuming this endpoint also needs auth
+      responses:
+        '200':
+          description: API usage statistics.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIUsageStats'
+        '401':
+          description: Unauthorized.
+        '403':
+          description: Forbidden.
+        default:
+          description: Unexpected error.
+
+tags:
+  - name: Sets
+    description: Operations related to Pokémon TCG sets.
+  - name: Cards
+    description: Operations related to individual Pokémon TCG cards.
+  - name: Metadata
+    description: Operations to retrieve API metadata like types, rarities, etc.
+  - name: Auth
+    description: Authentication operations.
+  - name: User
+    description: User management and profile operations.
+  - name: User Collection
+    description: Operations for managing a user's personal card collection.
+  - name: Admin
+    description: Administrative operations requiring elevated privileges.
+  - name: Metrics
+    description: API usage and health metrics.
