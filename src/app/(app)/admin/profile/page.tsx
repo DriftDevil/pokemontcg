@@ -40,14 +40,21 @@ export default function ProfilePage() {
         });
 
         if (!response.ok) {
-          console.error(`[ProfilePage] Failed to fetch user profile: ${response.status}`);
+          const errorStatus = response.status;
+          const errorText = await response.text().catch(() => "Could not read error response body.");
+          console.error(`[ProfilePage] Failed to fetch user profile. Status: ${errorStatus}. Response: ${errorText.substring(0, 500)}...`);
           setUser(null);
           return;
         }
         const data = await response.json();
-        setUser(data as AppUser);
+        if (data && data.id) { // Ensure data is a valid user object
+          setUser(data as AppUser);
+        } else {
+          console.warn("[ProfilePage] Fetched user data is null or invalid, treating as not logged in. Data received:", data);
+          setUser(null);
+        }
       } catch (error) {
-        console.error("[ProfilePage] Error fetching user profile:", error);
+        console.error("[ProfilePage] Error fetching user profile (catch block):", error);
         setUser(null);
       } finally {
         setIsLoading(false);
