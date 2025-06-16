@@ -26,7 +26,7 @@ export default function SetReleaseChart({ data, config }: SetReleaseChartProps) 
   return (
     <ChartContainer config={config} className="h-[300px] w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} accessibilityLayer margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+        <BarChart data={data} accessibilityLayer margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
           <CartesianGrid vertical={false} strokeDasharray="3 3" />
           <XAxis
             dataKey="year"

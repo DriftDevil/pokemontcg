@@ -190,7 +190,7 @@ async function fetchTotalUsersCount(sessionToken: string | undefined): Promise<n
 async function fetchRecentLiveUsers(sessionToken: string | undefined, count: number = 3): Promise<ApiUser[]> {
   const baseUrl = getBaseUrl();
   const fetchUrl = `${baseUrl}/api/users/all`;
-  console.log(`[AdminDashboardPage - fetchRecentLiveUsers] Session token for Authorization header: ${sessionToken ? 'PRESENT' : 'ABSENT'}`);
+  console.log(`[AdminDashboardPage - fetchRecentLiveUsers] Session token for Authorization header (first 15 chars if exists): ${sessionToken ? `${sessionToken.substring(0,15)}...` : 'ABSENT'}`);
   
   try {
     const fetchHeaders = new Headers();
@@ -384,45 +384,47 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             {recentUsers.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentUsers.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-9 w-9">
-                             <AvatarImage 
-                                src={user.avatarUrl || `https://placehold.co/40x40.png?text=${getAvatarFallbackText(user)}`}
-                                alt={user.name || user.preferredUsername || 'User'} 
-                                data-ai-hint={user.avatarUrl && !user.avatarUrl.includes('placehold.co') ? "user avatar" : "avatar placeholder"}
-                             />
-                            <AvatarFallback>{getAvatarFallbackText(user)}</AvatarFallback>
-                          </Avatar>
-                          <div className="font-medium">{user.name || user.preferredUsername || 'N/A'}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{user.email || 'N/A'}</TableCell>
-                      <TableCell>{user.isAdmin ? 'Admin' : 'User'}</TableCell>
-                      <TableCell>
-                        <Badge variant={'default'}
-                               className={cn(
-                                  'border bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700'
-                                )}>
-                          Active
-                        </Badge>
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {recentUsers.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-9 w-9">
+                               <AvatarImage 
+                                  src={user.avatarUrl || `https://placehold.co/40x40.png?text=${getAvatarFallbackText(user)}`}
+                                  alt={user.name || user.preferredUsername || 'User'} 
+                                  data-ai-hint={user.avatarUrl && !user.avatarUrl.includes('placehold.co') ? "user avatar" : "avatar placeholder"}
+                               />
+                              <AvatarFallback>{getAvatarFallbackText(user)}</AvatarFallback>
+                            </Avatar>
+                            <div className="font-medium">{user.name || user.preferredUsername || 'N/A'}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{user.email || 'N/A'}</TableCell>
+                        <TableCell>{user.isAdmin ? 'Admin' : 'User'}</TableCell>
+                        <TableCell>
+                          <Badge variant={'default'}
+                                 className={cn(
+                                    'border bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700'
+                                  )}>
+                            Active
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             ) : (
               <p className="text-sm text-muted-foreground">No recent user data to display or API error.</p>
             )}
