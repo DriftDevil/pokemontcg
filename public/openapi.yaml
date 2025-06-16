@@ -193,7 +193,7 @@ paths:
                 properties:
                   accessToken:
                     type: string
-                  email: 
+                  email:
                     type: string
                   type:
                     type: string
@@ -276,7 +276,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserWithAuthSource'
-  /user/sync:
+  /user/me/sync:
     post:
       summary: Sync OIDC user
       tags: [Users]
@@ -285,8 +285,8 @@ paths:
             - openid
       responses:
         "200":
-          description: Synced user 
-  /user/create:
+          description: Synced user
+  /user/admin/create:
     post:
       summary: Creates a new user (admin only)
       description: >
@@ -353,7 +353,7 @@ paths:
           description: User already exists
         '500':
           description: Internal server error
-  /user/remove/{id}:
+  /user/admin/remove/{id}:
     delete:
       summary: Delete a user by ID
       tags: [Users]
@@ -389,7 +389,7 @@ paths:
           description: User not found
         '500':
           description: Internal server error
-  /user/remove:
+  /user/admin/remove:
     post:
       summary: Delete a user by email or ID
       tags: [Users]
@@ -434,7 +434,8 @@ paths:
           description: User not found
         '500':
           description: Internal server error
-  /user/collection/cards/add:
+
+  /user/me/collection/cards/add:
     post:
       summary: Add one or more cards to the user's collection
       tags: [Users]
@@ -470,7 +471,7 @@ paths:
                       type: integer
                     description: Map of card IDs to updated quantities
 
-  /user/collection/cards/remove:
+  /user/me/collection/cards/remove:
     post:
       summary: Remove one or more cards from the user's collection
       tags: [Users]
@@ -502,7 +503,7 @@ paths:
                 properties:
                   message:
                     type: string
-  /user/collection/cards:
+  /user/me/collection/cards:
     get:
       summary: Get the authenticated user's card collection
       tags: [Users]
@@ -512,6 +513,26 @@ paths:
       responses:
         "200":
           description: List of cards in the user's collection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserCardsResponse'
+  /user/me/collection/set/{setID}:
+    get:
+      summary: Get current user's cards in a set
+      tags: [Users]
+      security:
+        - oauth2: [openid]
+        - localAuth: []
+      parameters:
+        - in: path
+          name: setID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Filtered cards by set
           content:
             application/json:
               schema:
@@ -542,7 +563,7 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Card'
-  /user/all:
+  /user/admin/all:
     get:
       summary: List all users (admin only)
       tags: [Users]
