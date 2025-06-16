@@ -12,73 +12,43 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, User, LogOut, Settings, Moon, Sun, LogInIcon } from "lucide-react";
+import { Menu, User, LogOut, Settings, LogInIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import AppSidebarContent, { type NavItem } from "./app-sidebar-content";
+import ThemeSwitcher from "@/components/theme-switcher"; // Import the new ThemeSwitcher
 
 interface AppUser {
   id: string;
   name?: string;
   email?: string;
-  avatarUrl?: string; 
-  isAdmin?: boolean; 
-  authSource?: 'oidc' | 'local'; 
+  avatarUrl?: string;
+  isAdmin?: boolean;
+  authSource?: 'oidc' | 'local';
 }
 
-const useThemeToggle = () => {
-  const [theme, setTheme] = useState("light");
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const storedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-      setTheme(storedTheme);
-      if (storedTheme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    }
-  }, []);
-
-  const toggleTheme = () => {
-    const newTheme = theme === "light" ? "dark" : "light";
-    setTheme(newTheme);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('theme', newTheme);
-      if (newTheme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    }
-  };
-  return { theme, toggleTheme };
-};
-
-
-export default function AppHeader({ 
+export default function AppHeader({
   navItems,
   user,
   isLoadingUser
-}: { 
+}: {
   navItems: NavItem[];
   user: AppUser | null;
   isLoadingUser: boolean;
 }) {
   const router = useRouter();
-  const { theme, toggleTheme } = useThemeToggle();
-  
+
   useEffect(() => {
     console.log("[AppHeader RENDERED] isLoadingUser:", isLoadingUser, "User state (from props) is now:", user);
   }, [user, isLoadingUser]);
 
 
   const handleLogout = async () => {
-    router.push('/api/auth/logout');
+    // Direct navigation for logout to ensure full page reload cycle
+    window.location.href = '/api/auth/logout';
   };
-  
+
   const getAvatarFallback = () => {
     if (!user) return 'U';
     if (user.name) {
@@ -112,19 +82,17 @@ export default function AppHeader({
 
       <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
         <div className="ml-auto flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
-            {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
-          </Button>
+          <ThemeSwitcher /> {/* Use the new ThemeSwitcher component */}
           {isLoadingUser ? (
             <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />
-          ) : user && user.id ? ( 
+          ) : user && user.id ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                   <Avatar className="h-9 w-9">
-                    <AvatarImage 
+                    <AvatarImage
                       src={avatarSrc}
-                      alt={user.name || 'User'} 
+                      alt={user.name || 'User'}
                       data-ai-hint={avatarHint}
                     />
                     <AvatarFallback>{getAvatarFallback()}</AvatarFallback>
@@ -141,11 +109,11 @@ export default function AppHeader({
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push('/admin/profile')}> 
+                <DropdownMenuItem onClick={() => router.push('/admin/profile')}>
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push('/admin/settings')} disabled> 
+                <DropdownMenuItem onClick={() => router.push('/admin/settings')} disabled>
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>
                 </DropdownMenuItem>

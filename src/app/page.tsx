@@ -5,9 +5,10 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
-import { Rocket, BookOpen, Moon, Sun, LayoutDashboard, UserCircle, Layers, CreditCard, LogOut, LogIn, Loader2, ShoppingBag } from "lucide-react";
+import { Rocket, BookOpen, LayoutDashboard, UserCircle, Layers, CreditCard, LogOut, LogIn, Loader2, ShoppingBag } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import ThemeSwitcher from "@/components/theme-switcher"; // Import the new ThemeSwitcher
 
 export interface AppUser { // Exporting AppUser
   id: string;
@@ -19,19 +20,8 @@ export interface AppUser { // Exporting AppUser
 }
 
 export default function HomePage() {
-  const [theme, setTheme] = useState("light");
   const [loggedInUser, setLoggedInUser] = useState<AppUser | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
-
-  useEffect(() => {
-    const storedTheme = typeof window !== 'undefined' ? localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : 'light';
-    setTheme(storedTheme);
-    if (storedTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, []);
 
   useEffect(() => {
     const fetchUserSession = async () => {
@@ -62,20 +52,8 @@ export default function HomePage() {
   }, []);
 
 
-  const toggleTheme = () => {
-    const newTheme = theme === "light" ? "dark" : "light";
-    setTheme(newTheme);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('theme', newTheme);
-      if (newTheme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    }
-  };
-
   const handleLogout = () => {
+    // Direct navigation for logout to ensure full page reload cycle
     window.location.href = '/api/auth/logout';
   };
 
@@ -99,15 +77,9 @@ export default function HomePage() {
   if (isLoadingUser) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-background to-secondary/30 p-4 relative">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleTheme}
-          aria-label="Toggle theme"
-          className="fixed top-4 right-4 z-50 text-foreground hover:bg-accent/50 hover:text-accent-foreground"
-        >
-          {theme === "light" ? <Moon className="h-6 w-6" /> : <Sun className="h-6 w-6" />}
-        </Button>
+        <div className="fixed top-4 right-4 z-50">
+          <ThemeSwitcher />
+        </div>
         <Loader2 className="h-16 w-16 text-primary animate-spin" />
         <p className="mt-4 text-muted-foreground">Loading your experience...</p>
       </div>
@@ -117,15 +89,9 @@ export default function HomePage() {
   if (loggedInUser) {
     return (
       <div className="flex flex-col items-center min-h-screen bg-gradient-to-br from-background to-secondary/30 p-4 md:p-8 relative">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleTheme}
-          aria-label="Toggle theme"
-          className="fixed top-4 right-4 z-50 text-foreground hover:bg-accent/50 hover:text-accent-foreground"
-        >
-          {theme === "light" ? <Moon className="h-6 w-6" /> : <Sun className="h-6 w-6" />}
-        </Button>
+        <div className="fixed top-4 right-4 z-50">
+          <ThemeSwitcher />
+        </div>
 
         <header className="text-center my-8 md:my-12 w-full max-w-4xl">
           <div className="flex flex-col items-center gap-4 mb-6">
@@ -264,16 +230,9 @@ export default function HomePage() {
   // Guest View (Not Logged In)
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-background to-secondary/30 p-4 relative">
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={toggleTheme}
-        aria-label="Toggle theme"
-        className="fixed top-4 right-4 z-50 text-foreground hover:bg-accent/50 hover:text-accent-foreground"
-      >
-        {theme === "light" ? <Moon className="h-6 w-6" /> : <Sun className="h-6 w-6" />}
-      </Button>
-
+      <div className="fixed top-4 right-4 z-50">
+        <ThemeSwitcher />
+      </div>
       <header className="text-center mb-12 pt-16 sm:pt-0">
         <h1 className="font-headline text-5xl md:text-7xl font-bold text-primary mb-4">
           PokemonTCG
@@ -333,4 +292,3 @@ export default function HomePage() {
     </div>
   );
 }
-
