@@ -14,7 +14,7 @@ export async function GET(request: NextRequest, { params }: { params: { setId: s
   const { setId } = params;
 
   if (!EXTERNAL_API_BASE_URL) {
-    console.error(`[API /user/collection/set/${setId}] External API base URL not configured.`);
+    console.error(`[API /user/me/collection/set/${setId}] External API base URL not configured.`);
     return NextResponse.json({ message: 'External API URL not configured' }, { status: 500 });
   }
 
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest, { params }: { params: { setId: s
     return NextResponse.json({ message: 'Unauthorized. No session token found.' }, { status: 401 });
   }
 
-  const externalUrl = `${EXTERNAL_API_BASE_URL}/user/collection/set/${setId}`;
+  const externalUrl = `${EXTERNAL_API_BASE_URL}/user/me/collection/set/${setId}`;
   console.log(`[API ${request.nextUrl.pathname}] Forwarding get collection for set request to external API: ${externalUrl}`);
 
   try {

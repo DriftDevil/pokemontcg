@@ -29,27 +29,23 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     return NextResponse.json({ message: 'Unauthorized. No session token found.' }, { status: 401 });
   }
 
-  // Assuming the external API expects DELETE /user/remove/{userId}
-  const externalUrl = `${EXTERNAL_API_BASE_URL}/user/remove/${userId}`;
+  const externalUrl = `${EXTERNAL_API_BASE_URL}/user/admin/remove/${userId}`;
   console.log(`[API ${request.nextUrl.pathname}] Forwarding delete user request to external API: ${externalUrl}`);
 
   try {
     const response = await fetch(externalUrl, {
-      method: 'DELETE', // Changed from POST to DELETE
+      method: 'DELETE', 
       headers: {
         'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json', // Usually not strictly needed for DELETE without body, but often included
+        'Content-Type': 'application/json', 
       },
-      // Body is typically not sent with DELETE requests when ID is in path
     });
 
-    // If the external API returns no content on successful delete (e.g., 204 No Content)
     if (response.status === 204) {
       return new NextResponse(null, { status: 204 });
     }
     
-    // For other statuses, try to parse JSON
-    const responseData = await response.json().catch(() => ({})); // Gracefully handle non-JSON or empty responses
+    const responseData = await response.json().catch(() => ({})); 
 
     if (!response.ok) {
       console.error(`[API ${request.nextUrl.pathname}] External API (${externalUrl}) failed: ${response.status}`, responseData);
@@ -59,7 +55,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       );
     }
 
-    // If external API returns JSON on successful delete (e.g., 200 OK with a message)
     return NextResponse.json(responseData, { status: response.status });
   } catch (error: any) {
     console.error(`[API ${request.nextUrl.pathname}] Failed to call External API (${externalUrl}):`, error);

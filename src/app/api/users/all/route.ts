@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized. No token provided.' }, { status: 401 });
   }
 
-  const externalUrl = `${EXTERNAL_API_BASE_URL}/user/all`;
+  const externalUrl = `${EXTERNAL_API_BASE_URL}/user/admin/all`;
   console.log(`[API ${request.nextUrl.pathname}] Forwarding request to external API: ${externalUrl} with token.`);
   
   try {

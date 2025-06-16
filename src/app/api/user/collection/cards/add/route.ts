@@ -12,7 +12,7 @@ function getTokenFromCookies(): string | undefined {
 
 export async function POST(request: NextRequest) {
   if (!EXTERNAL_API_BASE_URL) {
-    console.error('[API /user/collection/cards/add] External API base URL not configured.');
+    console.error('[API /user/me/collection/add] External API base URL not configured.');
     return NextResponse.json({ message: 'External API URL not configured' }, { status: 500 });
   }
 
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'cardIds array is required and cannot be empty.' }, { status: 400 });
   }
 
-  const externalUrl = `${EXTERNAL_API_BASE_URL}/user/collection/cards/add`;
+  const externalUrl = `${EXTERNAL_API_BASE_URL}/user/me/collection/add`;
   console.log(`[API ${request.nextUrl.pathname}] Forwarding add to collection request to external API: ${externalUrl}`);
 
   try {

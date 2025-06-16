@@ -39,7 +39,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Email and password are required' }, { status: 400 });
   }
 
-  const externalUrl = `${EXTERNAL_API_BASE_URL}/user/add`;
+  // Assuming the admin add user endpoint is now /user/admin/add
+  const externalUrl = `${EXTERNAL_API_BASE_URL}/user/admin/add`; 
   console.log(`[API ${request.nextUrl.pathname}] Forwarding add user request to external API: ${externalUrl}`);
 
   try {

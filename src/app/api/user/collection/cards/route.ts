@@ -12,7 +12,7 @@ function getTokenFromCookies(): string | undefined {
 
 export async function GET(request: NextRequest) {
   if (!EXTERNAL_API_BASE_URL) {
-    console.error('[API /user/collection/cards] External API base URL not configured.');
+    console.error('[API /user/me/collection/cards] External API base URL not configured.');
     return NextResponse.json({ message: 'External API URL not configured' }, { status: 500 });
   }
 
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: 'Unauthorized. No session token found.' }, { status: 401 });
   }
 
-  const externalUrl = `${EXTERNAL_API_BASE_URL}/user/collection/cards`;
+  const externalUrl = `${EXTERNAL_API_BASE_URL}/user/me/collection/cards`;
   console.log(`[API ${request.nextUrl.pathname}] Forwarding get entire collection request to external API: ${externalUrl}`);
 
   try {

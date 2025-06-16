@@ -14,7 +14,7 @@ interface AppUser {
   authSource: 'oidc' | 'local' | 'mock'; // Added 'mock' for clarity
 }
 
-// Represents the structure of the User object from the external API's /auth/local/me
+// Represents the structure of the User object from the external API's /user/me
 interface ExternalApiUser {
     id: string;
     email?: string;
@@ -26,7 +26,7 @@ interface ExternalApiUser {
     avatarUrl?: string;
 }
 
-// Represents the structure of the response from /auth/local/me which is UserWithAuthSource
+// Represents the structure of the response from /user/me which is UserWithAuthSource
 interface ExternalApiUserResponse {
     data: ExternalApiUser;
     authSource: 'local' | 'oidc';
@@ -117,7 +117,8 @@ export async function GET() {
     }
     try {
         const token = sessionTokenCookie.value;
-        const externalUserUrl = `${EXTERNAL_API_BASE_URL}/auth/local/me`;
+        // Updated external API path
+        const externalUserUrl = `${EXTERNAL_API_BASE_URL}/user/me`; 
         console.log(`[API User] Fetching user from external API: ${externalUserUrl} with token (snippet): ${token.substring(0,15)}...`);
 
         const response = await fetch(externalUserUrl, {
@@ -135,9 +136,9 @@ export async function GET() {
         try {
             if (responseBodyText) {
                 responseData = JSON.parse(responseBodyText);
-                console.log("[API User] External API /auth/local/me full parsed response data:", JSON.stringify(responseData, null, 2));
+                console.log("[API User] External API /user/me full parsed response data:", JSON.stringify(responseData, null, 2));
             } else {
-                console.warn(`[API User] External API /auth/local/me returned an empty body. Status: ${response.status}`);
+                console.warn(`[API User] External API /user/me returned an empty body. Status: ${response.status}`);
             }
         } catch (parseError) {
             console.error(`[API User] Failed to parse JSON response from ${externalUserUrl}. Status: ${response.status}. Body: ${responseBodyText.substring(0,300)}...`);
@@ -162,7 +163,7 @@ export async function GET() {
         }
         
         if (!responseData || !responseData.data || !responseData.data.id) {
-            console.warn('[API User] External API /auth/local/me returned 200 OK, but user data is missing, invalid, or indicates an anonymous user. Parsed response body was:', responseData, 'Treating as unauthenticated and clearing local session cookies.');
+            console.warn('[API User] External API /user/me returned 200 OK, but user data is missing, invalid, or indicates an anonymous user. Parsed response body was:', responseData, 'Treating as unauthenticated and clearing local session cookies.');
             const clearCookieResponse = NextResponse.json(null, { status: 200 }); 
             clearCookieResponse.cookies.delete('session_token');
             clearCookieResponse.cookies.delete('id_token');
