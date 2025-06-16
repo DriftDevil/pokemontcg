@@ -1156,7 +1156,7 @@ paths:
         default:
           description: Unexpected error.
 
-  /user/me/collection/add:
+  /user/me/collection/cards/add:
     post:
       summary: Add Card(s) to Collection
       description: Adds one or more specified cards to the authenticated user's collection.
@@ -1187,7 +1187,7 @@ paths:
         default:
           description: Unexpected error.
 
-  /user/me/collection/remove:
+  /user/me/collection/cards/remove:
     post:
       summary: Remove Card(s) from Collection
       description: Removes one or more specified cards from the authenticated user's collection.
