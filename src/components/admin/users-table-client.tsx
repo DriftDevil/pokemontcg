@@ -12,10 +12,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ArrowUpDown, MoreHorizontal, Trash2, Edit3, Eye } from 'lucide-react';
+import { ArrowUpDown, MoreHorizontal, Trash2, Edit3, Eye, ShoppingBag } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from "@/hooks/use-toast";
+import Link from 'next/link';
 
 interface UsersTableClientProps {
   initialUsers: User[];
@@ -269,8 +270,13 @@ export default function UsersTableClient({ initialUsers, onUserDeleted }: UsersT
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => viewUser(user.id)}>
+                          <DropdownMenuItem onClick={() => viewUser(user.id)} disabled>
                             <Eye className="mr-2 h-4 w-4" /> View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/admin/users/${user.id}/collection`}>
+                              <ShoppingBag className="mr-2 h-4 w-4" /> View Collection
+                            </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => editUser(user.id)} disabled>
                             <Edit3 className="mr-2 h-4 w-4" /> Edit User
@@ -343,3 +349,4 @@ export default function UsersTableClient({ initialUsers, onUserDeleted }: UsersT
     </>
   );
 }
+
