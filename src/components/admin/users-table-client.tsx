@@ -13,7 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ArrowUpDown, MoreHorizontal, Trash2, Edit3, Eye, ShoppingBag } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from "@/hooks/use-toast";
 import Link from 'next/link';
@@ -258,7 +257,7 @@ export default function UsersTableClient({ initialUsers, onUserDeleted }: UsersT
                       </Badge>
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
-                      {user.lastLogin ? format(parseISO(user.lastLogin), 'MMM d, yyyy, p') : 'N/A'}
+                      {user.lastLogin ? new Date(user.lastLogin).toLocaleString(undefined, { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true }) : 'N/A'}
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>

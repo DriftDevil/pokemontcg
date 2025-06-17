@@ -10,7 +10,8 @@ import { cn } from "@/lib/utils";
 import { cookies } from 'next/headers';
 import DynamicSetReleaseChartWrapper from "@/components/admin/dashboard/dynamic-set-release-chart-wrapper";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { formatDistanceToNow, parseISO } from 'date-fns';
+import { format, formatDistanceToNow, parseISO } from 'date-fns';
+import LocalizedTimeDisplay from "@/components/localized-time-display";
 
 
 // User structure based on openapi.yaml User schema
@@ -370,19 +371,6 @@ export default async function AdminDashboardPage() {
 
   const dbStatusText = dbStatus ? `${dbStatus.status.charAt(0).toUpperCase() + dbStatus.status.slice(1)} (${dbStatus.connections}/${dbStatus.max_allowed} conns)` : "Loading...";
   const dbStatusBadgeVariant = dbStatus?.status === 'connected' ? 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700' : 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700';
-  
-  let lastSyncText = "Calculating...";
-  if (dbStatus && dbStatus.last_sync) {
-    try {
-      lastSyncText = `${formatDistanceToNow(parseISO(dbStatus.last_sync), { addSuffix: true })}`;
-    } catch (e) {
-      console.error("Error parsing last_sync date:", e);
-      lastSyncText = "Invalid date";
-    }
-  } else if (dbStatus === null && !totalCards) { // If fetchDbStatus explicitly returned null (error)
-    lastSyncText = "Error loading";
-  }
-
 
   return (
     <>
@@ -568,7 +556,9 @@ export default async function AdminDashboardPage() {
                   <p className="text-xs text-muted-foreground">Successful sync time with Pokémon API</p>
                 </div>
               </div>
-              <Badge variant="outline" className="text-sm">{lastSyncText}</Badge>
+              <Badge variant="outline" className="text-sm">
+                 <LocalizedTimeDisplay isoDateString={dbStatus?.last_sync} fallbackText={dbStatus === null && !totalCards ? "Error loading" : "Calculating..."} />
+              </Badge>
             </div>
           </CardContent>
         </Card>
