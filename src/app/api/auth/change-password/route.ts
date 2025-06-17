@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Current password and new password are required.' }, { status: 400 });
   }
 
-  const externalUrl = `${EXTERNAL_API_BASE_URL}/auth/local/change-password`;
+  const externalUrl = `${EXTERNAL_API_BASE_URL}/auth/local/me/change-password`;
   console.log(`[API ${request.nextUrl.pathname}] Forwarding change password request to external API: ${externalUrl}`);
 
   try {

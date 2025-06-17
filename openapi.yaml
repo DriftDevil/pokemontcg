@@ -516,7 +516,7 @@ components:
         lastSeen: "2024-06-10T14:30:00Z"
         avatarUrl: "https://example.com/avatars/admin.png"
 
-    UserWithAuthSource:
+    UserWithAuthSource: # Used by /user/me
       allOf:
         - $ref: '#/components/schemas/User'
         - type: object
@@ -530,12 +530,12 @@ components:
     LoginRequest:
       type: object
       required:
-        - email
+        - identifier # Changed from email to identifier
         - password
       properties:
-        email:
+        identifier: # Changed from email to identifier
           type: string
-          format: email
+          description: User's email address or preferred username.
         password:
           type: string
           format: password
@@ -1067,8 +1067,8 @@ paths:
   # --- Auth Endpoints (relative to second server URL) ---
   /auth/local/login:
     post:
-      summary: Login with Email/Password
-      description: Authenticates a user with their email and password.
+      summary: Login with Email/Password or Username/Password
+      description: Authenticates a user with their email/username and password.
       operationId: loginPassword
       tags: [Auth, User]
       requestBody:
@@ -1076,7 +1076,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LoginRequest'
+              $ref: '#/components/schemas/LoginRequest' # Expects identifier and password
       responses:
         '200':
           description: Login successful. Returns an access token.
@@ -1091,9 +1091,9 @@ paths:
         default:
           description: Unexpected error.
 
-  /auth/local/change-password:
+  /auth/local/me/change-password: # Path updated
     post:
-      summary: Change Password
+      summary: Change Password (Local Auth)
       description: Allows an authenticated user (via local auth) to change their password.
       operationId: changePassword
       tags: [Auth, User]
@@ -1119,18 +1119,18 @@ paths:
   /user/me:
     get:
       summary: Get Current User
-      description: Retrieves details for the currently authenticated user.
+      description: Retrieves details for the currently authenticated user (works for both OIDC and local sessions via session_token).
       operationId: getCurrentUser
       tags: [User]
       security:
         - BearerAuth: [] # Indicates JWT is expected
       responses:
         '200':
-          description: Current user's details.
+          description: Current user's details, including authSource.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserWithAuthSource' # Includes authSource
+                $ref: '#/components/schemas/UserWithAuthSource' # Backend returns User and authSource
         '401':
           description: Unauthorized (e.g., token missing, invalid, or expired).
         default:
@@ -1139,7 +1139,7 @@ paths:
   /user/me/collection/cards:
     get:
       summary: Get User's Card Collection
-      description: Retrieves all cards in the authenticated user's collection, grouped by set.
+      description: Retrieves all cards in the authenticated user's collection.
       operationId: getUserCollection
       tags: [User Collection]
       security:
@@ -1156,7 +1156,7 @@ paths:
         default:
           description: Unexpected error.
 
-  /user/me/collection/cards/add:
+  /user/me/collection/cards/add: # Path updated
     post:
       summary: Add Card(s) to Collection
       description: Adds one or more specified cards to the authenticated user's collection.
@@ -1187,7 +1187,7 @@ paths:
         default:
           description: Unexpected error.
 
-  /user/me/collection/cards/remove:
+  /user/me/collection/cards/remove: # Path updated
     post:
       summary: Remove Card(s) from Collection
       description: Removes one or more specified cards from the authenticated user's collection.
@@ -1273,7 +1273,7 @@ paths:
         default:
           description: Unexpected error.
 
-  /user/admin/create: # Corrected path
+  /user/admin/create: # Path matches Go backend
     post:
       summary: Create User (Admin)
       description: Creates a new user account. Requires admin privileges.
