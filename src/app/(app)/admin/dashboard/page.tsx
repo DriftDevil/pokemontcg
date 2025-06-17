@@ -1,7 +1,7 @@
 
 import PageHeader from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { LayoutDashboard, Users, CreditCard, Layers, Activity, LibraryBig } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, Layers, Activity, LibraryBig, HeartPulse, Database, Gauge, RefreshCw } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -363,7 +363,7 @@ export default async function AdminDashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2 mb-8">
         <Card>
           <CardHeader>
             <CardTitle className="font-headline">Set Releases Over Time</CardTitle>
@@ -437,7 +437,7 @@ export default async function AdminDashboardPage() {
         </Card>
       </div>
       
-      <div className="mt-8">
+      <div className="grid gap-6 md:grid-cols-2">
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
                 <div>
@@ -456,11 +456,51 @@ export default async function AdminDashboardPage() {
                     There are currently <span className="font-semibold text-foreground">{totalUsers.toLocaleString()}</span> registered users.
                     Navigate to the User Collections page to see individual collections.
                 </p>
-                {/* Future enhancement: Display "X users have collections" or "Y total cards collected" */}
             </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-headline flex items-center">
+              <HeartPulse className="mr-2 h-5 w-5 text-primary" />
+              System Health Monitoring
+            </CardTitle>
+            <CardDescription>Key performance indicators for system stability.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
+              <div className="flex items-center">
+                <Database className="mr-3 h-6 w-6 text-accent" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Database Status</p>
+                  <p className="text-xs text-muted-foreground">Connection count, up/down</p>
+                </div>
+              </div>
+              <Badge variant="outline" className="text-sm">Loading...</Badge>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
+              <div className="flex items-center">
+                <Gauge className="mr-3 h-6 w-6 text-accent" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Cache Performance</p>
+                  <p className="text-xs text-muted-foreground">Hit/miss ratio</p>
+                </div>
+              </div>
+              <Badge variant="outline" className="text-sm">N/A</Badge>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
+              <div className="flex items-center">
+                <RefreshCw className="mr-3 h-6 w-6 text-accent" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Last API Sync</p>
+                  <p className="text-xs text-muted-foreground">Successful sync time with Pokémon API</p>
+                </div>
+              </div>
+              <Badge variant="outline" className="text-sm">Calculating...</Badge>
+            </div>
+          </CardContent>
         </Card>
       </div>
     </>
   );
 }
-
