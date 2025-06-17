@@ -553,10 +553,10 @@ components:
     PasswordChangeRequest:
       type: object
       required:
-        - currentPassword
+        - oldPassword
         - newPassword
       properties:
-        currentPassword:
+        oldPassword:
           type: string
           format: password
         newPassword:
@@ -1368,3 +1368,5 @@ tags:
     description: Administrative operations requiring elevated privileges.
   - name: Metrics
     description: API usage and health metrics.
+
+    

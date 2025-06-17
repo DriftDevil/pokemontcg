@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Invalid JSON payload' }, { status: 400 });
   }
 
+  // The frontend dialog sends "currentPassword". We map it to "oldPassword" for the backend.
   if (!payload.currentPassword || !payload.newPassword) {
     return NextResponse.json({ message: 'Current password and new password are required.' }, { status: 400 });
   }
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        currentPassword: payload.currentPassword,
+        oldPassword: payload.currentPassword, // Map currentPassword to oldPassword
         newPassword: payload.newPassword,
       }),
     });
