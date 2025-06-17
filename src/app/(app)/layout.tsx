@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import AppHeader from "@/components/layout/app-header";
 import AppSidebarContent, { type NavItem } from "@/components/layout/app-sidebar-content";
 import { SidebarProvider, Sidebar, SidebarInset } from "@/components/ui/sidebar";
-import { LayoutDashboard, Users, FileText, CreditCard, Layers, ShoppingBag } from "lucide-react";
+import { LayoutDashboard, Users, FileText, CreditCard, Layers, ShoppingBag, LibraryBig } from "lucide-react";
 
 interface AppUser {
   id: string;
@@ -20,6 +20,7 @@ const navItems: NavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard, segment: "dashboard", isAdmin: true },
   { href: "/admin/api-docs", label: "Swagger Docs", icon: FileText, segment: "api-docs", isAdmin: true },
   { href: "/admin/users", label: "User Management", icon: Users, segment: "users", isAdmin: true },
+  { href: "/admin/collections", label: "User Collections", icon: LibraryBig, segment: "collections", isAdmin: true }, // Added segment for admin collections
   { href: "/me/collections", label: "My Collections", icon: ShoppingBag, segment: "collections", isUser: true },
   { href: "/sets", label: "Card Sets", icon: Layers, segment: "sets", isUser: true },
   { href: "/cards", label: "Cards", icon: CreditCard, segment: "cards", isUser: true },
@@ -82,3 +83,4 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </SidebarProvider>
   );
 }
+

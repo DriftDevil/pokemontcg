@@ -1,7 +1,7 @@
 
 import PageHeader from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { LayoutDashboard, Users, CreditCard, Layers, Activity } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, Layers, Activity, LibraryBig } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -436,6 +436,31 @@ export default async function AdminDashboardPage() {
           </CardContent>
         </Card>
       </div>
+      
+      <div className="mt-8">
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle className="font-headline flex items-center">
+                        <LibraryBig className="mr-2 h-5 w-5 text-primary" />
+                        User Collections
+                    </CardTitle>
+                    <CardDescription>Access and view all user card collections.</CardDescription>
+                </div>
+                <Button asChild variant="outline">
+                    <Link href="/admin/collections">View All Collections</Link>
+                </Button>
+            </CardHeader>
+            <CardContent>
+                <p className="text-sm text-muted-foreground">
+                    There are currently <span className="font-semibold text-foreground">{totalUsers.toLocaleString()}</span> registered users.
+                    Navigate to the User Collections page to see individual collections.
+                </p>
+                {/* Future enhancement: Display "X users have collections" or "Y total cards collected" */}
+            </CardContent>
+        </Card>
+      </div>
     </>
   );
 }
+

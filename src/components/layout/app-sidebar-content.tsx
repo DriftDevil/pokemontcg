@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation"; // Import useRouter
-import { Gem, LayoutDashboard, Users, FileText, Layers, CreditCard, Settings, LogOut, ShoppingBag } from "lucide-react";
+import { Gem, LayoutDashboard, Users, FileText, Layers, CreditCard, Settings, LogOut, ShoppingBag, LibraryBig } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -41,7 +41,13 @@ export default function AppSidebarContent({ navItems, isMobile = false, user }: 
 
   const isActive = (item: NavItem) => {
     if (item.segment) {
-      return pathname.startsWith(item.href) || pathname.includes(item.segment);
+      // For admin/collections, segment is 'collections'. Pathname might be /admin/collections.
+      // Need to ensure we are specific enough if segments overlap.
+      if (item.href === "/admin/collections" && pathname.startsWith("/admin/collections")) return true;
+      if (item.href === "/me/collections" && pathname.startsWith("/me/collections")) return true;
+      if (item.href !== "/admin/collections" && item.href !== "/me/collections" && pathname.startsWith(item.href)) return true;
+      // Fallback for general segment matching if href is not a prefix
+      if (pathname.includes(`/${item.segment}`) && item.href.includes(`/${item.segment}`)) return true;
     }
     return pathname === item.href;
   };
@@ -68,10 +74,19 @@ export default function AppSidebarContent({ navItems, isMobile = false, user }: 
     if (item.isUser && !user && !['/sets', '/cards'].includes(item.href)) {
         return null;
     }
+    // Special handling for /admin/collections to avoid conflict with /me/collections segment
+    let itemIsActive = isActive(item);
+    if (item.href === "/admin/collections" && pathname.startsWith("/me/collections")) {
+        itemIsActive = false;
+    }
+    if (item.href === "/me/collections" && pathname.startsWith("/admin/collections")) {
+        itemIsActive = false;
+    }
+
 
     const commonLinkClasses = cn(
       "flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground transition-all hover:text-sidebar-accent-foreground hover:bg-sidebar-accent",
-      isActive(item) && "bg-sidebar-accent text-sidebar-accent-foreground font-semibold",
+      itemIsActive && "bg-sidebar-accent text-sidebar-accent-foreground font-semibold",
       depth > 0 && "pl-8"
     );
 
@@ -84,7 +99,7 @@ export default function AppSidebarContent({ navItems, isMobile = false, user }: 
               className={cn(
                 commonLinkClasses,
                 "justify-between", // AccordionTrigger specific styling
-                isActive(item) && !item.subItems?.some(sub => isActive(sub)) && "bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
+                itemIsActive && !item.subItems?.some(sub => isActive(sub)) && "bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
               )}
             >
               <div className="flex items-center gap-3">
@@ -103,7 +118,7 @@ export default function AppSidebarContent({ navItems, isMobile = false, user }: 
         <button
           onClick={() => handleMobileLinkClick(item.href)}
           className={cn(commonLinkClasses, "w-full text-left")} // Make button look like a link
-          aria-current={isActive(item) ? "page" : undefined}
+          aria-current={itemIsActive ? "page" : undefined}
         >
           <item.icon className="h-5 w-5" />
           {item.label}
@@ -163,3 +178,4 @@ export default function AppSidebarContent({ navItems, isMobile = false, user }: 
     </>
   );
 }
+
