@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { cookies } from 'next/headers';
 import DynamicSetReleaseChartWrapper from "@/components/admin/dashboard/dynamic-set-release-chart-wrapper";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { formatDistanceToNow, parseISO } from 'date-fns';
 
 
 // User structure based on openapi.yaml User schema
@@ -27,6 +28,15 @@ interface ApiUser {
 interface ApiUserListResponse {
   data?: ApiUser[];
   total?: number;
+}
+
+interface DbStatusResponse {
+  status: string;
+  version: string;
+  db_time: string;
+  connections: number;
+  max_allowed: number;
+  last_sync: string; // ISO date string
 }
 
 
@@ -279,6 +289,43 @@ async function fetchApiRequests24h(sessionToken: string | undefined): Promise<nu
   }
 }
 
+async function fetchDbStatus(sessionToken: string | undefined): Promise<DbStatusResponse | null> {
+  const baseUrl = getBaseUrl();
+  const fetchUrl = `${baseUrl}/api/admin/db/status`;
+
+  try {
+    const fetchHeaders = new Headers();
+    if (sessionToken) {
+      fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
+    } else {
+      console.warn("[AdminDashboardPage - fetchDbStatus] Session token ABSENT. Cannot set Authorization header for /api/admin/db/status.");
+      return null;
+    }
+
+    const response = await fetch(fetchUrl, {
+      method: 'GET',
+      headers: fetchHeaders,
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error(`[AdminDashboardPage - fetchDbStatus] Failed to fetch DB status from ${fetchUrl}: ${response.status}`, errorBody);
+      return null;
+    }
+    const data: DbStatusResponse = await response.json();
+    return data;
+  } catch (error: any) {
+    if (error instanceof TypeError && error.message.includes('fetch failed')) {
+      console.error(`[AdminDashboardPage - fetchDbStatus] NETWORK ERROR: Fetch failed for ${fetchUrl}.`, error);
+    } else {
+      console.error(`[AdminDashboardPage - fetchDbStatus] Error fetching DB status from ${fetchUrl}:`, error);
+    }
+    return null;
+  }
+}
+
+
 const getAvatarFallbackText = (user: ApiUser) => {
     const name = user.name || user.preferredUsername;
     if (name) {
@@ -296,13 +343,22 @@ export default async function AdminDashboardPage() {
       console.warn("[AdminDashboardPage - Render] WARNING: APP_URL is not set in a non-development environment. Dashboard data fetching may rely on localhost defaults or fail if external access is needed for internal API calls.");
   }
 
-  const [totalCards, totalSets, setReleaseTimelineData, totalUsers, apiRequests24h, recentUsers] = await Promise.all([
+  const [
+    totalCards, 
+    totalSets, 
+    setReleaseTimelineData, 
+    totalUsers, 
+    apiRequests24h, 
+    recentUsers,
+    dbStatus
+  ] = await Promise.all([
     fetchTotalCountFromPaginated("cards", sessionToken),
     fetchTotalCountFromPaginated("sets", sessionToken),
     fetchSetReleaseData(), 
     fetchTotalUsersCount(sessionToken),
     fetchApiRequests24h(sessionToken),
     fetchRecentLiveUsers(sessionToken, 3),
+    fetchDbStatus(sessionToken),
   ]);
 
   const setReleaseChartConfig = {
@@ -311,6 +367,22 @@ export default async function AdminDashboardPage() {
       color: "hsl(var(--chart-1))",
     },
   } as const;
+
+  const dbStatusText = dbStatus ? `${dbStatus.status.charAt(0).toUpperCase() + dbStatus.status.slice(1)} (${dbStatus.connections}/${dbStatus.max_allowed} conns)` : "Loading...";
+  const dbStatusBadgeVariant = dbStatus?.status === 'connected' ? 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700' : 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700';
+  
+  let lastSyncText = "Calculating...";
+  if (dbStatus && dbStatus.last_sync) {
+    try {
+      lastSyncText = `${formatDistanceToNow(parseISO(dbStatus.last_sync), { addSuffix: true })}`;
+    } catch (e) {
+      console.error("Error parsing last_sync date:", e);
+      lastSyncText = "Invalid date";
+    }
+  } else if (dbStatus === null && !totalCards) { // If fetchDbStatus explicitly returned null (error)
+    lastSyncText = "Error loading";
+  }
+
 
   return (
     <>
@@ -473,10 +545,10 @@ export default async function AdminDashboardPage() {
                 <Database className="mr-3 h-6 w-6 text-accent" />
                 <div>
                   <p className="text-sm font-medium text-foreground">Database Status</p>
-                  <p className="text-xs text-muted-foreground">Connection count, up/down</p>
+                  <p className="text-xs text-muted-foreground">{dbStatus ? dbStatus.version : "Checking..."}</p>
                 </div>
               </div>
-              <Badge variant="outline" className="text-sm">Loading...</Badge>
+              <Badge variant="outline" className={cn("text-sm border", dbStatus ? dbStatusBadgeVariant : "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-700/30 dark:text-slate-300 dark:border-slate-500")}>{dbStatusText}</Badge>
             </div>
             <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
               <div className="flex items-center">
@@ -496,7 +568,7 @@ export default async function AdminDashboardPage() {
                   <p className="text-xs text-muted-foreground">Successful sync time with Pokémon API</p>
                 </div>
               </div>
-              <Badge variant="outline" className="text-sm">Calculating...</Badge>
+              <Badge variant="outline" className="text-sm">{lastSyncText}</Badge>
             </div>
           </CardContent>
         </Card>
@@ -504,3 +576,4 @@ export default async function AdminDashboardPage() {
     </>
   );
 }
+
