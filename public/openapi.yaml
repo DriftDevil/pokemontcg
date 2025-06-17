@@ -435,6 +435,64 @@ paths:
         '500':
           description: Internal server error
 
+  /user/admin/{userID}/collection/cards:
+    get:
+      summary: Admin fetch of specific user's card collection
+      tags: [Users]
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Target user UUID
+      responses:
+        '200':
+          description: List of cards in the user’s collection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserCardsResponse'
+        '400':
+          description: Invalid or missing user ID
+        '401':
+          description: Unauthorized
+        '403':
+          description: Admin access required
+
+  /user/admin/{userID}/collection/cards/set/{setID}:
+    get:
+      summary: Admin fetch of user's card collection for a specific set
+      tags: [Users]
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: setID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: orderBy
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Filtered list of cards in the set for the user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserCardsResponse'
+
   /user/me/collection/cards/add:
     post:
       summary: Add one or more cards to the user's collection
@@ -800,3 +858,47 @@ components:
           type: integer
         version:
           type: string
+    UserCardsResponse:
+          type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/UserCardDetail'
+          required:
+            - data
+    UserCardDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        number:
+          type: string
+        numberInt:
+          type: integer
+          nullable: true
+        rarity:
+          type: string
+        owned:
+          type: integer
+        set:
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            series:
+              type: string
+            releaseDate:
+              type: string
+        apiUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
