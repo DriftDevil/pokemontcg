@@ -682,6 +682,51 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/User'
+
+  /admin/db/status:
+    get:
+      summary: Get database status and metadata
+      description: Returns database connection status, version, current time, connection count, and last card sync timestamp.
+      tags:
+        - Admin
+      security:
+        - oauth2: [openid, profile, email]
+        - localAuth: []
+      responses:
+        '200':
+          description: Database status and metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: connected
+                  version:
+                    type: string
+                    example: PostgreSQL 15.6 (Debian 15.6-1.pgdg120+1)
+                  db_time:
+                    type: string
+                    format: date-time
+                    example: 2025-06-16T23:55:30Z
+                  connections:
+                    type: integer
+                    example: 17
+                  max_allowed:
+                    type: integer
+                    example: 100
+                  last_sync:
+                    type: string
+                    format: date-time
+                    nullable: true
+                    example: 2025-06-16T23:51:07Z
+        '401':
+          description: Unauthorized
+        '403':
+          description: Admin access required
+        '500':
+          description: Internal server error
   /usage:
     get:
       summary: Get API usage metrics (admin only)
