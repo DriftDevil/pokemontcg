@@ -439,6 +439,10 @@ paths:
     get:
       summary: Admin fetch of specific user's card collection
       tags: [Users]
+      security:
+        - oauth2:
+            - openid
+        - localAuth: []
       parameters:
         - name: userID
           in: path
@@ -464,6 +468,10 @@ paths:
     get:
       summary: Admin fetch of user's card collection for a specific set
       tags: [Users]
+      security:
+        - oauth2:
+            - openid
+        - localAuth: []
       parameters:
         - name: userID
           in: path
@@ -492,6 +500,39 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserCardsResponse'
+
+
+  /user/admin/collection/cards:
+    get:
+      summary: Admin fetch of all user collections (grouped, filtered)
+      tags: [Users]
+      security:
+        - oauth2:
+            - openid
+        - localAuth: []
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+        - in: query
+          name: orderBy
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Filtered user collections
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserCardGroup'
+                  total:
+                    type: integer
 
   /user/me/collection/cards/add:
     post:
@@ -858,6 +899,27 @@ components:
           type: integer
         version:
           type: string
+
+    UserCardGroup:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        email:
+          type: string
+        name:
+          type: string
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserCardDetail'
+      required:
+        - userId
+        - email
+        - name
+        - cards
+
     UserCardsResponse:
           type: object
           properties:
