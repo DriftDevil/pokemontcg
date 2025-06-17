@@ -690,7 +690,7 @@ paths:
       tags:
         - Admin
       security:
-        - oauth2: [openid, profile, email]
+        - oauth2: [openid]
         - localAuth: []
       responses:
         '200':
