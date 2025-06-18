@@ -30,15 +30,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { UserX, AlertTriangle, Loader2 } from "lucide-react";
-import type { DisplayUser } from '@/app/(app)/admin/users/page'; // Assuming DisplayUser is still relevant for structure
 
-// Define a simpler type for what we expect from /api/admin/users/all-test for counting purposes
 interface TestApiUser {
   id: string;
   email?: string;
-  // Add other fields if your /user/admin/all-test endpoint returns more and they are needed
 }
-
 
 const baseRemoveTestUsersSchema = z.object({
   emailPrefix: z.string().min(3, { message: "Email prefix must be at least 3 characters." }),
@@ -77,7 +73,7 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
       emailDomain: "example.com",
       count: 10,
     },
-    mode: 'onChange',
+    mode: 'onChange', // Ensure validation runs on change for immediate feedback
   });
 
   const watchedEmailPrefix = watch("emailPrefix");
@@ -91,7 +87,6 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
     }
     setIsFetchingMatchingCount(true);
     try {
-      // Use the new dedicated API route for fetching only test users
       const response = await fetch('/api/admin/users/all-test', { credentials: 'include', cache: 'no-store' });
       if (!response.ok) {
         if (response.status === 401) {
@@ -102,11 +97,8 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
         throw new Error(`Failed to fetch test users: ${response.status}`);
       }
       const result = await response.json();
-      // Assuming the new endpoint also returns { data: TestApiUser[] }
       const testApiUsers: TestApiUser[] = result.data || [];
       
-      // Client-side filtering still needed as /api/admin/users/all-test might return ALL test users,
-      // and we need to count only those matching the specific prefix/domain from the form.
       const filtered = testApiUsers.filter(user =>
         user.email?.toLowerCase().startsWith(prefix.toLowerCase()) && user.email?.toLowerCase().endsWith(`@${domain.toLowerCase()}`)
       );
@@ -114,6 +106,7 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
     } catch (error) {
       console.error("Error fetching matching test users count:", error);
       setMatchingUsersCount(null);
+      // Avoid double-toasting if the API error already toasted
       if (!(error instanceof Error && error.message.includes("Failed to fetch test users"))) {
           toast({ title: "Fetch Error", description: "Could not connect to fetch matching test user count.", variant: "destructive" });
       }
@@ -124,30 +117,63 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
 
   useEffect(() => {
     if (mainDialogOpen) {
+        // Debounce the fetch call
         const handler = setTimeout(() => {
-          fetchMatchingTestUsersCount(watchedEmailPrefix, watchedEmailDomain);
+          if (watchedEmailPrefix && watchedEmailDomain && watchedEmailPrefix.length >=3 && watchedEmailDomain.includes('.')) {
+            fetchMatchingTestUsersCount(watchedEmailPrefix, watchedEmailDomain);
+          } else {
+            setMatchingUsersCount(null); // Clear if prefix/domain are invalid
+          }
         }, 700);
         return () => clearTimeout(handler);
     } else {
+      // Reset when dialog closes
       setMatchingUsersCount(null);
-      clearErrors("count");
+      // No need to call clearErrors("count") here if reset() is called on dialog close
+      // and the useEffect below handles clearing based on mainDialogOpen.
     }
-  }, [mainDialogOpen, watchedEmailPrefix, watchedEmailDomain, fetchMatchingTestUsersCount, clearErrors]);
+  }, [mainDialogOpen, watchedEmailPrefix, watchedEmailDomain, fetchMatchingTestUsersCount]);
 
 
   useEffect(() => {
-    if (matchingUsersCount !== null && typeof watchedCount === 'number' && watchedCount > matchingUsersCount) {
-      setError("count", {
-        type: "manual",
-        message: `Cannot remove more than ${matchingUsersCount} existing user(s).`,
-      });
-    } else if (errors.count?.type === "manual" && (matchingUsersCount === null || (typeof watchedCount === 'number' && watchedCount <= matchingUsersCount))) {
-      clearErrors("count");
+    // This effect handles setting or clearing the manual error on the 'count' field.
+    // It runs when the dialog opens/closes, or when watchedCount/matchingUsersCount change.
+    if (!mainDialogOpen) {
+      // If dialog is not open, ensure manual count error is cleared.
+      if (errors.count?.type === "manual") {
+          clearErrors("count");
+      }
+      return;
     }
-  }, [watchedCount, matchingUsersCount, setError, clearErrors, errors.count]);
+  
+    // The following logic runs only when the dialog is open.
+    if (matchingUsersCount !== null && typeof watchedCount === 'number') {
+      if (watchedCount > matchingUsersCount) {
+        // Only set error if it's not already set with the exact same message
+        if (errors.count?.message !== `Cannot remove more than ${matchingUsersCount} existing user(s).`) {
+          setError("count", {
+            type: "manual",
+            message: `Cannot remove more than ${matchingUsersCount} existing user(s).`,
+          });
+        }
+      } else {
+        // If count is valid (<= matchingUsersCount), clear the manual error if it exists.
+        if (errors.count?.type === "manual") {
+          clearErrors("count");
+        }
+      }
+    } else {
+      // If matchingUsersCount is null (e.g., still fetching, or prefix/domain invalid),
+      // or watchedCount is not a number, clear any manual error that might be present.
+      if (errors.count?.type === "manual") {
+        clearErrors("count");
+      }
+    }
+  }, [mainDialogOpen, watchedCount, matchingUsersCount, setError, clearErrors, errors.count?.type, errors.count?.message]);
 
 
   const onFormSubmit: SubmitHandler<RemoveTestUsersFormInputs> = async (data) => {
+    // Re-check before opening confirmation, although button should be disabled
     if (matchingUsersCount !== null && data.count > matchingUsersCount) {
       setError("count", {
         type: "manual",
@@ -180,13 +206,13 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
       if (response.status === 204) {
         toast({
           title: "Test Users Removal Processed",
-          description: `Removal process for ${formData.count} user(s) matching '${formData.emailPrefix}@${formData.emailDomain}' completed.`,
+          description: `Removal process for ${formData.count} user(s) matching '${formData.emailPrefix}@${formData.emailDomain}' completed. Check server logs for details if needed.`,
         });
         onUsersChanged();
-        reset();
+        reset(); // Reset form fields to default
         setConfirmDialogOpen(false);
         setMainDialogOpen(false);
-        setMatchingUsersCount(null);
+        setMatchingUsersCount(null); // Reset matching count
         return;
       }
 
@@ -209,24 +235,24 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
         } else if (typeof deletedCountFromServer === 'number' && deletedCountFromServer === 0) {
           description = `No test users found matching '${formData.emailPrefix}@${formData.emailDomain}' to remove. 0 users were deleted.`;
         } else {
-          description = `Test user removal process for prefix '${formData.emailPrefix}@${formData.emailDomain}' completed. Please verify in server logs.`;
+          description = `Test user removal process for prefix '${formData.emailPrefix}@${formData.emailDomain}' completed. Backend response: ${JSON.stringify(result)}`;
         }
         toast({
           title: "Test Users Removal Processed",
           description: description,
         });
         onUsersChanged();
-        reset();
+        reset(); // Reset form fields
         setConfirmDialogOpen(false);
         setMainDialogOpen(false);
-        setMatchingUsersCount(null);
+        setMatchingUsersCount(null); // Reset matching count
       } else {
         toast({
           title: "Failed to Remove Test Users",
           description: result.message || result.details || "An unknown error occurred.",
           variant: "destructive",
         });
-        setConfirmDialogOpen(false);
+        setConfirmDialogOpen(false); // Keep main dialog open for correction
       }
     } catch (error) {
       console.error("Failed to remove test users:", error);
@@ -235,11 +261,16 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
         description: "Could not connect to the server to remove test users.",
         variant: "destructive",
       });
-      setConfirmDialogOpen(false);
+      setConfirmDialogOpen(false); // Keep main dialog open
     }
   };
 
-  const isSubmitDisabled = isSubmitting || isFetchingMatchingCount || (matchingUsersCount !== null && typeof watchedCount === 'number' && watchedCount > matchingUsersCount) || !isFormValidForBaseSchema || errors.count?.type === 'manual';
+  // Determine if submit button should be disabled
+  const isSubmitButtonDisabled = 
+    isSubmitting || 
+    isFetchingMatchingCount || 
+    !isFormValidForBaseSchema || // Base schema validation (required fields, formats)
+    !!errors.count; // Any error on count field (either from Zod or manual)
 
 
   return (
@@ -247,9 +278,11 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
       <Dialog open={mainDialogOpen} onOpenChange={(isOpen) => {
         setMainDialogOpen(isOpen);
         if (!isOpen) {
-           setMatchingUsersCount(null);
-           clearErrors("count");
+           reset(); // Reset form to default values when dialog is closed
+           setMatchingUsersCount(null); // Clear matching count
+           clearErrors(); // Clear all form errors
         } else {
+            // Initial fetch when dialog opens, if prefix/domain are valid
             if (watchedEmailPrefix && watchedEmailDomain && watchedEmailPrefix.length >=3 && watchedEmailDomain.includes('.')) {
                 fetchMatchingTestUsersCount(watchedEmailPrefix, watchedEmailDomain);
             }
@@ -301,7 +334,7 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
               )}
               {!isFetchingMatchingCount && matchingUsersCount !== null && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Found {matchingUsersCount} test user(s) matching "{watchedEmailPrefix}@{watchedEmailDomain}".
+                  Found {matchingUsersCount} test user(s) matching "{watchedEmailPrefix || '[prefix]'}@{watchedEmailDomain || '[domain]'}".
                 </p>
               )}
                {!isFetchingMatchingCount && matchingUsersCount === null && watchedEmailPrefix && watchedEmailDomain && watchedEmailPrefix.length >=3 && watchedEmailDomain.includes('.') && (
@@ -310,15 +343,16 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
               {errors.count && <p className="text-xs text-destructive mt-1">{errors.count.message}</p>}
             </div>
 
-            <p className="text-xs text-muted-foreground pt-1">
-              The "Found X user(s)" count reflects users matching the prefix/domain. The removal targets the N most recently created users adhering to this pattern.
+             <p className="text-xs text-muted-foreground pt-1">
+                Tip: Use the search on the User Management table (e.g., "testuser@example.com") to see how many users match the prefix and domain before attempting removal.
+                The removal targets the N most recently created users adhering to this pattern.
             </p>
 
             <DialogFooter className="pt-4">
               <DialogClose asChild>
                 <Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button>
               </DialogClose>
-              <Button type="submit" variant="destructive" disabled={isSubmitDisabled}>
+              <Button type="submit" variant="destructive" disabled={isSubmitButtonDisabled}>
                 {isSubmitting ? "Processing..." : "Remove Users"}
               </Button>
             </DialogFooter>
