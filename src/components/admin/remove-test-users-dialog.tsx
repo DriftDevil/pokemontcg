@@ -80,11 +80,11 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
         credentials: 'include',
       });
 
-      // Check for 204 No Content explicitly
+      // Handle 204 No Content explicitly
       if (response.status === 204) {
         toast({
           title: "Test Users Removal Processed",
-          description: `Attempted to remove test users with prefix '${formData.emailPrefix}@${formData.emailDomain}'.`,
+          description: `Removal process initiated for users with prefix '${formData.emailPrefix}@${formData.emailDomain}'. Check server logs for details.`,
         });
         onUsersChanged();
         reset(); // Reset form to defaults
@@ -93,24 +93,35 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
         return;
       }
       
-      const result = await response.json();
+      const result = await response.json().catch(() => ({})); // Gracefully handle if response is not JSON
 
-      if (response.ok) {
+      if (response.ok) { // For 200 OK or other 2xx statuses
+        let description;
+        if (result.message) {
+          description = result.message;
+        } else if (typeof result.deletedCount === 'number' && result.deletedCount > 0) {
+          description = `Successfully removed ${result.deletedCount} test users matching '${formData.emailPrefix}@${formData.emailDomain}'.`;
+        } else if (typeof result.deletedCount === 'number' && result.deletedCount === 0 && response.ok) {
+            description = `No test users found matching '${formData.emailPrefix}@${formData.emailDomain}' to remove.`;
+        }
+        else {
+          description = `Test user removal process for prefix '${formData.emailPrefix}@${formData.emailDomain}' completed. Check server logs for specific counts.`;
+        }
         toast({
           title: "Test Users Removal Processed",
-          description: result.message || `Attempted to remove test users with prefix '${formData.emailPrefix}@${formData.emailDomain}'. Removed: ${result.deletedCount || 0}`,
+          description: description,
         });
         onUsersChanged();
         reset();
         setConfirmDialogOpen(false);
         setMainDialogOpen(false);
-      } else {
+      } else { // For non-ok responses (4xx, 5xx)
         toast({
           title: "Failed to Remove Test Users",
           description: result.message || result.details || "An unknown error occurred.",
           variant: "destructive",
         });
-        setConfirmDialogOpen(false); // Keep main dialog open for correction
+        setConfirmDialogOpen(false); // Keep main dialog open for correction if needed
       }
     } catch (error) {
       console.error("Failed to remove test users:", error);
