@@ -30,7 +30,15 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { UserX, AlertTriangle, Loader2 } from "lucide-react";
-import type { DisplayUser } from '@/app/(app)/admin/users/page';
+import type { DisplayUser } from '@/app/(app)/admin/users/page'; // Assuming DisplayUser is still relevant for structure
+
+// Define a simpler type for what we expect from /api/admin/users/all-test for counting purposes
+interface TestApiUser {
+  id: string;
+  email?: string;
+  // Add other fields if your /user/admin/all-test endpoint returns more and they are needed
+}
+
 
 const baseRemoveTestUsersSchema = z.object({
   emailPrefix: z.string().min(3, { message: "Email prefix must be at least 3 characters." }),
@@ -69,7 +77,7 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
       emailDomain: "example.com",
       count: 10,
     },
-    mode: 'onChange', 
+    mode: 'onChange',
   });
 
   const watchedEmailPrefix = watch("emailPrefix");
@@ -83,28 +91,31 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
     }
     setIsFetchingMatchingCount(true);
     try {
-      const response = await fetch('/api/users/all', { credentials: 'include', cache: 'no-store' });
+      // Use the new dedicated API route for fetching only test users
+      const response = await fetch('/api/admin/users/all-test', { credentials: 'include', cache: 'no-store' });
       if (!response.ok) {
-        // Check for 401 specifically, as AppLayout might be redirecting soon.
         if (response.status === 401) {
-            toast({ title: "Session Issue", description: "Could not fetch user data, session may be invalid. Please try refreshing or logging in again.", variant: "destructive" });
+            toast({ title: "Session Issue", description: "Could not fetch test user data, session may be invalid. Please try refreshing or logging in again.", variant: "destructive" });
         } else {
-            toast({ title: "Error", description: `Failed to fetch user data (status: ${response.status}).`, variant: "destructive" });
+            toast({ title: "Error", description: `Failed to fetch test user data (status: ${response.status}).`, variant: "destructive" });
         }
-        throw new Error(`Failed to fetch users: ${response.status}`);
+        throw new Error(`Failed to fetch test users: ${response.status}`);
       }
       const result = await response.json();
-      const apiUsers: DisplayUser[] = result.data || [];
-      const filtered = apiUsers.filter(user =>
+      // Assuming the new endpoint also returns { data: TestApiUser[] }
+      const testApiUsers: TestApiUser[] = result.data || [];
+      
+      // Client-side filtering still needed as /api/admin/users/all-test might return ALL test users,
+      // and we need to count only those matching the specific prefix/domain from the form.
+      const filtered = testApiUsers.filter(user =>
         user.email?.toLowerCase().startsWith(prefix.toLowerCase()) && user.email?.toLowerCase().endsWith(`@${domain.toLowerCase()}`)
       );
       setMatchingUsersCount(filtered.length);
     } catch (error) {
-      console.error("Error fetching matching users count:", error);
-      setMatchingUsersCount(null); 
-      // Toast is already handled above for specific !response.ok cases, or this generic one if fetch itself fails
-      if (!(error instanceof Error && error.message.includes("Failed to fetch users"))) {
-          toast({ title: "Fetch Error", description: "Could not connect to fetch matching user count.", variant: "destructive" });
+      console.error("Error fetching matching test users count:", error);
+      setMatchingUsersCount(null);
+      if (!(error instanceof Error && error.message.includes("Failed to fetch test users"))) {
+          toast({ title: "Fetch Error", description: "Could not connect to fetch matching test user count.", variant: "destructive" });
       }
     } finally {
       setIsFetchingMatchingCount(false);
@@ -112,15 +123,13 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
   }, [toast]);
 
   useEffect(() => {
-    if (mainDialogOpen) { // Only run if dialog is open
+    if (mainDialogOpen) {
         const handler = setTimeout(() => {
-        fetchMatchingTestUsersCount(watchedEmailPrefix, watchedEmailDomain);
+          fetchMatchingTestUsersCount(watchedEmailPrefix, watchedEmailDomain);
         }, 700);
         return () => clearTimeout(handler);
     } else {
-      // Reset matching count when dialog closes so it refetches next time
       setMatchingUsersCount(null);
-      // Also clear any manual count errors if the dialog is closed
       clearErrors("count");
     }
   }, [mainDialogOpen, watchedEmailPrefix, watchedEmailDomain, fetchMatchingTestUsersCount, clearErrors]);
@@ -149,7 +158,7 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
         description: `Cannot remove more than ${matchingUsersCount} existing user(s) matching the criteria.`,
         variant: "destructive",
       });
-      return; 
+      return;
     }
     setFormData(data);
     setConfirmDialogOpen(true);
@@ -164,11 +173,11 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData), 
+        body: JSON.stringify(formData),
         credentials: 'include',
       });
 
-      if (response.status === 204) { 
+      if (response.status === 204) {
         toast({
           title: "Test Users Removal Processed",
           description: `Removal process for ${formData.count} user(s) matching '${formData.emailPrefix}@${formData.emailDomain}' completed.`,
@@ -177,15 +186,15 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
         reset();
         setConfirmDialogOpen(false);
         setMainDialogOpen(false);
-        setMatchingUsersCount(null); 
+        setMatchingUsersCount(null);
         return;
       }
-      
+
       const result = await response.json().catch(() => ({}));
 
       if (response.ok) {
         let description;
-        const deletedCountFromServer = result.deleted; // Changed from deleteCount to deleted
+        const deletedCountFromServer = result.deletedCount; // Expecting deletedCount from backend
         const deletedEmails = result.emails;
 
         if (result.message) {
@@ -210,7 +219,7 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
         reset();
         setConfirmDialogOpen(false);
         setMainDialogOpen(false);
-        setMatchingUsersCount(null); 
+        setMatchingUsersCount(null);
       } else {
         toast({
           title: "Failed to Remove Test Users",
@@ -238,11 +247,9 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
       <Dialog open={mainDialogOpen} onOpenChange={(isOpen) => {
         setMainDialogOpen(isOpen);
         if (!isOpen) {
-           setMatchingUsersCount(null); 
-           clearErrors("count"); // Clear manual errors when dialog closes
+           setMatchingUsersCount(null);
+           clearErrors("count");
         } else {
-            // When dialog opens, if prefix/domain are already filled, trigger a fetch.
-            // This handles cases where defaults might already be valid for fetching.
             if (watchedEmailPrefix && watchedEmailDomain && watchedEmailPrefix.length >=3 && watchedEmailDomain.includes('.')) {
                 fetchMatchingTestUsersCount(watchedEmailPrefix, watchedEmailDomain);
             }
@@ -279,7 +286,7 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
               />
               {errors.emailDomain && <p className="text-xs text-destructive mt-1">{errors.emailDomain.message}</p>}
             </div>
-            
+
             <div>
               <Label htmlFor="count-remove-test">Number of Users to Remove</Label>
               <Controller
@@ -294,7 +301,7 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
               )}
               {!isFetchingMatchingCount && matchingUsersCount !== null && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Found {matchingUsersCount} user(s) matching "{watchedEmailPrefix}@{watchedEmailDomain}".
+                  Found {matchingUsersCount} test user(s) matching "{watchedEmailPrefix}@{watchedEmailDomain}".
                 </p>
               )}
                {!isFetchingMatchingCount && matchingUsersCount === null && watchedEmailPrefix && watchedEmailDomain && watchedEmailPrefix.length >=3 && watchedEmailDomain.includes('.') && (
@@ -302,9 +309,9 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
               )}
               {errors.count && <p className="text-xs text-destructive mt-1">{errors.count.message}</p>}
             </div>
-            
+
             <p className="text-xs text-muted-foreground pt-1">
-              The "Found X user(s)" count helps validate the number you wish to remove. The actual removal targets the N most recently created users matching the pattern.
+              The "Found X user(s)" count reflects users matching the prefix/domain. The removal targets the N most recently created users adhering to this pattern.
             </p>
 
             <DialogFooter className="pt-4">
@@ -326,9 +333,9 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
               <AlertTriangle className="mr-2 h-5 w-5 text-destructive" /> Confirm Removal
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove the last {formData?.count} user(s) matching the prefix 
+              Are you sure you want to remove the last {formData?.count} user(s) matching the prefix
               <span className="font-semibold"> {formData?.emailPrefix}@</span>
-              <span className="font-semibold">{formData?.emailDomain}</span>? 
+              <span className="font-semibold">{formData?.emailDomain}</span>?
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
