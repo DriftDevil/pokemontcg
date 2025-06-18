@@ -418,7 +418,7 @@ paths:
                   error:
                     type: string
                     example: Admin access required
-  /user/admin/delete-last:
+  /user/admin/delete-test-last:
     post:
       tags: [Admin]
       security:
