@@ -502,6 +502,74 @@ paths:
                   error:
                     type: string
                     example: Failed to delete test users.
+  /user/admin/all-test:
+    get:
+      summary: Get all test users
+      description: >
+        Retrieves all test users whose email matches a specific pattern (e.g. `testuser%@example.com`).  
+        Optional query parameters `prefix` and `domain` can override the defaults.
+      tags:
+        - User (Admin)
+      security:
+        - oauth2: [openid]
+        - localAuth: []
+      parameters:
+        - in: query
+          name: prefix
+          schema:
+            type: string
+          required: false
+          description: Email prefix to match (default is "testuser")
+        - in: query
+          name: domain
+          schema:
+            type: string
+          required: false
+          description: Email domain to match (default is "example.com")
+      responses:
+        '200':
+          description: List of test users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  total:
+                    type: integer
+        '401':
+          description: Unauthorized — authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Unauthorized
+        '403':
+          description: Forbidden — admin access required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Forbidden
+        '500':
+          description: Server error while retrieving test users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Failed to retrieve test users
   /user/admin/create:
     post:
       summary: Create a new user (admin only)
