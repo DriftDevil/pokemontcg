@@ -31,6 +31,12 @@ interface ApiUserListResponse {
   total?: number;
 }
 
+interface CacheStats {
+  hits: number;
+  misses: number;
+  hit_rate: string; // e.g., "95.00%"
+}
+
 interface DbStatusResponse {
   status: string;
   version: string;
@@ -38,6 +44,7 @@ interface DbStatusResponse {
   connections: number;
   max_allowed: number;
   last_sync: string; // ISO date string
+  cache?: CacheStats; // Added cache stats
 }
 
 
@@ -372,6 +379,12 @@ export default async function AdminDashboardPage() {
   const dbStatusText = dbStatus ? `${dbStatus.status.charAt(0).toUpperCase() + dbStatus.status.slice(1)} (${dbStatus.connections}/${dbStatus.max_allowed} conns)` : "Loading...";
   const dbStatusBadgeVariant = dbStatus?.status === 'connected' ? 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700' : 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700';
 
+  const cacheData = dbStatus?.cache;
+  const cacheHitRateText = cacheData?.hit_rate || "N/A";
+  const cacheHitsText = typeof cacheData?.hits === 'number' ? cacheData.hits.toLocaleString() : "N/A";
+  const cacheMissesText = typeof cacheData?.misses === 'number' ? cacheData.misses.toLocaleString() : "N/A";
+
+
   return (
     <>
       <PageHeader
@@ -543,10 +556,12 @@ export default async function AdminDashboardPage() {
                 <Gauge className="mr-3 h-6 w-6 text-accent" />
                 <div>
                   <p className="text-sm font-medium text-foreground">Cache Performance</p>
-                  <p className="text-xs text-muted-foreground">Hit/miss ratio</p>
+                  <p className="text-xs text-muted-foreground">
+                    {cacheData ? `Hits: ${cacheHitsText}, Misses: ${cacheMissesText}` : "Checking..."}
+                  </p>
                 </div>
               </div>
-              <Badge variant="outline" className="text-sm">N/A</Badge>
+              <Badge variant="outline" className="text-sm">{cacheData ? cacheHitRateText : "N/A"}</Badge>
             </div>
             <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
               <div className="flex items-center">
