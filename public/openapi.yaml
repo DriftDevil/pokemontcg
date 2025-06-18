@@ -18,6 +18,11 @@ tags:
     description: Authentication endpoints
   - name: System
     description: System health and version information
+  - name: Admin
+    description: Admin-only endpoints
+  - name: Admin Stats
+    description: Admin-only statistics endpoints
+
 
 paths:
   /v2/sets:
@@ -170,7 +175,7 @@ paths:
                 $ref: '#/components/schemas/StringListWithVersion'
   /auth/local/login:
     post:
-      summary: Login with password
+      summary: Login with email or preferred username and password
       tags: [Auth]
       requestBody:
         required: true
@@ -178,28 +183,50 @@ paths:
           application/json:
             schema:
               type: object
+              required: [identifier, password]
               properties:
-                email:
+                identifier:
                   type: string
+                  description: Email or preferredUsername of the user
                 password:
                   type: string
+                  format: password
+                  description: User's plaintext password
       responses:
         "200":
-          description: JWT token response
+          description: Successful login with JWT token
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  accessToken:
+                  id:
                     type: string
+                    format: uuid
                   email:
                     type: string
+                    format: email
+                  preferredUsername:
+                    type: string
+                    nullable: true
+                  name:
+                    type: string
+                  isAdmin:
+                    type: boolean
+                  accessToken:
+                    type: string
+                    description: JWT bearer token
                   type:
                     type: string
+                    enum: [Bearer]
+                    description: Token type
+        "400":
+          description: Invalid request body
+        "401":
+          description: Invalid credentials
   /auth/local/set-password:
     post:
-      summary: Set user password
+      summary: Set a user's password (admin only)
       tags: [Auth]
       security:
         - localAuth: []
@@ -209,13 +236,31 @@ paths:
           application/json:
             schema:
               type: object
+              required: [password]
               properties:
+                id:
+                  type: string
+                  format: uuid
+                  description: Optional direct user ID
+                identifier:
+                  type: string
+                  description: Optional email or preferredUsername
                 password:
                   type: string
+                  format: password
+                  description: New password to set
       responses:
-        "200":
-          description: Password set successfully
-  /auth/local/change-password:
+        "204":
+          description: Password set successfully (no content)
+        "400":
+          description: Invalid request body
+        "403":
+          description: Forbidden – requires admin
+        "404":
+          description: User not found
+        "500":
+          description: Internal server error
+  /auth/local/me/change-password:
     post:
       summary: Change password (local auth only)
       operationId: changePassword
@@ -228,26 +273,28 @@ paths:
           application/json:
             schema:
               type: object
+              required: [currentPassword, newPassword]
               properties:
                 currentPassword:
                   type: string
+                  format: password
                   description: User's current password
                   example: oldPass123
                 newPassword:
                   type: string
+                  format: password
                   description: New password to set
                   example: newSecurePass456
-              required: [currentPassword, newPassword]
       responses:
-        '204':
+        "204":
           description: Password changed successfully (no content)
-        '400':
+        "400":
           description: Invalid request body
-        '401':
+        "401":
           description: Unauthorized or incorrect current password
-        '404':
-          description: User not found
-        '500':
+        "403":
+          description: Forbidden – user does not use local auth
+        "500":
           description: Internal server error
   /auth/local/me:
     get:
@@ -286,14 +333,167 @@ paths:
       responses:
         "200":
           description: Synced user
+  /user/admin/add-test:
+    post:
+      tags: [Admin]
+      security:
+        - oauth2:
+            - openid
+      summary: Add test users in bulk
+      description: Creates multiple test users with auto-incrementing names and emails.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                baseName:
+                  type: string
+                  example: Test User
+                count:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  example: 5
+                emailPrefix:
+                  type: string
+                  example: testuser
+                emailDomain:
+                  type: string
+                  example: example.com
+              required:
+                - count
+      responses:
+        '201':
+          description: Test users created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                    example: 5
+                  skipped:
+                    type: integer
+                    example: 0
+                  created:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Invalid request payload.
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Unauthorized
+        '403':
+          description: Forbidden (admin access required)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Admin access required
+  /user/admin/delete-test:
+    post:
+      tags: [Admin]
+      security:
+        - oauth2:
+            - openid
+      summary: Delete test users in bulk
+      description: Deletes users whose emails match the test pattern.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emailPrefix:
+                  type: string
+                  example: testuser
+                emailDomain:
+                  type: string
+                  example: example.com
+      responses:
+        '200':
+          description: Test users deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: integer
+                    example: 5
+                  pattern:
+                    type: string
+                    example: testuser%@example.com
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Invalid request payload.
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Unauthorized
+        '403':
+          description: Forbidden (admin access required)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Admin access required
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Failed to delete test users.
   /user/admin/create:
     post:
-      summary: Creates a new user (admin only)
+      summary: Create a new user (admin only)
       description: >
         Creates a new user to the system. This endpoint supports both local-auth users
         (with a password) and OIDC-only users (without a password). Only admins can access this.
-      tags:
-        - Users
+      tags: [Admin]
       security:
         - localAuth: []
         - oauth2:
@@ -356,7 +556,7 @@ paths:
   /user/admin/remove/{id}:
     delete:
       summary: Delete a user by ID
-      tags: [Users]
+      tags: [Admin]
       security:
         - localAuth: []
         - oauth2:
@@ -392,7 +592,7 @@ paths:
   /user/admin/remove:
     post:
       summary: Delete a user by email or ID
-      tags: [Users]
+      tags: [Admin]
       security:
         - localAuth: []
         - oauth2:
@@ -434,15 +634,14 @@ paths:
           description: User not found
         '500':
           description: Internal server error
-
   /user/admin/{userID}/collection/cards:
     get:
       summary: Admin fetch of specific user's card collection
-      tags: [Users]
+      tags: [Admin]
       security:
+        - localAuth: []
         - oauth2:
             - openid
-        - localAuth: []
       parameters:
         - name: userID
           in: path
@@ -463,15 +662,14 @@ paths:
           description: Unauthorized
         '403':
           description: Admin access required
-
   /user/admin/{userID}/collection/cards/set/{setID}:
     get:
       summary: Admin fetch of user's card collection for a specific set
-      tags: [Users]
+      tags: [Admin]
       security:
+        - localAuth: []
         - oauth2:
             - openid
-        - localAuth: []
       parameters:
         - name: userID
           in: path
@@ -500,40 +698,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserCardsResponse'
-
-
-  /user/admin/collection/cards:
-    get:
-      summary: Admin fetch of all user collections (grouped, filtered)
-      tags: [Users]
-      security:
-        - oauth2:
-            - openid
-        - localAuth: []
-      parameters:
-        - in: query
-          name: q
-          schema:
-            type: string
-        - in: query
-          name: orderBy
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Filtered user collections
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/UserCardGroup'
-                  total:
-                    type: integer
-
   /user/me/collection/cards/add:
     post:
       summary: Add one or more cards to the user's collection
@@ -569,7 +733,37 @@ paths:
                     additionalProperties:
                       type: integer
                     description: Map of card IDs to updated quantities
-
+  /user/admin/collection/cards:
+    get:
+      summary: Admin fetch of all user collections (grouped, filtered)
+      tags: [Admin]
+      security:
+        - localAuth: []
+        - oauth2:
+            - openid
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+        - in: query
+          name: orderBy
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Filtered user collections
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserCardGroup'
+                  total:
+                    type: integer
   /user/me/collection/cards/remove:
     post:
       summary: Remove one or more cards from the user's collection
@@ -665,7 +859,7 @@ paths:
   /user/admin/all:
     get:
       summary: List all users (admin only)
-      tags: [Users]
+      tags: [Admin]
       security:
         - oauth2:
             - openid
@@ -682,13 +876,11 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/User'
-
   /admin/db/status:
     get:
       summary: Get database status and metadata
       description: Returns database connection status, version, current time, connection count, and last card sync timestamp.
-      tags:
-        - Admin
+      tags: [Admin Stats]
       security:
         - oauth2: [openid]
         - localAuth: []
@@ -727,32 +919,32 @@ paths:
           description: Admin access required
         '500':
           description: Internal server error
-          /admin/stats/cards-by-supertype:
-            get:
-              summary: Get count of cards grouped by supertype
-              tags: [Admin Stats]
-              security:
-                - localAuth: []
-                - oauth2: []
-              responses:
-                '200':
-                  description: Card count by supertype
-                  content:
-                    application/json:
-                      schema:
-                        type: object
-                        properties:
-                          data:
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                label:
-                                  type: string
-                                  example: "Pokémon"
-                                count:
-                                  type: integer
-                                  example: 12345
+  /admin/stats/cards-by-supertype:
+    get:
+      summary: Get count of cards grouped by supertype
+      tags: [Admin Stats]
+      security:
+        - localAuth: []
+        - oauth2: []
+      responses:
+        '200':
+          description: Card count by supertype
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        label:
+                          type: string
+                          example: "Pokémon"
+                        count:
+                          type: integer
+                          example: 12345
   /admin/stats/cards-by-type:
     get:
       summary: Get count of cards grouped by type
@@ -779,7 +971,6 @@ paths:
                         count:
                           type: integer
                           example: 3150
-
   /admin/stats/cards-added-per-day:
     get:
       summary: Get number of cards added per day
