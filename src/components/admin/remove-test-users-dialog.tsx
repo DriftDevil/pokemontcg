@@ -97,15 +97,14 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
 
       if (response.ok) { // For 200 OK or other 2xx statuses
         let description;
-        if (result.message) {
+        if (result.message) { // Check for a specific message from backend first
           description = result.message;
-        } else if (typeof result.deletedCount === 'number' && result.deletedCount > 0) {
-          description = `Successfully removed ${result.deletedCount} test users matching '${formData.emailPrefix}@${formData.emailDomain}'.`;
-        } else if (typeof result.deletedCount === 'number' && result.deletedCount === 0 && response.ok) {
-            description = `No test users found matching '${formData.emailPrefix}@${formData.emailDomain}' to remove.`;
-        }
-        else {
-          description = `Test user removal process for prefix '${formData.emailPrefix}@${formData.emailDomain}' completed. Check server logs for specific counts.`;
+        } else if (typeof result.deleted === 'number' && result.deleted > 0) {
+          description = `Successfully removed ${result.deleted} test users matching '${formData.emailPrefix}@${formData.emailDomain}'.`;
+        } else if (typeof result.deleted === 'number' && result.deleted === 0 && response.ok) {
+          description = `No test users found matching '${formData.emailPrefix}@${formData.emailDomain}' to remove.`;
+        } else {
+          description = `Test user removal process for prefix '${formData.emailPrefix}@${formData.emailDomain}' completed. Please verify in server logs.`;
         }
         toast({
           title: "Test Users Removal Processed",
