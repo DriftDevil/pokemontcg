@@ -70,22 +70,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   // Effect for redirecting if not authenticated
   useEffect(() => {
-    // console.log(`[AppLayout Redirect Check] isLoading: ${isLoadingUser}, user: ${JSON.stringify(user)}, pathname: ${pathname}`);
+    const publicPaths = ['/login', '/sets', '/cards'];
     if (!isLoadingUser && !user) {
-      // Since all pages under /(app)/ are assumed to require authentication,
-      // redirect to /login if no user is found after loading.
-      // Check pathname to avoid potential redirect loops if /login somehow ended up in this layout.
-      if (pathname !== '/login') {
-        console.log(`[AppLayout] No user session found after loading. Current path: ${pathname}. Redirecting to /login.`);
+      // If the user is not loaded and not logged in,
+      // and the current path is NOT one of the public paths, redirect to login.
+      if (!publicPaths.includes(pathname)) {
+        console.log(`[AppLayout] No user session. Path ${pathname} requires auth. Redirecting to /login.`);
         router.push('/login');
       }
     }
   }, [isLoadingUser, user, router, pathname]);
 
-  // If still loading user data, show a full-page loader.
-  // Or, if done loading and there's no user (and we are on a page within this layout),
-  // show a loader to prevent flashing content before redirect effect kicks in.
-  if (isLoadingUser || (!user && pathname !== '/login')) {
+  // If still loading user data, show a full-page loader for protected routes.
+  // For public routes (/sets, /cards), we can proceed to render even if user is loading/null.
+  const isPotentiallyProtectedRoute = !['/sets', '/cards', '/login'].includes(pathname);
+  if (isLoadingUser && isPotentiallyProtectedRoute) {
     return (
       <div className="flex flex-1 items-center justify-center min-h-screen bg-background">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -94,7 +93,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
   
-  // If we reach here, the user is authenticated and loaded.
+  // If done loading, no user, and on a protected route, show loader before redirect effect potentially kicks in.
+  // This helps prevent flashing content on routes that will be redirected.
+  if (!isLoadingUser && !user && isPotentiallyProtectedRoute) {
+     return (
+      <div className="flex flex-1 items-center justify-center min-h-screen bg-background">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <span className="sr-only">Redirecting...</span>
+      </div>
+    );
+  }
+  
+  // If we reach here, either the user is authenticated and loaded, or it's a public page.
   return (
       <SidebarProvider defaultOpen>
         <div className="flex min-h-screen w-full">
