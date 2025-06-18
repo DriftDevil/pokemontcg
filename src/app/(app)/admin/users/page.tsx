@@ -201,15 +201,7 @@ export default function AdminUsersPage() {
         icon={UsersIcon}
         actions={PageActions}
       />
-      {users.length > 0 || !isLoading ? ( 
-        <UsersTableClient initialUsers={users} onUserDeleted={handleUserListChanged} />
-      ) : (
-        <div className="text-center py-12 text-muted-foreground">
-          <UsersIcon className="mx-auto h-12 w-12 mb-4" />
-          <h3 className="text-xl font-semibold mb-2">No Users Found</h3>
-          <p>Either no users exist, or there was an issue fetching user data.</p>
-        </div>
-      )}
+      <UsersTableClient initialUsers={users} onUserDeleted={handleUserListChanged} />
     </>
   );
 }
