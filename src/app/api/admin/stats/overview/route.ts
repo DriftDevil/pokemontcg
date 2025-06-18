@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
         { label: 'Trainer', count: Math.floor(Math.random() * 1000) + 200 },
         { label: 'Energy', count: Math.floor(Math.random() * 500) + 100 },
       ],
-      cardsByType: [ // Example mock data for cardsByType
+      cardsByType: [ 
         { label: 'Water', count: Math.floor(Math.random() * 500) + 100 },
         { label: 'Fire', count: Math.floor(Math.random() * 400) + 80 },
       ],
@@ -70,20 +70,15 @@ export async function GET(request: NextRequest) {
       const errorText = await response.text();
       console.error(`[API /admin/stats/overview] External API error: ${response.status} ${errorText}`);
       // Return a structure that matches AdminStatsOverviewResponse with empty arrays on error
-      // This allows the frontend to handle "no data" gracefully.
       return NextResponse.json(
         { cardsAddedPerDay: [], cardsBySupertype: [], cardsByType: [] },
         { status: response.status }
       );
     }
     const data: AdminStatsOverviewResponse = await response.json();
-    // Ensure dates are in YYYY-MM-DD string format if necessary
-    if (data.cardsAddedPerDay) {
-        data.cardsAddedPerDay = data.cardsAddedPerDay.map(item => ({
-            ...item,
-            date: format(new Date(item.date), 'yyyy-MM-dd') // Standardize date string format
-        }));
-    }
+    // Note: Date formatting for cardsAddedPerDay.date (from ISO to YYYY-MM-DD string)
+    // will be handled in the AdminDashboardPage component itself before passing to the chart.
+    // This API proxy should return the data as is from the backend.
     return NextResponse.json(data);
   } catch (error: any) {
     console.error(`[API /admin/stats/overview] Fetch error: ${error.message}`);

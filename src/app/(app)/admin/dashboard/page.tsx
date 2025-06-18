@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import LocalizedTimeDisplay from "@/components/localized-time-display";
 import DynamicCardsBySupertypeChartWrapper from "@/components/admin/dashboard/dynamic-cards-by-supertype-chart-wrapper";
 import DynamicCardsAddedChartWrapper from "@/components/admin/dashboard/dynamic-cards-added-chart-wrapper";
+import { format as formatDateFns } from 'date-fns';
 
 
 // User structure based on openapi.yaml User schema
@@ -45,11 +46,11 @@ interface DbStatusResponse {
   db_time: string;
   connections: number;
   max_allowed: number;
-  last_sync: string; 
+  last_sync: string | null; // Can be null if no sync data
   cache?: CacheStats; 
 }
 
-// For chart components
+// For chart components - these are used by the chart components themselves
 interface CardsBySupertypeDataPoint {
   name: string; // Mapped from 'label'
   value: number; // Mapped from 'count'
@@ -61,9 +62,9 @@ interface CardsAddedDataPoint {
   count: number;
 }
 
-// For the new consolidated overview endpoint
+// For the new consolidated overview endpoint response
 interface AdminStatsOverviewResponse {
-  cardsAddedPerDay: CardsAddedDataPoint[];
+  cardsAddedPerDay: { date: string; count: number }[]; // API returns date as ISO string
   cardsBySupertype: { label: string; count: number }[]; // Raw from API
   cardsByType: { label: string; count: number }[]; // Raw from API
 }
@@ -247,13 +248,27 @@ async function fetchAdminStatsOverview(sessionToken: string | undefined): Promis
     
     const response = await fetch(fetchUrl, { headers: fetchHeaders, cache: 'no-store' });
     if (!response.ok) {
-      console.error(`[AdminDashboardPage - fetchAdminStatsOverview] API error ${response.status}`);
+      console.error(`[AdminDashboardPage - fetchAdminStatsOverview] API error ${response.status} when fetching from ${fetchUrl}`);
       return defaultResponse;
     }
     const data: AdminStatsOverviewResponse = await response.json();
+    
+    // Format dates for cardsAddedPerDay to YYYY-MM-DD string format
+    if (data.cardsAddedPerDay && Array.isArray(data.cardsAddedPerDay)) {
+        data.cardsAddedPerDay = data.cardsAddedPerDay.map(item => ({
+            ...item,
+            date: item.date ? formatDateFns(new Date(item.date), 'yyyy-MM-dd') : 'Unknown Date'
+        }));
+    } else {
+        data.cardsAddedPerDay = []; // Ensure it's an array if API returns null/undefined
+    }
+    
+    if (!Array.isArray(data.cardsBySupertype)) data.cardsBySupertype = [];
+    if (!Array.isArray(data.cardsByType)) data.cardsByType = [];
+
     return data;
   } catch (error) {
-    console.error(`[AdminDashboardPage - fetchAdminStatsOverview] Fetch error:`, error);
+    console.error(`[AdminDashboardPage - fetchAdminStatsOverview] Fetch error from ${fetchUrl}:`, error);
     return defaultResponse;
   }
 }
@@ -290,11 +305,11 @@ export default async function AdminDashboardPage() {
     fetchAdminStatsOverview(sessionToken),
   ]);
 
-  const cardsBySupertypeData: CardsBySupertypeDataPoint[] = adminStatsOverview.cardsBySupertype.map(item => ({
+  const cardsBySupertypeData: CardsBySupertypeDataPoint[] = (adminStatsOverview.cardsBySupertype || []).map(item => ({
     name: item.label,
     value: item.count,
   }));
-  const cardsAddedDailyData: CardsAddedDataPoint[] = adminStatsOverview.cardsAddedPerDay;
+  const cardsAddedDailyData: CardsAddedDataPoint[] = adminStatsOverview.cardsAddedPerDay || [];
 
 
   const setReleaseChartConfig = {
@@ -302,10 +317,11 @@ export default async function AdminDashboardPage() {
   } as const;
 
   const cardsBySupertypeConfig = {
-    value: { label: "Cards" }, 
+    // Config keys should match the 'name' property of your data points for Pie chart legends/tooltips
     Pokémon: { label: "Pokémon", color: "hsl(var(--chart-1))" },
     Trainer: { label: "Trainer", color: "hsl(var(--chart-2))" },
     Energy: { label: "Energy", color: "hsl(var(--chart-3))" },
+    // Add other supertypes if they appear in data and you want specific colors/labels
   } as const;
   
   const cardsAddedConfig = {
