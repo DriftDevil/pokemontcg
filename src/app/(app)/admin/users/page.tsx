@@ -4,10 +4,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import PageHeader from "@/components/page-header";
 import UsersTableClient from "@/components/admin/users-table-client";
-import { Users as UsersIcon, UserPlus } from "lucide-react";
+import { Users as UsersIcon, UserPlus, TestTubeDiagonal, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import AddUserDialog from '@/components/admin/add-user-dialog';
+import AddTestUsersDialog from '@/components/admin/add-test-users-dialog';
+import RemoveTestUsersDialog from '@/components/admin/remove-test-users-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface ApiUser {
@@ -18,7 +20,7 @@ interface ApiUser {
   isAdmin?: boolean;
   createdAt?: string; 
   lastSeen?: string;
-  avatarUrl?: string; // Added avatarUrl
+  avatarUrl?: string; 
 }
 
 interface ApiUserListResponse {
@@ -33,7 +35,7 @@ export interface DisplayUser {
   role: string;  
   status: string; 
   lastLogin: string | null; 
-  avatarUrl?: string; // Changed from avatar to avatarUrl
+  avatarUrl?: string; 
 }
 
 function getBaseUrl(): string {
@@ -113,7 +115,7 @@ export default function AdminUsersPage() {
         role: apiUser.isAdmin ? 'Admin' : 'User',
         status: 'Active', 
         lastLogin: apiUser.lastSeen || apiUser.createdAt || null,
-        avatarUrl: apiUser.avatarUrl, // Use avatarUrl
+        avatarUrl: apiUser.avatarUrl, 
       })));
 
     } catch (error) {
@@ -135,17 +137,31 @@ export default function AdminUsersPage() {
     fetchUsers();
   }, [fetchUsers]);
 
-  const handleUserAddedOrDeleted = () => {
+  const handleUserListChanged = () => {
     fetchUsers(); 
   };
   
   const PageActions = (
-    <AddUserDialog onUserAdded={handleUserAddedOrDeleted}>
-      <Button>
-        <UserPlus className="mr-2 h-4 w-4" />
-        Add New User
-      </Button>
-    </AddUserDialog>
+    <div className="flex flex-wrap gap-2">
+      <AddUserDialog onUserAdded={handleUserListChanged}>
+        <Button>
+          <UserPlus className="mr-2 h-4 w-4" />
+          Add New User
+        </Button>
+      </AddUserDialog>
+      <AddTestUsersDialog onUsersChanged={handleUserListChanged}>
+        <Button variant="outline">
+          <TestTubeDiagonal className="mr-2 h-4 w-4" />
+          Add Test Users
+        </Button>
+      </AddTestUsersDialog>
+      <RemoveTestUsersDialog onUsersChanged={handleUserListChanged}>
+        <Button variant="destructive">
+          <UserX className="mr-2 h-4 w-4" />
+          Remove Test Users
+        </Button>
+      </RemoveTestUsersDialog>
+    </div>
   );
 
   if (isLoading && users.length === 0) { 
@@ -155,7 +171,13 @@ export default function AdminUsersPage() {
           title="User Management"
           description="Administer user accounts, roles, and permissions."
           icon={UsersIcon}
-          actions={<Button disabled><UserPlus className="mr-2 h-4 w-4" /> Add New User</Button>}
+          actions={
+            <div className="flex flex-wrap gap-2">
+              <Button disabled><UserPlus className="mr-2 h-4 w-4" /> Add New User</Button>
+              <Button variant="outline" disabled><TestTubeDiagonal className="mr-2 h-4 w-4" /> Add Test Users</Button>
+              <Button variant="destructive" disabled><UserX className="mr-2 h-4 w-4" /> Remove Test Users</Button>
+            </div>
+          }
         />
         <div className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-2 items-center">
@@ -180,7 +202,7 @@ export default function AdminUsersPage() {
         actions={PageActions}
       />
       {users.length > 0 || !isLoading ? ( 
-        <UsersTableClient initialUsers={users} onUserDeleted={handleUserAddedOrDeleted} />
+        <UsersTableClient initialUsers={users} onUserDeleted={handleUserListChanged} />
       ) : (
         <div className="text-center py-12 text-muted-foreground">
           <UsersIcon className="mx-auto h-12 w-12 mb-4" />
