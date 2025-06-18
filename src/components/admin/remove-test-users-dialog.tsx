@@ -34,6 +34,7 @@ import { UserX, AlertTriangle } from "lucide-react";
 const removeTestUsersSchema = z.object({
   emailPrefix: z.string().min(3, { message: "Email prefix must be at least 3 characters." }),
   emailDomain: z.string().min(3, { message: "Email domain is required." }).includes('.', { message: "Must be a valid domain e.g. example.com" }),
+  count: z.coerce.number().int().min(1, { message: "Count must be at least 1." }).max(100, {message: "Cannot remove more than 100 users at a time."}),
 });
 
 export type RemoveTestUsersFormInputs = z.infer<typeof removeTestUsersSchema>;
@@ -59,12 +60,13 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
     defaultValues: {
       emailPrefix: "testuser",
       emailDomain: "example.com",
+      count: 10, // Default count
     }
   });
 
   const handleFormSubmit: SubmitHandler<RemoveTestUsersFormInputs> = async (data) => {
     setFormData(data);
-    setConfirmDialogOpen(true); // Open confirmation dialog
+    setConfirmDialogOpen(true);
   };
 
   const executeRemoval = async () => {
@@ -76,32 +78,34 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(formData), // Send full form data including count
         credentials: 'include',
       });
 
-      // Handle 204 No Content explicitly
       if (response.status === 204) {
         toast({
           title: "Test Users Removal Processed",
-          description: `Removal process initiated for users with prefix '${formData.emailPrefix}@${formData.emailDomain}'. Check server logs for details.`,
+          description: `Removal process initiated for up to ${formData.count} user(s) with prefix '${formData.emailPrefix}@${formData.emailDomain}'. Check server logs for details.`,
         });
         onUsersChanged();
-        reset(); // Reset form to defaults
+        reset();
         setConfirmDialogOpen(false);
         setMainDialogOpen(false);
         return;
       }
       
-      const result = await response.json().catch(() => ({})); // Gracefully handle if response is not JSON
+      const result = await response.json().catch(() => ({}));
 
-      if (response.ok) { // For 200 OK or other 2xx statuses
+      if (response.ok) {
         let description;
-        if (result.message) { // Check for a specific message from backend first
+        if (result.message) {
           description = result.message;
-        } else if (typeof result.deleted === 'number' && result.deleted > 0) {
-          description = `Successfully removed ${result.deleted} test users matching '${formData.emailPrefix}@${formData.emailDomain}'.`;
-        } else if (typeof result.deleted === 'number' && result.deleted === 0 && response.ok) {
+        } else if (typeof result.deleteCount === 'number' && result.deleteCount > 0) {
+          description = `Successfully removed ${result.deleteCount} test user(s) matching '${formData.emailPrefix}@${formData.emailDomain}'.`;
+          if (Array.isArray(result.emails) && result.emails.length > 0) {
+            description += ` Emails: ${result.emails.join(', ').substring(0,100)}...`; // Show a few deleted emails
+          }
+        } else if (typeof result.deleteCount === 'number' && result.deleteCount === 0 && response.ok) {
           description = `No test users found matching '${formData.emailPrefix}@${formData.emailDomain}' to remove.`;
         } else {
           description = `Test user removal process for prefix '${formData.emailPrefix}@${formData.emailDomain}' completed. Please verify in server logs.`;
@@ -114,13 +118,13 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
         reset();
         setConfirmDialogOpen(false);
         setMainDialogOpen(false);
-      } else { // For non-ok responses (4xx, 5xx)
+      } else {
         toast({
           title: "Failed to Remove Test Users",
           description: result.message || result.details || "An unknown error occurred.",
           variant: "destructive",
         });
-        setConfirmDialogOpen(false); // Keep main dialog open for correction if needed
+        setConfirmDialogOpen(false);
       }
     } catch (error) {
       console.error("Failed to remove test users:", error);
@@ -138,7 +142,7 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
       <Dialog open={mainDialogOpen} onOpenChange={(isOpen) => {
         setMainDialogOpen(isOpen);
         if (!isOpen) {
-          // reset(); // Reset form if main dialog closed without submission
+          // reset();
         }
       }}>
         <DialogTrigger asChild>
@@ -147,11 +151,10 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center">
-              <UserX className="mr-2 h-5 w-5" /> Remove Batch of Test Users
+              <UserX className="mr-2 h-5 w-5" /> Remove Last N Test Users
             </DialogTitle>
             <DialogDescription>
-              Specify the email prefix and domain for the test users you want to remove.
-              This action is irreversible.
+              Specify email prefix, domain, and count of most recent test users to remove. This action is irreversible.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4 py-4">
@@ -173,13 +176,22 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
               />
               {errors.emailDomain && <p className="text-xs text-destructive mt-1">{errors.emailDomain.message}</p>}
             </div>
+            <div>
+              <Label htmlFor="count-remove-test">Number of Users to Remove</Label>
+              <Controller
+                  name="count"
+                  control={control}
+                  render={({ field }) => <Input id="count-remove-test" type="number" {...field} placeholder="e.g. 10" disabled={isSubmitting} />}
+              />
+              {errors.count && <p className="text-xs text-destructive mt-1">{errors.count.message}</p>}
+            </div>
 
             <DialogFooter className="pt-4">
               <DialogClose asChild>
                 <Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button>
               </DialogClose>
               <Button type="submit" variant="destructive" disabled={isSubmitting}>
-                {isSubmitting ? "Processing..." : "Remove Test Users"}
+                {isSubmitting ? "Processing..." : "Remove Users"}
               </Button>
             </DialogFooter>
           </form>
@@ -193,7 +205,7 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
               <AlertTriangle className="mr-2 h-5 w-5 text-destructive" /> Confirm Removal
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove all users matching the prefix 
+              Are you sure you want to remove the last {formData?.count} user(s) matching the prefix 
               <span className="font-semibold"> {formData?.emailPrefix}@</span>
               <span className="font-semibold">{formData?.emailDomain}</span>? 
               This action cannot be undone.

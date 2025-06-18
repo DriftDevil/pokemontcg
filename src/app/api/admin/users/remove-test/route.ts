@@ -33,24 +33,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Invalid JSON payload' }, { status: 400 });
   }
 
-  if (!payload.emailPrefix || !payload.emailDomain) {
-    return NextResponse.json({ message: 'Missing required fields for removing test users (emailPrefix, emailDomain).' }, { status: 400 });
+  if (!payload.emailPrefix || !payload.emailDomain || typeof payload.count !== 'number' || payload.count <= 0) {
+    return NextResponse.json({ message: 'Missing or invalid fields for removing test users (emailPrefix, emailDomain, count > 0).' }, { status: 400 });
   }
 
-  const externalUrl = `${EXTERNAL_API_BASE_URL}/user/admin/delete-test`; // Updated endpoint
-  console.log(`[API ${request.nextUrl.pathname}] Forwarding remove test users request to external API: ${externalUrl}`);
+  const externalUrl = `${EXTERNAL_API_BASE_URL}/user/admin/delete-test`;
+  console.log(`[API ${request.nextUrl.pathname}] Forwarding remove test users request (with count: ${payload.count}) to external API: ${externalUrl}`);
 
   try {
     const response = await fetch(externalUrl, {
-      method: 'POST', // Or DELETE if your backend supports it, user specified POST
+      method: 'POST', 
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payload), // Forward the payload including count
     });
 
-    // Handle 204 No Content for successful deletions that don't return a body
     if (response.status === 204) {
       return new NextResponse(null, { status: 204 });
     }
@@ -71,4 +70,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Failed to remove test users due to a server error', details: error.message }, { status: 500 });
   }
 }
-
