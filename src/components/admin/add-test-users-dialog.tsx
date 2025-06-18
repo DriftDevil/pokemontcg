@@ -67,9 +67,31 @@ export default function AddTestUsersDialog({ onUsersChanged, children }: AddTest
       const result = await response.json();
 
       if (response.ok) {
+        let description = result.message;
+        if (!description) {
+          const createdCount = result.count || 0;
+          const skippedCount = result.skipped || 0;
+          const startIndex = result.startIndex;
+          const endIndex = result.endIndex;
+
+          if (createdCount > 0) {
+            description = `Successfully created ${createdCount} test user(s)`;
+            if (typeof startIndex === 'number' && typeof endIndex === 'number' && endIndex >= startIndex) {
+              description += ` (${data.emailPrefix}${startIndex} - ${data.emailPrefix}${endIndex}@${data.emailDomain})`;
+            }
+            description += ".";
+          } else {
+            description = "No new test users were created.";
+          }
+
+          if (skippedCount > 0) {
+            description += ` Skipped ${skippedCount} user(s) due to existing emails.`;
+          }
+        }
+
         toast({
-          title: "Test Users Added",
-          description: result.message || `${data.count} test users based on '${data.baseName}' are being created.`,
+          title: "Add Test Users Processed",
+          description: description,
         });
         onUsersChanged();
         reset(); // Reset form to defaults
@@ -161,3 +183,4 @@ export default function AddTestUsersDialog({ onUsersChanged, children }: AddTest
     </Dialog>
   );
 }
+
