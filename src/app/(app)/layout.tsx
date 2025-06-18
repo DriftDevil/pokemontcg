@@ -5,7 +5,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import AppHeader from "@/components/layout/app-header";
 import AppSidebarContent, { type NavItem } from "@/components/layout/app-sidebar-content";
 import { SidebarProvider, Sidebar, SidebarInset } from "@/components/ui/sidebar";
-import { LayoutDashboard, Users, FileText, CreditCard, Layers, ShoppingBag, LibraryBig } from "lucide-react";
+import { LayoutDashboard, Users, FileText, CreditCard, Layers, ShoppingBag, LibraryBig, Loader2 } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
 
 interface AppUser {
   id: string;
@@ -13,14 +14,14 @@ interface AppUser {
   email?: string;
   avatarUrl?: string;
   isAdmin?: boolean;
-  authSource?: 'oidc' | 'local';
+  authSource?: 'oidc' | 'local' | 'mock';
 }
 
 const navItems: NavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard, segment: "dashboard", isAdmin: true },
   { href: "/admin/api-docs", label: "Swagger Docs", icon: FileText, segment: "api-docs", isAdmin: true },
   { href: "/admin/users", label: "User Management", icon: Users, segment: "users", isAdmin: true },
-  { href: "/admin/collections", label: "User Collections", icon: LibraryBig, segment: "collections", isAdmin: true }, // Added segment for admin collections
+  { href: "/admin/collections", label: "User Collections", icon: LibraryBig, segment: "collections", isAdmin: true },
   { href: "/me/collections", label: "My Collections", icon: ShoppingBag, segment: "collections", isUser: true },
   { href: "/sets", label: "Card Sets", icon: Layers, segment: "sets", isUser: true },
   { href: "/cards", label: "Cards", icon: CreditCard, segment: "cards", isUser: true },
@@ -29,9 +30,11 @@ const navItems: NavItem[] = [
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
+  const router = useRouter();
+  const pathname = usePathname();
 
   const fetchUserLayout = useCallback(async () => {
-    console.log("[AppLayout] Attempting to fetch user session.");
+    // console.log("[AppLayout] Attempting to fetch user session.");
     setIsLoadingUser(true);
     let newUserData: AppUser | null = null;
     try {
@@ -39,7 +42,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         cache: 'no-store',
         credentials: 'include', 
       });
-      console.log(`[AppLayout] /api/auth/user responded with status: ${res.status}`);
+      // console.log(`[AppLayout] /api/auth/user responded with status: ${res.status}`);
       
       if (res.ok) {
         const data = await res.json();
@@ -57,7 +60,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     } finally {
       setUser(newUserData);
       setIsLoadingUser(false);
-      console.log(`[AppLayout] fetchUserLayout: Processing complete. isLoadingUser is now false. User state will update to:`, newUserData);
+      // console.log(`[AppLayout] fetchUserLayout: Processing complete. isLoadingUser is now false. User state will update to:`, newUserData);
     }
   }, []);
 
@@ -65,6 +68,33 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     fetchUserLayout();
   }, [fetchUserLayout]);
 
+  // Effect for redirecting if not authenticated
+  useEffect(() => {
+    // console.log(`[AppLayout Redirect Check] isLoading: ${isLoadingUser}, user: ${JSON.stringify(user)}, pathname: ${pathname}`);
+    if (!isLoadingUser && !user) {
+      // Since all pages under /(app)/ are assumed to require authentication,
+      // redirect to /login if no user is found after loading.
+      // Check pathname to avoid potential redirect loops if /login somehow ended up in this layout.
+      if (pathname !== '/login') {
+        console.log(`[AppLayout] No user session found after loading. Current path: ${pathname}. Redirecting to /login.`);
+        router.push('/login');
+      }
+    }
+  }, [isLoadingUser, user, router, pathname]);
+
+  // If still loading user data, show a full-page loader.
+  // Or, if done loading and there's no user (and we are on a page within this layout),
+  // show a loader to prevent flashing content before redirect effect kicks in.
+  if (isLoadingUser || (!user && pathname !== '/login')) {
+    return (
+      <div className="flex flex-1 items-center justify-center min-h-screen bg-background">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <span className="sr-only">Loading session...</span>
+      </div>
+    );
+  }
+  
+  // If we reach here, the user is authenticated and loaded.
   return (
       <SidebarProvider defaultOpen>
         <div className="flex min-h-screen w-full">
@@ -83,4 +113,3 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </SidebarProvider>
   );
 }
-
