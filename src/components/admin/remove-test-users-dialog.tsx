@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -29,15 +29,17 @@ import { useForm, type SubmitHandler, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { UserX, AlertTriangle } from "lucide-react";
+import { UserX, AlertTriangle, Loader2 } from "lucide-react";
+import type { DisplayUser } from '@/app/(app)/admin/users/page';
 
-const removeTestUsersSchema = z.object({
+// Base Zod schema for form fields without the dynamic count check
+const baseRemoveTestUsersSchema = z.object({
   emailPrefix: z.string().min(3, { message: "Email prefix must be at least 3 characters." }),
   emailDomain: z.string().min(3, { message: "Email domain is required." }).includes('.', { message: "Must be a valid domain e.g. example.com" }),
   count: z.coerce.number().int().min(1, { message: "Count must be at least 1." }).max(100, {message: "Cannot remove more than 100 users at a time."}),
 });
 
-export type RemoveTestUsersFormInputs = z.infer<typeof removeTestUsersSchema>;
+export type RemoveTestUsersFormInputs = z.infer<typeof baseRemoveTestUsersSchema>;
 
 interface RemoveTestUsersDialogProps {
   onUsersChanged: () => void;
@@ -50,21 +52,89 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
   const [formData, setFormData] = useState<RemoveTestUsersFormInputs | null>(null);
   const { toast } = useToast();
 
+  const [matchingUsersCount, setMatchingUsersCount] = useState<number | null>(null);
+  const [isFetchingMatchingCount, setIsFetchingMatchingCount] = useState(false);
+
   const {
     control,
     handleSubmit,
     reset,
-    formState: { errors, isSubmitting },
+    watch,
+    setError,
+    clearErrors,
+    formState: { errors, isSubmitting, isValid: isFormValidForBaseSchema }, // isValid refers to base schema
   } = useForm<RemoveTestUsersFormInputs>({
-    resolver: zodResolver(removeTestUsersSchema),
+    resolver: zodResolver(baseRemoveTestUsersSchema),
     defaultValues: {
       emailPrefix: "testuser",
       emailDomain: "example.com",
       count: 10,
-    }
+    },
+    mode: 'onChange', // Validate on change for base schema
   });
 
-  const handleFormSubmit: SubmitHandler<RemoveTestUsersFormInputs> = async (data) => {
+  const watchedEmailPrefix = watch("emailPrefix");
+  const watchedEmailDomain = watch("emailDomain");
+  const watchedCount = watch("count");
+
+  const fetchMatchingTestUsersCount = useCallback(async (prefix: string, domain: string) => {
+    if (!prefix || !domain || prefix.length < 3 || !domain.includes('.')) {
+      setMatchingUsersCount(null);
+      return;
+    }
+    setIsFetchingMatchingCount(true);
+    try {
+      const response = await fetch('/api/users/all', { credentials: 'include', cache: 'no-store' });
+      if (!response.ok) throw new Error("Failed to fetch users");
+      const result = await response.json();
+      const apiUsers: DisplayUser[] = result.data || [];
+      const filtered = apiUsers.filter(user =>
+        user.email?.toLowerCase().startsWith(prefix.toLowerCase()) && user.email?.toLowerCase().endsWith(`@${domain.toLowerCase()}`)
+      );
+      setMatchingUsersCount(filtered.length);
+    } catch (error) {
+      console.error("Error fetching matching users count:", error);
+      setMatchingUsersCount(null); // Error state
+      toast({ title: "Error", description: "Could not fetch count of matching test users.", variant: "destructive" });
+    } finally {
+      setIsFetchingMatchingCount(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      fetchMatchingTestUsersCount(watchedEmailPrefix, watchedEmailDomain);
+    }, 700); // Debounce API call
+
+    return () => clearTimeout(handler);
+  }, [watchedEmailPrefix, watchedEmailDomain, fetchMatchingTestUsersCount]);
+
+  useEffect(() => {
+    if (matchingUsersCount !== null && typeof watchedCount === 'number' && watchedCount > matchingUsersCount) {
+      setError("count", {
+        type: "manual",
+        message: `Cannot remove more than ${matchingUsersCount} existing user(s).`,
+      });
+    } else if (errors.count?.type === "manual" && (matchingUsersCount === null || (typeof watchedCount === 'number' && watchedCount <= matchingUsersCount))) {
+      clearErrors("count");
+    }
+  }, [watchedCount, matchingUsersCount, setError, clearErrors, errors.count]);
+
+
+  const onFormSubmit: SubmitHandler<RemoveTestUsersFormInputs> = async (data) => {
+    // Base Zod validation has passed. Now perform the dynamic check.
+    if (matchingUsersCount !== null && data.count > matchingUsersCount) {
+      setError("count", {
+        type: "manual",
+        message: `Cannot remove more than ${matchingUsersCount} existing user(s).`,
+      });
+      toast({
+        title: "Input Error",
+        description: `Cannot remove more than ${matchingUsersCount} existing user(s) matching the criteria.`,
+        variant: "destructive",
+      });
+      return; // Stop submission
+    }
     setFormData(data);
     setConfirmDialogOpen(true);
   };
@@ -78,19 +148,20 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(formData), // formData includes prefix, domain, and count
         credentials: 'include',
       });
 
-      if (response.status === 204) {
+      if (response.status === 204) { // Handle 204 No Content explicitly
         toast({
           title: "Test Users Removal Processed",
-          description: `Removal process initiated for up to ${formData.count} user(s) with prefix '${formData.emailPrefix}@${formData.emailDomain}'. Check server logs for details.`,
+          description: `Removal process for ${formData.count} user(s) matching '${formData.emailPrefix}@${formData.emailDomain}' completed. No content returned from server.`,
         });
         onUsersChanged();
         reset();
         setConfirmDialogOpen(false);
         setMainDialogOpen(false);
+        setMatchingUsersCount(null); // Reset count
         return;
       }
       
@@ -98,20 +169,20 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
 
       if (response.ok) {
         let description;
-        const deletedCount = result.deleted; // Use 'deleted' field as per backend
+        const deletedCountFromServer = result.deleteCount; // Using 'deleteCount' from your backend
         const deletedEmails = result.emails;
 
         if (result.message) {
           description = result.message;
-        } else if (typeof deletedCount === 'number' && deletedCount > 0) {
-          description = `Successfully removed ${deletedCount} test user(s) matching '${formData.emailPrefix}@${formData.emailDomain}'.`;
-          if (Array.isArray(deletedEmails) && deletedEmails.length > 0 && deletedEmails.length <= 5) {
+        } else if (typeof deletedCountFromServer === 'number' && deletedCountFromServer > 0) {
+          description = `Successfully removed ${deletedCountFromServer} test user(s) matching '${formData.emailPrefix}@${formData.emailDomain}'.`;
+          if (Array.isArray(deletedEmails) && deletedEmails.length > 0 && deletedEmails.length <= 3) {
             description += ` Emails: ${deletedEmails.join(', ')}.`;
-          } else if (Array.isArray(deletedEmails) && deletedEmails.length > 5) {
-            description += ` First 5 removed: ${deletedEmails.slice(0,5).join(', ')}...`;
+          } else if (Array.isArray(deletedEmails) && deletedEmails.length > 3) {
+            description += ` First 3 removed: ${deletedEmails.slice(0,3).join(', ')}...`;
           }
-        } else if (typeof deletedCount === 'number' && deletedCount === 0 && response.ok) {
-          description = `No test users found matching '${formData.emailPrefix}@${formData.emailDomain}' to remove.`;
+        } else if (typeof deletedCountFromServer === 'number' && deletedCountFromServer === 0) {
+          description = `No test users found matching '${formData.emailPrefix}@${formData.emailDomain}' to remove. 0 users were deleted.`;
         } else {
           description = `Test user removal process for prefix '${formData.emailPrefix}@${formData.emailDomain}' completed. Please verify in server logs.`;
         }
@@ -123,6 +194,7 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
         reset();
         setConfirmDialogOpen(false);
         setMainDialogOpen(false);
+        setMatchingUsersCount(null); // Reset count
       } else {
         toast({
           title: "Failed to Remove Test Users",
@@ -142,12 +214,15 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
     }
   };
 
+  const isSubmitDisabled = isSubmitting || (matchingUsersCount !== null && typeof watchedCount === 'number' && watchedCount > matchingUsersCount) || !isFormValidForBaseSchema;
+
   return (
     <>
       <Dialog open={mainDialogOpen} onOpenChange={(isOpen) => {
         setMainDialogOpen(isOpen);
         if (!isOpen) {
-          // reset();
+          // reset(); // Consider if reset is desired on every close or only on success
+           setMatchingUsersCount(null); // Clear matching count when dialog closes
         }
       }}>
         <DialogTrigger asChild>
@@ -162,13 +237,13 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
               Specify email prefix, domain, and count of most recent test users to remove. This action is irreversible.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4 py-4">
+          <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4 py-4">
             <div>
               <Label htmlFor="emailPrefix-remove-test">Email Prefix</Label>
               <Controller
                   name="emailPrefix"
                   control={control}
-                  render={({ field }) => <Input id="emailPrefix-remove-test" {...field} placeholder="e.g. testuser" disabled={isSubmitting} />}
+                  render={({ field }) => <Input id="emailPrefix-remove-test" {...field} placeholder="e.g. testuser" disabled={isSubmitting || isFetchingMatchingCount} />}
               />
               {errors.emailPrefix && <p className="text-xs text-destructive mt-1">{errors.emailPrefix.message}</p>}
             </div>
@@ -177,17 +252,31 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
               <Controller
                   name="emailDomain"
                   control={control}
-                  render={({ field }) => <Input id="emailDomain-remove-test" {...field} placeholder="e.g. example.com" disabled={isSubmitting} />}
+                  render={({ field }) => <Input id="emailDomain-remove-test" {...field} placeholder="e.g. example.com" disabled={isSubmitting || isFetchingMatchingCount} />}
               />
               {errors.emailDomain && <p className="text-xs text-destructive mt-1">{errors.emailDomain.message}</p>}
             </div>
+            
             <div>
               <Label htmlFor="count-remove-test">Number of Users to Remove</Label>
               <Controller
                   name="count"
                   control={control}
-                  render={({ field }) => <Input id="count-remove-test" type="number" {...field} placeholder="e.g. 10" disabled={isSubmitting} />}
+                  render={({ field }) => <Input id="count-remove-test" type="number" {...field} placeholder="e.g. 10" disabled={isSubmitting || isFetchingMatchingCount} />}
               />
+              {isFetchingMatchingCount && (
+                <p className="text-xs text-muted-foreground mt-1 flex items-center">
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" /> Fetching matching user count...
+                </p>
+              )}
+              {!isFetchingMatchingCount && matchingUsersCount !== null && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Found {matchingUsersCount} user(s) matching "{watchedEmailPrefix}@{watchedEmailDomain}".
+                </p>
+              )}
+               {!isFetchingMatchingCount && matchingUsersCount === null && watchedEmailPrefix && watchedEmailDomain && watchedEmailPrefix.length >=3 && watchedEmailDomain.includes('.') && (
+                <p className="text-xs text-muted-foreground mt-1">Could not determine matching user count. Please ensure prefix/domain are correct.</p>
+              )}
               {errors.count && <p className="text-xs text-destructive mt-1">{errors.count.message}</p>}
             </div>
             
@@ -199,7 +288,7 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
               <DialogClose asChild>
                 <Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button>
               </DialogClose>
-              <Button type="submit" variant="destructive" disabled={isSubmitting}>
+              <Button type="submit" variant="destructive" disabled={isSubmitDisabled}>
                 {isSubmitting ? "Processing..." : "Remove Users"}
               </Button>
             </DialogFooter>
@@ -233,4 +322,4 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
     </>
   );
 }
-
+    
