@@ -60,7 +60,7 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
     defaultValues: {
       emailPrefix: "testuser",
       emailDomain: "example.com",
-      count: 10, // Default count
+      count: 10,
     }
   });
 
@@ -78,7 +78,7 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData), // Send full form data including count
+        body: JSON.stringify(formData),
         credentials: 'include',
       });
 
@@ -98,14 +98,19 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
 
       if (response.ok) {
         let description;
+        const deletedCount = result.deleted; // Use 'deleted' field as per backend
+        const deletedEmails = result.emails;
+
         if (result.message) {
           description = result.message;
-        } else if (typeof result.deleteCount === 'number' && result.deleteCount > 0) {
-          description = `Successfully removed ${result.deleteCount} test user(s) matching '${formData.emailPrefix}@${formData.emailDomain}'.`;
-          if (Array.isArray(result.emails) && result.emails.length > 0) {
-            description += ` Emails: ${result.emails.join(', ').substring(0,100)}...`; // Show a few deleted emails
+        } else if (typeof deletedCount === 'number' && deletedCount > 0) {
+          description = `Successfully removed ${deletedCount} test user(s) matching '${formData.emailPrefix}@${formData.emailDomain}'.`;
+          if (Array.isArray(deletedEmails) && deletedEmails.length > 0 && deletedEmails.length <= 5) {
+            description += ` Emails: ${deletedEmails.join(', ')}.`;
+          } else if (Array.isArray(deletedEmails) && deletedEmails.length > 5) {
+            description += ` First 5 removed: ${deletedEmails.slice(0,5).join(', ')}...`;
           }
-        } else if (typeof result.deleteCount === 'number' && result.deleteCount === 0 && response.ok) {
+        } else if (typeof deletedCount === 'number' && deletedCount === 0 && response.ok) {
           description = `No test users found matching '${formData.emailPrefix}@${formData.emailDomain}' to remove.`;
         } else {
           description = `Test user removal process for prefix '${formData.emailPrefix}@${formData.emailDomain}' completed. Please verify in server logs.`;
@@ -185,6 +190,10 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
               />
               {errors.count && <p className="text-xs text-destructive mt-1">{errors.count.message}</p>}
             </div>
+            
+            <p className="text-xs text-muted-foreground pt-1">
+              Tip: To see how many users currently match this pattern, use the search filter on the main "User Management" table (e.g., search for "testuser@example.com").
+            </p>
 
             <DialogFooter className="pt-4">
               <DialogClose asChild>
@@ -224,3 +233,4 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
     </>
   );
 }
+
