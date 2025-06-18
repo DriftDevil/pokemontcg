@@ -65,7 +65,34 @@ export default function UsersTableClient({ initialUsers, onUserDeleted }: UsersT
       filtered = filtered.filter(user => user.status === statusFilter);
     }
 
-    if (sortKey) {
+    if (sortKey === 'name') {
+      filtered.sort((a, b) => {
+        const extractNumberFromName = (name: string): number | null => {
+          const match = name.match(/#(\d+)$/); // Matches '#<digits>' at the end of the string e.g. "Test User #123"
+          return match ? parseInt(match[1], 10) : null;
+        };
+
+        const numA = extractNumberFromName(a.name);
+        const numB = extractNumberFromName(b.name);
+
+        const valA = a.name || '';
+        const valB = b.name || '';
+
+        if (numA !== null && numB !== null) {
+          // Both are numbered names, sort numerically
+          return sortDirection === 'asc' ? numA - numB : numB - numA;
+        } else if (numA !== null && numB === null) {
+          // A is numbered, B is not. Numbered comes before non-numbered in asc.
+          return sortDirection === 'asc' ? -1 : 1;
+        } else if (numA === null && numB !== null) {
+          // B is numbered, A is not. Numbered comes before non-numbered in asc.
+          return sortDirection === 'asc' ? 1 : -1;
+        } else {
+          // Neither are recognized numbered names, sort alphabetically
+          return sortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        }
+      });
+    } else if (sortKey) { // Existing sort logic for other keys
       filtered.sort((a, b) => {
         const valA = a[sortKey as keyof User];
         const valB = b[sortKey as keyof User];
@@ -349,3 +376,4 @@ export default function UsersTableClient({ initialUsers, onUserDeleted }: UsersT
   );
 }
 
+    
