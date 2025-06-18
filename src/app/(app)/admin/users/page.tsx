@@ -23,6 +23,7 @@ interface ApiUser {
   avatarUrl?: string; 
 }
 
+// Adjusted to allow for potentially missing 'data' or 'total' from a generic JSON response
 interface ApiUserListResponse {
   data?: ApiUser[];
   total?: number;
@@ -39,16 +40,24 @@ export interface DisplayUser {
 }
 
 function getBaseUrl(): string {
-  const appUrlEnv = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+  // For client-side fetching, window.location.origin is reliable.
+  // NEXT_PUBLIC_APP_URL is more for server-side or build-time awareness if needed.
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  // Fallback for server-side rendering context if this function were ever used there.
+  const appUrlEnv = process.env.NEXT_PUBLIC_APP_URL;
   if (appUrlEnv) {
     try {
       const parsedAppUrl = new URL(appUrlEnv);
       return parsedAppUrl.origin;
     } catch (error) {
-      console.error(`[AdminUsersPage - getBaseUrl] Invalid APP_URL: ${appUrlEnv}. Error: ${error}. Falling back to relative paths or current origin.`);
+      console.error(`[AdminUsersPage - getBaseUrl] Invalid NEXT_PUBLIC_APP_URL: ${appUrlEnv}. Error: ${error}.`);
     }
   }
-  return typeof window !== 'undefined' ? window.location.origin : '';
+  // Ultimate fallback for non-browser, non-configured env. Should not be hit in typical client-side flow.
+  console.warn("[AdminUsersPage - getBaseUrl] Falling back to relative paths as origin could not be determined.");
+  return ''; // Use relative paths
 }
 
 export default function AdminUsersPage() {
@@ -59,7 +68,8 @@ export default function AdminUsersPage() {
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     const baseUrl = getBaseUrl();
-    const fetchUrl = `${baseUrl}/api/users/all`;
+    // If baseUrl is empty (relative path), ensure the path starts with /
+    const fetchUrl = `${baseUrl}${baseUrl ? '' : '/'}/api/users/all`;
 
     try {
       const fetchHeaders = new Headers();
@@ -80,36 +90,42 @@ export default function AdminUsersPage() {
         } else if (errorBody) {
             try {
                 const parsedError = JSON.parse(errorBody);
-                description = parsedError.message || parsedError.details || errorBody;
+                description = parsedError.message || parsedError.details || errorBody.substring(0,100);
             } catch (e) {
-                description = errorBody;
+                description = errorBody.substring(0,100);
             }
         }
         
         console.error(`[AdminUsersPage - fetchUsers] Failed to fetch users from ${fetchUrl}: ${response.status}`, errorBody);
         toast({ title: "Failed to load users", description, variant: "destructive" });
         setUsers([]); 
+        setIsLoading(false); // Ensure loading is set to false on error
         return;
       }
 
-      const result: ApiUserListResponse = await response.json();
-      const apiUsers = result.data || [];
+      const result = await response.json(); // Not strictly typed to ApiUserListResponse yet
+      
+      // Defensive check for result and result.data
+      const apiUsersData = result && result.data;
 
-      if (!Array.isArray(apiUsers)) {
-        console.error('[AdminUsersPage - fetchUsers] Fetched user data is not an array:', apiUsers);
-        toast({ title: "Data Error", description: "Received invalid user data format.", variant: "destructive" });
+      if (!Array.isArray(apiUsersData)) {
+        console.error('[AdminUsersPage - fetchUsers] Fetched user data (result.data) is not an array:', apiUsersData);
+        toast({ title: "Data Error", description: "Received invalid user data format from API.", variant: "destructive" });
         setUsers([]);
+        setIsLoading(false); // Ensure loading is set to false on data format error
         return;
       }
       
-      const sortedApiUsers = [...apiUsers].sort((a, b) => {
+      const typedApiUsers = apiUsersData as ApiUser[]; // Now confident it's an array of some objects
+
+      const sortedApiUsers = [...typedApiUsers].sort((a, b) => {
         const dateA = a.lastSeen ? new Date(a.lastSeen).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
         const dateB = b.lastSeen ? new Date(b.lastSeen).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
         return dateB - dateA;
       });
 
       setUsers(sortedApiUsers.map((apiUser): DisplayUser => ({
-        id: apiUser.id,
+        id: apiUser.id, // Assuming apiUser.id will exist due to ApiUser interface
         name: apiUser.name || apiUser.preferredUsername || 'N/A',
         email: apiUser.email || 'N/A',
         role: apiUser.isAdmin ? 'Admin' : 'User',
@@ -123,8 +139,9 @@ export default function AdminUsersPage() {
         console.error(`[AdminUsersPage - fetchUsers] NETWORK ERROR: Fetch failed for ${fetchUrl}.`, error);
         toast({ title: "Network Error", description: "Could not connect to the server to fetch users.", variant: "destructive" });
       } else {
-        console.error(`[AdminUsersPage - fetchUsers] Error fetching or processing users from ${fetchUrl}:`, error);
-        toast({ title: "Error", description: "An unexpected error occurred while fetching users.", variant: "destructive" });
+        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+        console.error(`[AdminUsersPage - fetchUsers] Error fetching or processing users from ${fetchUrl}:`, errorMessage, error);
+        toast({ title: "Error", description: `An unexpected error occurred while fetching users: ${errorMessage.substring(0,100)}`, variant: "destructive" });
       }
       setUsers([]);
     } finally {
