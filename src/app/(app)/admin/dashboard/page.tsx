@@ -1,7 +1,8 @@
 
+
 import PageHeader from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { LayoutDashboard, Users, CreditCard, Layers, Activity, LibraryBig, HeartPulse, Database, Gauge, RefreshCw } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, Layers, Activity, LibraryBig, HeartPulse, Database, Gauge, RefreshCw, PieChart, LineChart as LineChartIcon } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,8 +11,9 @@ import { cn } from "@/lib/utils";
 import { cookies } from 'next/headers';
 import DynamicSetReleaseChartWrapper from "@/components/admin/dashboard/dynamic-set-release-chart-wrapper";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import LocalizedTimeDisplay from "@/components/localized-time-display";
+import DynamicCardsBySupertypeChartWrapper from "@/components/admin/dashboard/dynamic-cards-by-supertype-chart-wrapper";
+import DynamicCardsAddedChartWrapper from "@/components/admin/dashboard/dynamic-cards-added-chart-wrapper";
 
 
 // User structure based on openapi.yaml User schema
@@ -23,7 +25,7 @@ interface ApiUser {
   isAdmin?: boolean;
   createdAt?: string; // ISO date string
   lastSeen?: string;  // ISO date string
-  avatarUrl?: string; // Added avatarUrl
+  avatarUrl?: string; 
 }
 
 interface ApiUserListResponse {
@@ -34,7 +36,7 @@ interface ApiUserListResponse {
 interface CacheStats {
   hits: number;
   misses: number;
-  hit_rate: string; // e.g., "95.00%"
+  hit_rate: string; 
 }
 
 interface DbStatusResponse {
@@ -43,8 +45,19 @@ interface DbStatusResponse {
   db_time: string;
   connections: number;
   max_allowed: number;
-  last_sync: string; // ISO date string
-  cache?: CacheStats; // Added cache stats
+  last_sync: string; 
+  cache?: CacheStats; 
+}
+
+interface CardsBySupertypeDataPoint {
+  name: string;
+  value: number;
+  fill?: string; // For chart rendering
+}
+
+interface CardsAddedDataPoint {
+  date: string; // YYYY-MM-DD
+  count: number;
 }
 
 
@@ -58,7 +71,6 @@ function getBaseUrl(): string {
       return origin;
     } catch (error) {
       console.error(`[AdminDashboardPage - getBaseUrl] Invalid APP_URL: ${appUrlEnv}. Error: ${error}. Falling back to localhost.`);
-      // Fallback to localhost if APP_URL is invalid
     }
   }
   const port = process.env.PORT || "9002";
@@ -70,36 +82,20 @@ function getBaseUrl(): string {
 async function fetchTotalCountFromPaginated(endpoint: string, sessionToken: string | undefined): Promise<number> {
   const baseUrl = getBaseUrl();
   const fetchUrl = `${baseUrl}/api/${endpoint}?limit=1`;
-
-  console.log(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Base URL for internal API: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
-
   try {
     const fetchHeaders = new Headers();
     if (sessionToken) {
       fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
-    } else {
-      console.warn(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Session token ABSENT. Cannot set Authorization header for ${endpoint}.`);
     }
-
-    const response = await fetch(fetchUrl, {
-      headers: fetchHeaders,
-      cache: 'no-store',
-    });
-
+    const response = await fetch(fetchUrl, { headers: fetchHeaders, cache: 'no-store' });
     if (!response.ok) {
       console.error(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Failed to fetch count from ${fetchUrl}: ${response.status}`);
-      const errorBody = await response.text();
-      console.error(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Error body for ${fetchUrl}: ${errorBody}`);
       return 0;
     }
     const data = await response.json();
     return data.totalCount || data.total || 0;
   } catch (error) {
-    if (error instanceof TypeError && error.message.includes('fetch failed')) {
-      console.error(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] NETWORK ERROR: Fetch failed for ${fetchUrl}. This usually means the server at this URL is not reachable. Check APP_URL in .env if set, or ensure the server is running on the correct port.`, error);
-    } else {
-      console.error(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Error fetching count from ${fetchUrl}:`, error);
-    }
+    console.error(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Error fetching count from ${fetchUrl}:`, error);
     return 0;
   }
 }
@@ -119,88 +115,48 @@ interface PaginatedApiResponse<T> {
 async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]> {
   const baseUrl = getBaseUrl();
   const fetchUrl = `${baseUrl}/api/sets?all=true&orderBy=-releaseDate`;
-  console.log(`[AdminDashboardPage - fetchSetReleaseData] Base URL for internal API: '${baseUrl}', Full Fetch URL: '${fetchUrl}'`);
-
   try {
     const response = await fetch(fetchUrl, { cache: 'no-store' });
     if (!response.ok) {
       console.error(`[AdminDashboardPage - fetchSetReleaseData] Failed to fetch from ${fetchUrl}: ${response.status}`);
-      const errorBody = await response.text();
-      console.error(`[AdminDashboardPage - fetchSetReleaseData] Error body for ${fetchUrl}: ${errorBody}`);
       return [];
     }
     const responseData: PaginatedApiResponse<ApiSet> = await response.json();
     const sets = responseData.data || [];
-
-    if (!Array.isArray(sets)) {
-        console.error('[AdminDashboardPage - fetchSetReleaseData] Set data received is not an array:', sets);
-        return [];
-    }
-
+    if (!Array.isArray(sets)) return [];
     const releasesByYear: { [year: string]: number } = {};
     sets.forEach(set => {
       if (set.releaseDate) {
         try {
           const year = new Date(set.releaseDate).getFullYear().toString();
-          if (!isNaN(parseInt(year))) {
-            releasesByYear[year] = (releasesByYear[year] || 0) + 1;
-          } else {
-            console.warn(`[AdminDashboardPage - fetchSetReleaseData] Invalid year parsed from releaseDate: ${set.releaseDate} for set ${set.name}`);
-          }
-        } catch (e) {
-            console.warn(`[AdminDashboardPage - fetchSetReleaseData] Error parsing releaseDate: ${set.releaseDate} for set ${set.name}`, e);
-        }
+          if (!isNaN(parseInt(year))) releasesByYear[year] = (releasesByYear[year] || 0) + 1;
+        } catch (e) { /* ignore invalid dates */ }
       }
     });
-
     return Object.entries(releasesByYear)
       .map(([year, count]) => ({ year, count }))
       .sort((a, b) => parseInt(a.year) - parseInt(b.year));
   } catch (error) {
-    if (error instanceof TypeError && error.message.includes('fetch failed')) {
-      console.error(`[AdminDashboardPage - fetchSetReleaseData] NETWORK ERROR: Fetch failed for ${fetchUrl}. This usually means the server at this URL is not reachable. Check APP_URL in .env if set, or ensure the server is running on the correct port.`, error);
-    } else {
-      console.error(`[AdminDashboardPage - fetchSetReleaseData] Error fetching or processing from ${fetchUrl}:`, error);
-    }
+    console.error(`[AdminDashboardPage - fetchSetReleaseData] Error fetching or processing from ${fetchUrl}:`, error);
     return [];
   }
 }
 
-
 async function fetchTotalUsersCount(sessionToken: string | undefined): Promise<number> {
   const baseUrl = getBaseUrl();
   const fetchUrl = `${baseUrl}/api/users/all`;
-
   try {
-    const fetchHeaders = new Headers();
-    fetchHeaders.append('Content-Type', 'application/json');
-
-    if (sessionToken) {
-      fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
-    } else {
-      console.warn("[AdminDashboardPage - fetchTotalUsersCount] Session token ABSENT. Cannot set Authorization header for /api/users/all.");
-    }
-
-    const response = await fetch(fetchUrl, {
-      method: 'GET',
-      headers: fetchHeaders,
-      cache: 'no-store',
-    });
-
+    const fetchHeaders = new Headers({ 'Content-Type': 'application/json' });
+    if (sessionToken) fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
+    const response = await fetch(fetchUrl, { method: 'GET', headers: fetchHeaders, cache: 'no-store' });
     if (!response.ok) {
       console.error(`[AdminDashboardPage - fetchTotalUsersCount] Failed to fetch from internal ${fetchUrl}: ${response.status}`);
-      const errorBody = await response.text();
-      console.error(`[AdminDashboardPage - fetchTotalUsersCount] Error body for internal ${fetchUrl}: ${errorBody}`);
       return 0;
     }
     const data: ApiUserListResponse = await response.json();
     return data.total || data.data?.length || 0;
   } catch (error) {
-    if (error instanceof TypeError && error.message.includes('fetch failed')) {
-      console.error(`[AdminDashboardPage - fetchTotalUsersCount] NETWORK ERROR: Fetch failed for ${fetchUrl}. This usually means the server at this URL is not reachable. Check APP_URL in .env if set, or ensure the server is running on the correct port.`, error);
-    } else {
-      console.error(`[AdminDashboardPage - fetchTotalUsersCount] Error fetching from internal ${fetchUrl}:`, error);
-    }
+    console.error(`[AdminDashboardPage - fetchTotalUsersCount] Error fetching from internal ${fetchUrl}:`, error);
     return 0;
   }
 }
@@ -208,91 +164,43 @@ async function fetchTotalUsersCount(sessionToken: string | undefined): Promise<n
 async function fetchRecentLiveUsers(sessionToken: string | undefined, count: number = 3): Promise<ApiUser[]> {
   const baseUrl = getBaseUrl();
   const fetchUrl = `${baseUrl}/api/users/all`;
-  console.log(`[AdminDashboardPage - fetchRecentLiveUsers] Session token for Authorization header (first 15 chars if exists): ${sessionToken ? `${sessionToken.substring(0,15)}...` : 'ABSENT'}`);
-  
   try {
-    const fetchHeaders = new Headers();
-    fetchHeaders.append('Content-Type', 'application/json');
-
-    if (sessionToken) {
-      fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
-    } else {
-      console.warn("[AdminDashboardPage - fetchRecentLiveUsers] Session token ABSENT. Cannot set Authorization header for /api/users/all.");
-      return [];
-    }
-
-    const response = await fetch(fetchUrl, {
-      method: 'GET',
-      headers: fetchHeaders,
-      cache: 'no-store',
-    });
-
+    const fetchHeaders = new Headers({ 'Content-Type': 'application/json' });
+    if (sessionToken) fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
+    else return [];
+    const response = await fetch(fetchUrl, { method: 'GET', headers: fetchHeaders, cache: 'no-store' });
     if (!response.ok) {
       console.error(`[AdminDashboardPage - fetchRecentLiveUsers] Failed to fetch users from ${fetchUrl}: ${response.status}`);
-      const errorBody = await response.text();
-      console.error(`[AdminDashboardPage - fetchRecentLiveUsers] Error body for ${fetchUrl}: ${errorBody}`);
       return [];
     }
     const data: ApiUserListResponse = await response.json();
-    
-    if (!data.data || !Array.isArray(data.data)) {
-      console.error('[AdminDashboardPage - fetchRecentLiveUsers] User data received is not an array or missing:', data);
-      return [];
-    }
-
-    const sortedUsers = data.data.sort((a, b) => {
+    if (!data.data || !Array.isArray(data.data)) return [];
+    return data.data.sort((a, b) => {
       const dateA = a.lastSeen ? new Date(a.lastSeen).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
       const dateB = b.lastSeen ? new Date(b.lastSeen).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
       return dateB - dateA; 
-    });
-
-    return sortedUsers.slice(0, count);
-
+    }).slice(0, count);
   } catch (error) {
-    if (error instanceof TypeError && error.message.includes('fetch failed')) {
-      console.error(`[AdminDashboardPage - fetchRecentLiveUsers] NETWORK ERROR: Fetch failed for ${fetchUrl}.`, error);
-    } else {
-      console.error(`[AdminDashboardPage - fetchRecentLiveUsers] Error fetching users from ${fetchUrl}:`, error);
-    }
+    console.error(`[AdminDashboardPage - fetchRecentLiveUsers] Error fetching users from ${fetchUrl}:`, error);
     return [];
   }
 }
 
-
 async function fetchApiRequests24h(sessionToken: string | undefined): Promise<number> {
   const baseUrl = getBaseUrl();
   const fetchUrl = `${baseUrl}/api/usage`;
-
   try {
-    const fetchHeaders = new Headers();
-    fetchHeaders.append('Content-Type', 'application/json');
-
-    if (sessionToken) {
-      fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
-    } else {
-      console.warn("[AdminDashboardPage - fetchApiRequests24h] Session token ABSENT. Cannot set Authorization header for /api/usage.");
-    }
-
-    const response = await fetch(fetchUrl, {
-      method: 'GET',
-      headers: fetchHeaders,
-      cache: 'no-store',
-    });
-
+    const fetchHeaders = new Headers({ 'Content-Type': 'application/json' });
+    if (sessionToken) fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
+    const response = await fetch(fetchUrl, { method: 'GET', headers: fetchHeaders, cache: 'no-store' });
     if (!response.ok) {
       console.error(`[AdminDashboardPage - fetchApiRequests24h] Failed to fetch API requests count from internal ${fetchUrl}: ${response.status}`);
-      const errorBody = await response.text();
-      console.error(`[AdminDashboardPage - fetchApiRequests24h] Error body for internal ${fetchUrl}: ${errorBody}`);
       return 0;
     }
     const data = await response.json();
     return data.requestCountLast24h || 0;
   } catch (error: any) {
-    if (error instanceof TypeError && error.message.includes('fetch failed')) {
-      console.error(`[AdminDashboardPage - fetchApiRequests24h] NETWORK ERROR: Fetch failed for ${fetchUrl}. This usually means the server at this URL is not reachable. Check APP_URL in .env if set, or ensure the server is running on the correct port.`, error);
-    } else {
-      console.error(`[AdminDashboardPage - fetchApiRequests24h] Error fetching API requests count from internal ${fetchUrl}:`, error);
-    }
+    console.error(`[AdminDashboardPage - fetchApiRequests24h] Error fetching API requests count from internal ${fetchUrl}:`, error);
     return 0;
   }
 }
@@ -300,56 +208,68 @@ async function fetchApiRequests24h(sessionToken: string | undefined): Promise<nu
 async function fetchDbStatus(sessionToken: string | undefined): Promise<DbStatusResponse | null> {
   const baseUrl = getBaseUrl();
   const fetchUrl = `${baseUrl}/api/admin/db/status`;
-
   try {
     const fetchHeaders = new Headers();
-    if (sessionToken) {
-      fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
-    } else {
-      console.warn("[AdminDashboardPage - fetchDbStatus] Session token ABSENT. Cannot set Authorization header for /api/admin/db/status.");
-      return null;
-    }
-
-    const response = await fetch(fetchUrl, {
-      method: 'GET',
-      headers: fetchHeaders,
-      cache: 'no-store',
-    });
-
+    if (sessionToken) fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
+    else return null;
+    const response = await fetch(fetchUrl, { method: 'GET', headers: fetchHeaders, cache: 'no-store' });
     if (!response.ok) {
-      const errorBody = await response.text();
-      console.error(`[AdminDashboardPage - fetchDbStatus] Failed to fetch DB status from ${fetchUrl}: ${response.status}`, errorBody);
+      console.error(`[AdminDashboardPage - fetchDbStatus] Failed to fetch DB status from ${fetchUrl}: ${response.status}`);
       return null;
     }
-    const data: DbStatusResponse = await response.json();
-    return data;
+    return await response.json();
   } catch (error: any) {
-    if (error instanceof TypeError && error.message.includes('fetch failed')) {
-      console.error(`[AdminDashboardPage - fetchDbStatus] NETWORK ERROR: Fetch failed for ${fetchUrl}.`, error);
-    } else {
-      console.error(`[AdminDashboardPage - fetchDbStatus] Error fetching DB status from ${fetchUrl}:`, error);
-    }
+    console.error(`[AdminDashboardPage - fetchDbStatus] Error fetching DB status from ${fetchUrl}:`, error);
     return null;
   }
 }
 
+async function fetchCardsBySupertype(sessionToken: string | undefined): Promise<CardsBySupertypeDataPoint[]> {
+  const baseUrl = getBaseUrl();
+  const fetchUrl = `${baseUrl}/api/analytics/cards-by-supertype`;
+  try {
+    const fetchHeaders = new Headers();
+    if (sessionToken) fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
+    const response = await fetch(fetchUrl, { headers: fetchHeaders, cache: 'no-store' });
+    if (!response.ok) {
+      console.error(`[AdminDashboardPage - fetchCardsBySupertype] API error ${response.status}`);
+      return [];
+    }
+    return await response.json();
+  } catch (error) {
+    console.error(`[AdminDashboardPage - fetchCardsBySupertype] Fetch error:`, error);
+    return [];
+  }
+}
+
+async function fetchCardsAddedDaily(sessionToken: string | undefined): Promise<CardsAddedDataPoint[]> {
+  const baseUrl = getBaseUrl();
+  const fetchUrl = `${baseUrl}/api/analytics/cards-added-daily`;
+  try {
+    const fetchHeaders = new Headers();
+    if (sessionToken) fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
+    const response = await fetch(fetchUrl, { headers: fetchHeaders, cache: 'no-store' });
+    if (!response.ok) {
+      console.error(`[AdminDashboardPage - fetchCardsAddedDaily] API error ${response.status}`);
+      return [];
+    }
+    return await response.json();
+  } catch (error) {
+    console.error(`[AdminDashboardPage - fetchCardsAddedDaily] Fetch error:`, error);
+    return [];
+  }
+}
 
 const getAvatarFallbackText = (user: ApiUser) => {
     const name = user.name || user.preferredUsername;
-    if (name) {
-        return name.split(' ').map(n => n[0]).join('').toUpperCase() || (user.email ? user.email[0].toUpperCase() : 'U');
-    }
+    if (name) return name.split(' ').map(n => n[0]).join('').toUpperCase() || (user.email ? user.email[0].toUpperCase() : 'U');
     return user.email ? user.email[0].toUpperCase() : 'U';
 }
 
 export default async function AdminDashboardPage() {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get('session_token')?.value;
-
   const appUrlIsSet = !!process.env.APP_URL;
-  if (!appUrlIsSet && process.env.NODE_ENV !== 'development') {
-      console.warn("[AdminDashboardPage - Render] WARNING: APP_URL is not set in a non-development environment. Dashboard data fetching may rely on localhost defaults or fail if external access is needed for internal API calls.");
-  }
 
   const [
     totalCards, 
@@ -358,7 +278,9 @@ export default async function AdminDashboardPage() {
     totalUsers, 
     apiRequests24h, 
     recentUsers,
-    dbStatus
+    dbStatus,
+    cardsBySupertypeData,
+    cardsAddedDailyData,
   ] = await Promise.all([
     fetchTotalCountFromPaginated("cards", sessionToken),
     fetchTotalCountFromPaginated("sets", sessionToken),
@@ -367,23 +289,33 @@ export default async function AdminDashboardPage() {
     fetchApiRequests24h(sessionToken),
     fetchRecentLiveUsers(sessionToken, 3),
     fetchDbStatus(sessionToken),
+    fetchCardsBySupertype(sessionToken),
+    fetchCardsAddedDaily(sessionToken),
   ]);
 
   const setReleaseChartConfig = {
-    count: {
-      label: "Sets Released",
-      color: "hsl(var(--chart-1))",
-    },
+    count: { label: "Sets Released", color: "hsl(var(--chart-1))" },
   } as const;
+
+  const cardsBySupertypeConfig = {
+    value: { label: "Cards" }, // Generic label for the value in tooltip
+    Pokémon: { label: "Pokémon", color: "hsl(var(--chart-1))" },
+    Trainer: { label: "Trainer", color: "hsl(var(--chart-2))" },
+    Energy: { label: "Energy", color: "hsl(var(--chart-3))" },
+    // Add more if your supertypes differ
+  } as const;
+  
+  const cardsAddedConfig = {
+    count: { label: "Cards Added", color: "hsl(var(--chart-1))" },
+  } as const;
+
 
   const dbStatusText = dbStatus ? `${dbStatus.status.charAt(0).toUpperCase() + dbStatus.status.slice(1)} (${dbStatus.connections}/${dbStatus.max_allowed} conns)` : "Loading...";
   const dbStatusBadgeVariant = dbStatus?.status === 'connected' ? 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700' : 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700';
-
   const cacheData = dbStatus?.cache;
   const cacheHitRateText = cacheData?.hit_rate || "N/A";
   const cacheHitsText = typeof cacheData?.hits === 'number' ? cacheData.hits.toLocaleString() : "N/A";
   const cacheMissesText = typeof cacheData?.misses === 'number' ? cacheData.misses.toLocaleString() : "N/A";
-
 
   return (
     <>
@@ -443,13 +375,9 @@ export default async function AdminDashboardPage() {
             <CardDescription>Number of Pokémon TCG sets released per year.</CardDescription>
           </CardHeader>
           <CardContent>
-            <DynamicSetReleaseChartWrapper
-              data={setReleaseTimelineData}
-              config={setReleaseChartConfig}
-            />
+            <DynamicSetReleaseChartWrapper data={setReleaseTimelineData} config={setReleaseChartConfig} />
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader>
             <CardTitle className="font-headline">Recent Users</CardTitle>
@@ -459,25 +387,14 @@ export default async function AdminDashboardPage() {
             {recentUsers.length > 0 ? (
               <div className="overflow-x-auto">
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
+                  <TableHeader><TableRow><TableHead>User</TableHead><TableHead>Email</TableHead><TableHead>Role</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
                   <TableBody>
                     {recentUsers.map((user) => (
                       <TableRow key={user.id}>
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <Avatar className="h-9 w-9">
-                               <AvatarImage 
-                                  src={user.avatarUrl || `https://placehold.co/40x40.png?text=${getAvatarFallbackText(user)}`}
-                                  alt={user.name || user.preferredUsername || 'User'} 
-                                  data-ai-hint={user.avatarUrl && !user.avatarUrl.includes('placehold.co') ? "user avatar" : "avatar placeholder"}
-                               />
+                               <AvatarImage src={user.avatarUrl || `https://placehold.co/40x40.png?text=${getAvatarFallbackText(user)}`} alt={user.name || user.preferredUsername || 'User'} data-ai-hint={user.avatarUrl && !user.avatarUrl.includes('placehold.co') ? "user avatar" : "avatar placeholder"} />
                               <AvatarFallback>{getAvatarFallbackText(user)}</AvatarFallback>
                             </Avatar>
                             <div className="font-medium">{user.name || user.preferredUsername || 'N/A'}</div>
@@ -485,27 +402,38 @@ export default async function AdminDashboardPage() {
                         </TableCell>
                         <TableCell>{user.email || 'N/A'}</TableCell>
                         <TableCell>{user.isAdmin ? 'Admin' : 'User'}</TableCell>
-                        <TableCell>
-                          <Badge variant={'default'}
-                                 className={cn(
-                                    'border bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700'
-                                  )}>
-                            Active
-                          </Badge>
-                        </TableCell>
+                        <TableCell><Badge variant={'default'} className={cn('border bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700')}>Active</Badge></TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No recent user data to display or API error.</p>
-            )}
-             <div className="mt-4 text-right">
-                <Button variant="outline" asChild>
-                    <Link href="/admin/users">Manage All Users</Link>
-                </Button>
-            </div>
+            ) : (<p className="text-sm text-muted-foreground">No recent user data to display or API error.</p>)}
+             <div className="mt-4 text-right"> <Button variant="outline" asChild><Link href="/admin/users">Manage All Users</Link></Button> </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="mb-8">
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-headline flex items-center"><PieChart className="mr-2 h-5 w-5 text-primary"/>Card Distribution by Supertype</CardTitle>
+            <CardDescription>Breakdown of cards by their supertype (e.g., Pokémon, Trainer, Energy).</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DynamicCardsBySupertypeChartWrapper data={cardsBySupertypeData} config={cardsBySupertypeConfig} />
+          </CardContent>
+        </Card>
+      </div>
+      
+      <div className="mb-8">
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-headline flex items-center"><LineChartIcon className="mr-2 h-5 w-5 text-primary"/>User Card Additions (Last 30 Days)</CardTitle>
+            <CardDescription>Number of cards added to user collections daily over the past 30 days.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DynamicCardsAddedChartWrapper data={cardsAddedDailyData} config={cardsAddedConfig} />
           </CardContent>
         </Card>
       </div>
@@ -514,66 +442,39 @@ export default async function AdminDashboardPage() {
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                    <CardTitle className="font-headline flex items-center">
-                        <LibraryBig className="mr-2 h-5 w-5 text-primary" />
-                        User Collections
-                    </CardTitle>
+                    <CardTitle className="font-headline flex items-center"><LibraryBig className="mr-2 h-5 w-5 text-primary" />User Collections</CardTitle>
                     <CardDescription>Access and view all user card collections.</CardDescription>
                 </div>
-                <Button asChild variant="outline">
-                    <Link href="/admin/collections">View All Collections</Link>
-                </Button>
+                <Button asChild variant="outline"><Link href="/admin/collections">View All Collections</Link></Button>
             </CardHeader>
-            <CardContent>
-                <p className="text-sm text-muted-foreground">
-                    There are currently <span className="font-semibold text-foreground">{totalUsers.toLocaleString()}</span> registered users.
-                    Navigate to the User Collections page to see individual collections.
-                </p>
-            </CardContent>
+            <CardContent><p className="text-sm text-muted-foreground">There are currently <span className="font-semibold text-foreground">{totalUsers.toLocaleString()}</span> registered users. Navigate to the User Collections page to see individual collections.</p></CardContent>
         </Card>
-        
         <Card>
           <CardHeader>
-            <CardTitle className="font-headline flex items-center">
-              <HeartPulse className="mr-2 h-5 w-5 text-primary" />
-              System Health Monitoring
-            </CardTitle>
+            <CardTitle className="font-headline flex items-center"><HeartPulse className="mr-2 h-5 w-5 text-primary" />System Health Monitoring</CardTitle>
             <CardDescription>Key performance indicators for system stability.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
               <div className="flex items-center">
                 <Database className="mr-3 h-6 w-6 text-accent" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Database Status</p>
-                  <p className="text-xs text-muted-foreground">{dbStatus ? dbStatus.version : "Checking..."}</p>
-                </div>
+                <div><p className="text-sm font-medium text-foreground">Database Status</p><p className="text-xs text-muted-foreground">{dbStatus ? dbStatus.version : "Checking..."}</p></div>
               </div>
               <Badge variant="outline" className={cn("text-sm border", dbStatus ? dbStatusBadgeVariant : "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-700/30 dark:text-slate-300 dark:border-slate-500")}>{dbStatusText}</Badge>
             </div>
             <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
               <div className="flex items-center">
                 <Gauge className="mr-3 h-6 w-6 text-accent" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Cache Performance</p>
-                  <p className="text-xs text-muted-foreground">
-                    {cacheData ? `Hits: ${cacheHitsText}, Misses: ${cacheMissesText}` : "Checking..."}
-                  </p>
-                </div>
+                <div><p className="text-sm font-medium text-foreground">Cache Performance</p><p className="text-xs text-muted-foreground">{cacheData ? `Hits: ${cacheHitsText}, Misses: ${cacheMissesText}` : "Checking..."}</p></div>
               </div>
               <Badge variant="outline" className="text-sm">{cacheData ? cacheHitRateText : "N/A"}</Badge>
             </div>
             <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
               <div className="flex items-center">
                 <RefreshCw className="mr-3 h-6 w-6 text-accent" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Last API Sync</p>
-                  <p className="text-xs text-muted-foreground">Successful sync time with Pokémon API</p>
-                </div>
+                <div><p className="text-sm font-medium text-foreground">Last API Sync</p><p className="text-xs text-muted-foreground">Successful sync time with Pokémon API</p></div>
               </div>
-              <Badge variant="outline" className="text-sm">
-                 <LocalizedTimeDisplay isoDateString={dbStatus?.last_sync} fallbackText={dbStatus === null && !totalCards ? "Error loading" : "Calculating..."} />
-              </Badge>
+              <Badge variant="outline" className="text-sm"><LocalizedTimeDisplay isoDateString={dbStatus?.last_sync} fallbackText={dbStatus === null && !totalCards ? "Error loading" : "Calculating..."} /></Badge>
             </div>
           </CardContent>
         </Card>
@@ -581,4 +482,3 @@ export default async function AdminDashboardPage() {
     </>
   );
 }
-
