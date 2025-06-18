@@ -293,39 +293,11 @@ export default function UsersTableClient({ initialUsers, onUserDeleted }: UsersT
         </div>
 
         <Card>
-          <CardContent className="p-0"> {/* Remove padding from CardContent if sections have their own */}
+          <CardContent className="p-0">
             {paginatedUsers.length === 0 && (
                <div className="text-center h-48 flex items-center justify-center text-muted-foreground">
                  No users match your current filters.
                </div>
-            )}
-
-            {paginatedTestUsers.length > 0 && (
-              <div className="p-4">
-                <h3 className="font-headline text-xl mb-3 flex items-center">
-                  <TestTubeDiagonal className="mr-2 h-5 w-5 text-primary" /> Test Users
-                </h3>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>User{sortKey === 'name' && <ArrowUpDown className="ml-2 h-4 w-4 inline" />}</TableHead>
-                        <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('role')}>Role{sortKey === 'role' && <ArrowUpDown className="ml-2 h-4 w-4 inline" />}</TableHead>
-                        <TableHead className="cursor-pointer hover:bg-muted/50 hidden md:table-cell" onClick={() => handleSort('status')}>Status{sortKey === 'status' && <ArrowUpDown className="ml-2 h-4 w-4 inline" />}</TableHead>
-                        <TableHead className="cursor-pointer hover:bg-muted/50 hidden lg:table-cell" onClick={() => handleSort('lastLogin')}>Last Seen{sortKey === 'lastLogin' && <ArrowUpDown className="ml-2 h-4 w-4 inline" />}</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {renderUserTableRows(paginatedTestUsers)}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-            )}
-
-            {paginatedTestUsers.length > 0 && paginatedRegularUsers.length > 0 && (
-              <Separator className="my-0" /> 
             )}
 
             {paginatedRegularUsers.length > 0 && (
@@ -346,6 +318,34 @@ export default function UsersTableClient({ initialUsers, onUserDeleted }: UsersT
                     </TableHeader>
                     <TableBody>
                       {renderUserTableRows(paginatedRegularUsers)}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+
+            {paginatedTestUsers.length > 0 && paginatedRegularUsers.length > 0 && (
+              <Separator className="my-0" /> 
+            )}
+
+            {paginatedTestUsers.length > 0 && (
+              <div className="p-4">
+                <h3 className="font-headline text-xl mb-3 flex items-center">
+                  <TestTubeDiagonal className="mr-2 h-5 w-5 text-primary" /> Test Users
+                </h3>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>User{sortKey === 'name' && <ArrowUpDown className="ml-2 h-4 w-4 inline" />}</TableHead>
+                        <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('role')}>Role{sortKey === 'role' && <ArrowUpDown className="ml-2 h-4 w-4 inline" />}</TableHead>
+                        <TableHead className="cursor-pointer hover:bg-muted/50 hidden md:table-cell" onClick={() => handleSort('status')}>Status{sortKey === 'status' && <ArrowUpDown className="ml-2 h-4 w-4 inline" />}</TableHead>
+                        <TableHead className="cursor-pointer hover:bg-muted/50 hidden lg:table-cell" onClick={() => handleSort('lastLogin')}>Last Seen{sortKey === 'lastLogin' && <ArrowUpDown className="ml-2 h-4 w-4 inline" />}</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {renderUserTableRows(paginatedTestUsers)}
                     </TableBody>
                   </Table>
                 </div>
