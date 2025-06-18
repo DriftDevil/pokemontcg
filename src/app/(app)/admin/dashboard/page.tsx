@@ -49,15 +49,23 @@ interface DbStatusResponse {
   cache?: CacheStats; 
 }
 
+// For chart components
 interface CardsBySupertypeDataPoint {
-  name: string;
-  value: number;
-  fill?: string; // For chart rendering
+  name: string; // Mapped from 'label'
+  value: number; // Mapped from 'count'
+  fill?: string; 
 }
 
 interface CardsAddedDataPoint {
   date: string; // YYYY-MM-DD
   count: number;
+}
+
+// For the new consolidated overview endpoint
+interface AdminStatsOverviewResponse {
+  cardsAddedPerDay: CardsAddedDataPoint[];
+  cardsBySupertype: { label: string; count: number }[]; // Raw from API
+  cardsByType: { label: string; count: number }[]; // Raw from API
 }
 
 
@@ -224,41 +232,32 @@ async function fetchDbStatus(sessionToken: string | undefined): Promise<DbStatus
   }
 }
 
-async function fetchCardsBySupertype(sessionToken: string | undefined): Promise<CardsBySupertypeDataPoint[]> {
+async function fetchAdminStatsOverview(sessionToken: string | undefined): Promise<AdminStatsOverviewResponse> {
   const baseUrl = getBaseUrl();
-  const fetchUrl = `${baseUrl}/api/analytics/cards-by-supertype`;
+  const fetchUrl = `${baseUrl}/api/admin/stats/overview`;
+  const defaultResponse: AdminStatsOverviewResponse = {
+    cardsAddedPerDay: [],
+    cardsBySupertype: [],
+    cardsByType: [],
+  };
+
   try {
     const fetchHeaders = new Headers();
     if (sessionToken) fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
+    
     const response = await fetch(fetchUrl, { headers: fetchHeaders, cache: 'no-store' });
     if (!response.ok) {
-      console.error(`[AdminDashboardPage - fetchCardsBySupertype] API error ${response.status}`);
-      return [];
+      console.error(`[AdminDashboardPage - fetchAdminStatsOverview] API error ${response.status}`);
+      return defaultResponse;
     }
-    return await response.json();
+    const data: AdminStatsOverviewResponse = await response.json();
+    return data;
   } catch (error) {
-    console.error(`[AdminDashboardPage - fetchCardsBySupertype] Fetch error:`, error);
-    return [];
+    console.error(`[AdminDashboardPage - fetchAdminStatsOverview] Fetch error:`, error);
+    return defaultResponse;
   }
 }
 
-async function fetchCardsAddedDaily(sessionToken: string | undefined): Promise<CardsAddedDataPoint[]> {
-  const baseUrl = getBaseUrl();
-  const fetchUrl = `${baseUrl}/api/analytics/cards-added-daily`;
-  try {
-    const fetchHeaders = new Headers();
-    if (sessionToken) fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
-    const response = await fetch(fetchUrl, { headers: fetchHeaders, cache: 'no-store' });
-    if (!response.ok) {
-      console.error(`[AdminDashboardPage - fetchCardsAddedDaily] API error ${response.status}`);
-      return [];
-    }
-    return await response.json();
-  } catch (error) {
-    console.error(`[AdminDashboardPage - fetchCardsAddedDaily] Fetch error:`, error);
-    return [];
-  }
-}
 
 const getAvatarFallbackText = (user: ApiUser) => {
     const name = user.name || user.preferredUsername;
@@ -279,8 +278,7 @@ export default async function AdminDashboardPage() {
     apiRequests24h, 
     recentUsers,
     dbStatus,
-    cardsBySupertypeData,
-    cardsAddedDailyData,
+    adminStatsOverview,
   ] = await Promise.all([
     fetchTotalCountFromPaginated("cards", sessionToken),
     fetchTotalCountFromPaginated("sets", sessionToken),
@@ -289,20 +287,25 @@ export default async function AdminDashboardPage() {
     fetchApiRequests24h(sessionToken),
     fetchRecentLiveUsers(sessionToken, 3),
     fetchDbStatus(sessionToken),
-    fetchCardsBySupertype(sessionToken),
-    fetchCardsAddedDaily(sessionToken),
+    fetchAdminStatsOverview(sessionToken),
   ]);
+
+  const cardsBySupertypeData: CardsBySupertypeDataPoint[] = adminStatsOverview.cardsBySupertype.map(item => ({
+    name: item.label,
+    value: item.count,
+  }));
+  const cardsAddedDailyData: CardsAddedDataPoint[] = adminStatsOverview.cardsAddedPerDay;
+
 
   const setReleaseChartConfig = {
     count: { label: "Sets Released", color: "hsl(var(--chart-1))" },
   } as const;
 
   const cardsBySupertypeConfig = {
-    value: { label: "Cards" }, // Generic label for the value in tooltip
+    value: { label: "Cards" }, 
     Pokémon: { label: "Pokémon", color: "hsl(var(--chart-1))" },
     Trainer: { label: "Trainer", color: "hsl(var(--chart-2))" },
     Energy: { label: "Energy", color: "hsl(var(--chart-3))" },
-    // Add more if your supertypes differ
   } as const;
   
   const cardsAddedConfig = {
@@ -482,3 +485,4 @@ export default async function AdminDashboardPage() {
     </>
   );
 }
+

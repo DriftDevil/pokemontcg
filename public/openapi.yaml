@@ -727,6 +727,122 @@ paths:
           description: Admin access required
         '500':
           description: Internal server error
+          /admin/stats/cards-by-supertype:
+            get:
+              summary: Get count of cards grouped by supertype
+              tags: [Admin Stats]
+              security:
+                - localAuth: []
+                - oauth2: []
+              responses:
+                '200':
+                  description: Card count by supertype
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        properties:
+                          data:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                label:
+                                  type: string
+                                  example: "Pokémon"
+                                count:
+                                  type: integer
+                                  example: 12345
+  /admin/stats/cards-by-type:
+    get:
+      summary: Get count of cards grouped by type
+      tags: [Admin Stats]
+      security:
+        - localAuth: []
+        - oauth2: []
+      responses:
+        '200':
+          description: Card count by type
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        label:
+                          type: string
+                          example: "Fire"
+                        count:
+                          type: integer
+                          example: 3150
+
+  /admin/stats/cards-added-per-day:
+    get:
+      summary: Get number of cards added per day
+      tags: [Admin Stats]
+      security:
+        - localAuth: []
+        - oauth2: []
+      responses:
+        '200':
+          description: Cards added per day
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date:
+                          type: string
+                          format: date
+                          example: "2025-06-17"
+                        count:
+                          type: integer
+                          example: 87
+  /admin/stats/overview:
+    get:
+      summary: Get overview statistics (supertypes, types, per-day)
+      tags: [Admin Stats]
+      security:
+        - localAuth: []
+        - oauth2: []
+      responses:
+        '200':
+          description: Overview of card statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cardsBySupertype:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        label: { type: string, example: "Trainer" }
+                        count: { type: integer, example: 5123 }
+                  cardsByType:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        label: { type: string, example: "Psychic" }
+                        count: { type: integer, example: 1876 }
+                  cardsAddedPerDay:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date: { type: string, format: date, example: "2025-06-16" }
+                        count: { type: integer, example: 243 }
   /usage:
     get:
       summary: Get API usage metrics (admin only)
