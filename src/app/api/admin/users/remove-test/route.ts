@@ -16,13 +16,13 @@ function getTokenFromRequest(request: NextRequest): string | undefined {
 
 export async function POST(request: NextRequest) {
   if (!EXTERNAL_API_BASE_URL) {
-    console.error('[API /api/admin/users/remove-test (proxying to delete-last)] External API base URL not configured.');
+    console.error('[API /api/admin/users/remove-test (proxying to delete-test-last)] External API base URL not configured.');
     return NextResponse.json({ message: 'External API URL not configured' }, { status: 500 });
   }
 
   const token = getTokenFromRequest(request);
   if (!token) {
-    console.warn(`[API ${request.nextUrl.pathname} (proxying to delete-last)] No token found for request. Responding with 401.`);
+    console.warn(`[API ${request.nextUrl.pathname} (proxying to delete-test-last)] No token found for request. Responding with 401.`);
     return NextResponse.json({ message: 'Unauthorized. No token provided.' }, { status: 401 });
   }
 
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Missing or invalid fields for removing test users (emailPrefix, emailDomain, count > 0).' }, { status: 400 });
   }
 
-  const externalUrl = `${EXTERNAL_API_BASE_URL}/user/admin/delete-last`;
+  const externalUrl = `${EXTERNAL_API_BASE_URL}/user/admin/delete-test-last`;
   console.log(`[API ${request.nextUrl.pathname}] Forwarding remove test users request (with count: ${payload.count}) to external API: ${externalUrl}`);
 
   try {
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     const responseData = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      console.error(`[API ${request.nextUrl.pathname} (proxying to delete-last)] External API (${externalUrl}) failed: ${response.status}`, responseData);
+      console.error(`[API ${request.nextUrl.pathname} (proxying to delete-test-last)] External API (${externalUrl}) failed: ${response.status}`, responseData);
       return NextResponse.json(
         { message: responseData.message || `Failed to remove test users. Status: ${response.status}`, details: responseData.details },
         { status: response.status }
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(responseData, { status: response.status });
   } catch (error: any) {
-    console.error(`[API ${request.nextUrl.pathname} (proxying to delete-last)] Failed to call External API (${externalUrl}):`, error);
+    console.error(`[API ${request.nextUrl.pathname} (proxying to delete-test-last)] Failed to call External API (${externalUrl}):`, error);
     return NextResponse.json({ message: 'Failed to remove test users due to a server error', details: error.message }, { status: 500 });
   }
 }
