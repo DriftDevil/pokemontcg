@@ -2,9 +2,9 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
-import type { DisplayUser as User } from '@/app/(app)/admin/users/page'; // User has avatarUrl
+import type { DisplayUser as User } from '@/app/(app)/admin/users/page';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,10 +12,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ArrowUpDown, MoreHorizontal, Trash2, Edit3, Eye, ShoppingBag } from 'lucide-react';
+import { ArrowUpDown, MoreHorizontal, Trash2, Edit3, Eye, ShoppingBag, Users2, TestTubeDiagonal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from "@/hooks/use-toast";
 import Link from 'next/link';
+import { Separator } from '../ui/separator';
 
 interface UsersTableClientProps {
   initialUsers: User[];
@@ -24,6 +25,13 @@ interface UsersTableClientProps {
 
 type SortKey = keyof User | '';
 type SortDirection = 'asc' | 'desc';
+
+const isTestUser = (user: User): boolean => {
+  if (user.name?.toLowerCase().includes('test user #')) return true;
+  if (user.email?.toLowerCase().startsWith('testuser')) return true;
+  if (user.email?.toLowerCase().startsWith('mockuser')) return true;
+  return false;
+};
 
 export default function UsersTableClient({ initialUsers, onUserDeleted }: UsersTableClientProps) {
   const { toast } = useToast();
@@ -68,31 +76,28 @@ export default function UsersTableClient({ initialUsers, onUserDeleted }: UsersT
     if (sortKey === 'name') {
       filtered.sort((a, b) => {
         const extractNumberFromName = (name: string): number | null => {
-          const match = name.match(/#(\d+)$/); // Matches '#<digits>' at the end of the string e.g. "Test User #123"
+          const match = name.match(/#(\d+)$/);
           return match ? parseInt(match[1], 10) : null;
         };
 
-        const numA = extractNumberFromName(a.name);
-        const numB = extractNumberFromName(b.name);
-
         const valA = a.name || '';
         const valB = b.name || '';
+        
+        const numA = extractNumberFromName(valA);
+        const numB = extractNumberFromName(valB);
+
 
         if (numA !== null && numB !== null) {
-          // Both are numbered names, sort numerically
           return sortDirection === 'asc' ? numA - numB : numB - numA;
         } else if (numA !== null && numB === null) {
-          // A is numbered, B is not. Numbered comes before non-numbered in asc.
           return sortDirection === 'asc' ? -1 : 1;
         } else if (numA === null && numB !== null) {
-          // B is numbered, A is not. Numbered comes before non-numbered in asc.
           return sortDirection === 'asc' ? 1 : -1;
         } else {
-          // Neither are recognized numbered names, sort alphabetically
           return sortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
         }
       });
-    } else if (sortKey) { // Existing sort logic for other keys
+    } else if (sortKey) {
       filtered.sort((a, b) => {
         const valA = a[sortKey as keyof User];
         const valB = b[sortKey as keyof User];
@@ -118,6 +123,9 @@ export default function UsersTableClient({ initialUsers, onUserDeleted }: UsersT
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredAndSortedUsers.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredAndSortedUsers, currentPage, itemsPerPage]);
+
+  const paginatedTestUsers = useMemo(() => paginatedUsers.filter(isTestUser), [paginatedUsers]);
+  const paginatedRegularUsers = useMemo(() => paginatedUsers.filter(user => !isTestUser(user)), [paginatedUsers]);
 
   const totalPages = Math.max(1, Math.ceil(filteredAndSortedUsers.length / itemsPerPage));
 
@@ -187,6 +195,70 @@ export default function UsersTableClient({ initialUsers, onUserDeleted }: UsersT
     }
   };
 
+  const renderUserTableRows = (userList: User[]) => (
+    userList.map((user) => {
+      const avatarDisplaySrc = user.avatarUrl || `https://placehold.co/40x40.png?text=${getAvatarFallbackTextClient(user)}`;
+      const avatarDisplayHint = user.avatarUrl && !user.avatarUrl.includes('placehold.co') ? "user avatar" : "avatar placeholder";
+      return (
+        <TableRow key={user.id}>
+          <TableCell>
+            <div className="flex items-center gap-3">
+              <Avatar className="h-9 w-9">
+                <AvatarImage 
+                  src={avatarDisplaySrc} 
+                  alt={user.name} 
+                  data-ai-hint={avatarDisplayHint}
+                />
+                <AvatarFallback>{getAvatarFallbackTextClient(user)}</AvatarFallback>
+              </Avatar>
+              <div>
+                <div className="font-medium">{user.name}</div>
+                <div className="text-xs text-muted-foreground">{user.email}</div>
+              </div>
+            </div>
+          </TableCell>
+          <TableCell>{user.role}</TableCell>
+          <TableCell className="hidden md:table-cell">
+            <Badge variant={'outline'} className={cn("border", getStatusBadgeVariant(user.status))}>
+              {user.status}
+            </Badge>
+          </TableCell>
+          <TableCell className="hidden lg:table-cell">
+            {user.lastLogin ? new Date(user.lastLogin).toLocaleString(undefined, { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true }) : 'N/A'}
+          </TableCell>
+          <TableCell className="text-right">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <span className="sr-only">Open menu</span>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => viewUser(user.id)} disabled>
+                  <Eye className="mr-2 h-4 w-4" /> View Details
+                </DropdownMenuItem>
+                 <DropdownMenuItem asChild>
+                    <Link href={`/admin/users/${user.id}/collection`}>
+                        <ShoppingBag className="mr-2 h-4 w-4" /> View Collection
+                    </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => editUser(user.id)} disabled>
+                  <Edit3 className="mr-2 h-4 w-4" /> Edit User
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onClick={() => handleDeleteRequest(user)}>
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete User
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </TableCell>
+        </TableRow>
+      );
+    })
+  );
+
   return (
     <>
       <div className="space-y-4">
@@ -221,111 +293,65 @@ export default function UsersTableClient({ initialUsers, onUserDeleted }: UsersT
         </div>
 
         <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead 
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => handleSort('name')}
-                >
-                  User
-                  {sortKey === 'name' && <ArrowUpDown className="ml-2 h-4 w-4 inline" />}
-                </TableHead>
-                <TableHead
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => handleSort('role')}
-                >
-                  Role
-                  {sortKey === 'role' && <ArrowUpDown className="ml-2 h-4 w-4 inline" />}
-                </TableHead>
-                <TableHead
-                  className="cursor-pointer hover:bg-muted/50 hidden md:table-cell"
-                  onClick={() => handleSort('status')}
-                >
-                  Status
-                  {sortKey === 'status' && <ArrowUpDown className="ml-2 h-4 w-4 inline" />}
-                </TableHead>
-                <TableHead
-                  className="cursor-pointer hover:bg-muted/50 hidden lg:table-cell"
-                  onClick={() => handleSort('lastLogin')}
-                >
-                  Last Seen
-                  {sortKey === 'lastLogin' && <ArrowUpDown className="ml-2 h-4 w-4 inline" />}
-                </TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedUsers.map((user) => {
-                const avatarDisplaySrc = user.avatarUrl || `https://placehold.co/40x40.png?text=${getAvatarFallbackTextClient(user)}`;
-                const avatarDisplayHint = user.avatarUrl && !user.avatarUrl.includes('placehold.co') ? "user avatar" : "avatar placeholder";
-                return (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9">
-                          <AvatarImage 
-                            src={avatarDisplaySrc} 
-                            alt={user.name} 
-                            data-ai-hint={avatarDisplayHint}
-                          />
-                          <AvatarFallback>{getAvatarFallbackTextClient(user)}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="font-medium">{user.name}</div>
-                          <div className="text-xs text-muted-foreground">{user.email}</div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{user.role}</TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      <Badge variant={'outline'} className={cn("border", getStatusBadgeVariant(user.status))}>
-                        {user.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      {user.lastLogin ? new Date(user.lastLogin).toLocaleString(undefined, { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true }) : 'N/A'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => viewUser(user.id)} disabled>
-                            <Eye className="mr-2 h-4 w-4" /> View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/admin/users/${user.id}/collection`}>
-                              <ShoppingBag className="mr-2 h-4 w-4" /> View Collection
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => editUser(user.id)} disabled>
-                            <Edit3 className="mr-2 h-4 w-4" /> Edit User
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onClick={() => handleDeleteRequest(user)}>
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete User
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-               {paginatedUsers.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
-                    No users match your current filters.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+          <CardContent className="p-0"> {/* Remove padding from CardContent if sections have their own */}
+            {paginatedUsers.length === 0 && (
+               <div className="text-center h-48 flex items-center justify-center text-muted-foreground">
+                 No users match your current filters.
+               </div>
+            )}
+
+            {paginatedTestUsers.length > 0 && (
+              <div className="p-4">
+                <h3 className="font-headline text-xl mb-3 flex items-center">
+                  <TestTubeDiagonal className="mr-2 h-5 w-5 text-primary" /> Test Users
+                </h3>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>User{sortKey === 'name' && <ArrowUpDown className="ml-2 h-4 w-4 inline" />}</TableHead>
+                        <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('role')}>Role{sortKey === 'role' && <ArrowUpDown className="ml-2 h-4 w-4 inline" />}</TableHead>
+                        <TableHead className="cursor-pointer hover:bg-muted/50 hidden md:table-cell" onClick={() => handleSort('status')}>Status{sortKey === 'status' && <ArrowUpDown className="ml-2 h-4 w-4 inline" />}</TableHead>
+                        <TableHead className="cursor-pointer hover:bg-muted/50 hidden lg:table-cell" onClick={() => handleSort('lastLogin')}>Last Seen{sortKey === 'lastLogin' && <ArrowUpDown className="ml-2 h-4 w-4 inline" />}</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {renderUserTableRows(paginatedTestUsers)}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+
+            {paginatedTestUsers.length > 0 && paginatedRegularUsers.length > 0 && (
+              <Separator className="my-0" /> 
+            )}
+
+            {paginatedRegularUsers.length > 0 && (
+              <div className="p-4">
+                <h3 className="font-headline text-xl mb-3 flex items-center">
+                  <Users2 className="mr-2 h-5 w-5 text-primary" /> Registered Users
+                </h3>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>User{sortKey === 'name' && <ArrowUpDown className="ml-2 h-4 w-4 inline" />}</TableHead>
+                        <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('role')}>Role{sortKey === 'role' && <ArrowUpDown className="ml-2 h-4 w-4 inline" />}</TableHead>
+                        <TableHead className="cursor-pointer hover:bg-muted/50 hidden md:table-cell" onClick={() => handleSort('status')}>Status{sortKey === 'status' && <ArrowUpDown className="ml-2 h-4 w-4 inline" />}</TableHead>
+                        <TableHead className="cursor-pointer hover:bg-muted/50 hidden lg:table-cell" onClick={() => handleSort('lastLogin')}>Last Seen{sortKey === 'lastLogin' && <ArrowUpDown className="ml-2 h-4 w-4 inline" />}</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {renderUserTableRows(paginatedRegularUsers)}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+          </CardContent>
         </Card>
         
         {totalPages > 1 && (
@@ -375,5 +401,4 @@ export default function UsersTableClient({ initialUsers, onUserDeleted }: UsersT
     </>
   );
 }
-
     
