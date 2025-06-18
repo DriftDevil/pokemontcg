@@ -378,12 +378,18 @@ paths:
                   skipped:
                     type: integer
                     example: 0
+                  startIndex:
+                    type: integer
+                    example: 6
+                  endIndex:
+                    type: integer
+                    example: 10
                   created:
                     type: array
                     items:
                       $ref: '#/components/schemas/User'
         '400':
-          description: Bad request
+          description: Invalid request payload
           content:
             application/json:
               schema:
@@ -391,7 +397,7 @@ paths:
                 properties:
                   error:
                     type: string
-                    example: Invalid request payload.
+                    example: Count must be between 1 and 100.
         '401':
           description: Unauthorized
           content:
@@ -412,14 +418,14 @@ paths:
                   error:
                     type: string
                     example: Admin access required
-  /user/admin/delete-test:
+  /user/admin/delete-last:
     post:
       tags: [Admin]
       security:
         - oauth2:
             - openid
-      summary: Delete test users in bulk
-      description: Deletes users whose emails match the test pattern.
+      summary: Delete the N most recent test users
+      description: Deletes a specific number of test users based on the highest numeric index.
       requestBody:
         required: true
         content:
@@ -433,22 +439,31 @@ paths:
                 emailDomain:
                   type: string
                   example: example.com
+                count:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  example: 5
+              required:
+                - count
       responses:
         '200':
-          description: Test users deleted successfully
+          description: Deleted N test users
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  deleted:
+                  deleteCount:
                     type: integer
                     example: 5
-                  pattern:
-                    type: string
-                    example: testuser%@example.com
+                  emails:
+                    type: array
+                    items:
+                      type: string
+                      example: testuser10@example.com
         '400':
-          description: Bad request
+          description: Invalid request payload or count
           content:
             application/json:
               schema:
@@ -456,7 +471,7 @@ paths:
                 properties:
                   error:
                     type: string
-                    example: Invalid request payload.
+                    example: Count must be greater than 0.
         '401':
           description: Unauthorized
           content:
