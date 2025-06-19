@@ -2,28 +2,27 @@
 import PageHeader from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Layers, Search, Eye, ChevronLeft, ChevronRight } from "lucide-react";
+import { Layers, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import SetSearchForm from "@/components/sets/set-search-form"; // New component
 
 // Interface for the raw API response from external sources.
-// Fields are optional to accommodate differences between primary (sparse) and backup (rich) APIs.
 interface ApiSet {
   id: string;
   name: string;
-  series?: string; // Optional as per primary API
-  printedTotal?: number; // More common in pokemontcg.io (backup)
-  total?: number; // Present in primary API's Set schema for total cards in sequence
-  legalities?: { // Optional
+  series?: string;
+  printedTotal?: number;
+  total?: number;
+  legalities?: {
     unlimited?: string;
     standard?: string;
     expanded?: string;
   };
-  ptcgoCode?: string; // Optional
+  ptcgoCode?: string;
   releaseDate: string;
-  updatedAt?: string; // Optional
-  images?: { // Optional, and its properties are also optional
+  updatedAt?: string;
+  images?: {
     symbol?: string;
     logo?: string;
   };
@@ -34,8 +33,8 @@ export interface CardSet {
   name: string;
   releaseDate: string;
   totalCards: number;
-  symbolUrl?: string; // Made optional
-  logoUrl?: string;   // Made optional
+  symbolUrl?: string;
+  logoUrl?: string;
 }
 
 interface CardSetListResult {
@@ -60,8 +59,8 @@ async function getCardSets(searchTerm?: string, page: number = 1): Promise<CardS
     queryParams.set('q', `name:${searchTerm}*`);
   }
   queryParams.set('page', page.toString());
-  queryParams.set('limit', REQUESTED_PAGE_SIZE_SETS.toString()); // Use 'limit' for primary API
-  queryParams.set('orderBy', '-releaseDate'); // Request sort by newest release date
+  queryParams.set('limit', REQUESTED_PAGE_SIZE_SETS.toString());
+  queryParams.set('orderBy', '-releaseDate');
 
   const defaultReturn: CardSetListResult = { sets: [], currentPage: page, totalPages: 0, totalCount: 0, pageSize: REQUESTED_PAGE_SIZE_SETS };
 
@@ -80,14 +79,12 @@ async function getCardSets(searchTerm?: string, page: number = 1): Promise<CardS
       id: apiSet.id,
       name: apiSet.name,
       releaseDate: apiSet.releaseDate,
-      totalCards: apiSet.total || apiSet.printedTotal || 0, // Use 'total' from primary, fallback to 'printedTotal'
+      totalCards: apiSet.total || apiSet.printedTotal || 0,
       symbolUrl: apiSet.images?.symbol,
       logoUrl: apiSet.images?.logo,
     }));
 
-    // Sort the current page of sets by releaseDate descending, as primary API might ignore orderBy
     sets.sort((a, b) => new Date(b.releaseDate).getTime() - new Date(a.releaseDate).getTime());
-
 
     const apiCurrentPage = responseData.page || 1;
     const apiPageSize = responseData.limit || responseData.pageSize || REQUESTED_PAGE_SIZE_SETS;
@@ -99,7 +96,6 @@ async function getCardSets(searchTerm?: string, page: number = 1): Promise<CardS
     }
     apiTotalPages = Math.max(1, apiTotalPages); 
     if (apiTotalCount === 0) apiTotalPages = 0;
-
 
     return { 
       sets, 
@@ -134,14 +130,7 @@ export default async function CardSetsPage({ searchParams = {} }: { searchParams
         title="Pokémon Card Sets"
         description="Explore all available Pokémon TCG sets."
         icon={Layers}
-        actions={
-          <form className="flex items-center gap-2" method="GET" action="/sets">
-            <Input type="search" name="search" placeholder="Search sets..." className="w-64" defaultValue={searchTerm} />
-            <Button type="submit" variant="outline" size="icon">
-              <Search className="h-4 w-4" />
-            </Button>
-          </form>
-        }
+        actions={<SetSearchForm initialSearchTerm={searchTerm} />}
       />
       {sets.length === 0 ? (
         <div className="text-center py-12">
@@ -256,4 +245,3 @@ export default async function CardSetsPage({ searchParams = {} }: { searchParams
     </>
   );
 }
-

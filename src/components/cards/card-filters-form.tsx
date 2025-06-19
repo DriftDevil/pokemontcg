@@ -6,25 +6,17 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Search } from "lucide-react";
+import { XIcon } from "lucide-react"; // Using XIcon for clear
 
 interface SetOption { id: string; name: string; }
 
 interface CardFiltersFormProps {
-  initialSearch?: string;
-  initialSet?: string;
-  initialType?: string;
-  initialRarity?: string;
   setOptions: SetOption[];
   typeOptions: string[];
   rarityOptions: string[];
 }
 
 export default function CardFiltersForm({
-  initialSearch: initialSearchProp = "",
-  initialSet: initialSetProp = "All Sets",
-  initialType: initialTypeProp = "All Types",
-  initialRarity: initialRarityProp = "All Rarities",
   setOptions,
   typeOptions,
   rarityOptions,
@@ -32,71 +24,61 @@ export default function CardFiltersForm({
   const router = useRouter();
   const currentSearchParams = useSearchParams();
 
-  const [searchTerm, setSearchTerm] = useState(initialSearchProp);
-  const [selectedSet, setSelectedSet] = useState(initialSetProp);
-  const [selectedType, setSelectedType] = useState(initialTypeProp);
-  const [selectedRarity, setSelectedRarity] = useState(initialRarityProp);
+  const [searchTerm, setSearchTerm] = useState(currentSearchParams.get('search') || "");
+  const [selectedSet, setSelectedSet] = useState(currentSearchParams.get('set') || "All Sets");
+  const [selectedType, setSelectedType] = useState(currentSearchParams.get('type') || "All Types");
+  const [selectedRarity, setSelectedRarity] = useState(currentSearchParams.get('rarity') || "All Rarities");
 
+  // Effect to synchronize local state with URL search parameters when they change externally
   useEffect(() => {
-    const searchFromUrl = currentSearchParams.get('search');
-    const setFromUrl = currentSearchParams.get('set');
-    const typeFromUrl = currentSearchParams.get('type');
-    const rarityFromUrl = currentSearchParams.get('rarity');
+    setSearchTerm(currentSearchParams.get('search') || "");
+    setSelectedSet(currentSearchParams.get('set') || "All Sets");
+    setSelectedType(currentSearchParams.get('type') || "All Types");
+    setSelectedRarity(currentSearchParams.get('rarity') || "All Rarities");
+  }, [currentSearchParams]);
 
-    const targetSearch = searchFromUrl !== null ? searchFromUrl : initialSearchProp;
-    if (targetSearch !== searchTerm) {
-      setSearchTerm(targetSearch);
-    }
-
-    const targetSet = setFromUrl !== null ? setFromUrl : initialSetProp;
-    if (targetSet !== selectedSet) {
-      setSelectedSet(targetSet);
-    }
-
-    // If type/rarity are explicitly in URL, use them. Otherwise, use initial prop (which defaults to "All...").
-    // This ensures that if a user navigates with a URL having type/rarity, it's respected.
-    // If they select a new set via UI, the onValueChange for Set will reset these.
-    const targetType = typeFromUrl !== null ? typeFromUrl : initialTypeProp;
-    if (targetType !== selectedType) {
-      setSelectedType(targetType);
-    }
-
-    const targetRarity = rarityFromUrl !== null ? rarityFromUrl : initialRarityProp;
-    if (targetRarity !== selectedRarity) {
-      setSelectedRarity(targetRarity);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSearchParams, initialSearchProp, initialSetProp, initialTypeProp, initialRarityProp]);
-
-
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  // Effect to update URL search parameters when local filter state changes (debounced)
+  useEffect(() => {
     const params = new URLSearchParams();
     if (searchTerm) params.set('search', searchTerm);
     if (selectedSet && selectedSet !== "All Sets") params.set('set', selectedSet);
     if (selectedType && selectedType !== "All Types") params.set('type', selectedType);
     if (selectedRarity && selectedRarity !== "All Rarities") params.set('rarity', selectedRarity);
-    
-    router.push(`/cards?${params.toString()}`);
-  };
+    const newQueryString = params.toString();
+
+    // Get current query string from URL for comparison to avoid unnecessary pushes
+    const currentQueryStringFromHook = currentSearchParams.toString();
+
+    // Only push if the new query string is different from the current one
+    if (newQueryString !== currentQueryStringFromHook) {
+      const handler = setTimeout(() => {
+        router.push(`/cards?${newQueryString}`);
+      }, 700); // Debounce time
+
+      return () => clearTimeout(handler);
+    }
+  }, [searchTerm, selectedSet, selectedType, selectedRarity, router, currentSearchParams]);
+
 
   const handleClear = () => {
-    setSearchTerm(""); 
-    setSelectedSet("All Sets"); 
-    setSelectedType("All Types"); 
-    setSelectedRarity("All Rarities"); 
-    router.push('/cards');
+    // Reset state and navigate to clear filters
+    setSearchTerm("");
+    setSelectedSet("All Sets");
+    setSelectedType("All Types");
+    setSelectedRarity("All Rarities");
+    router.push('/cards'); // This will trigger the useEffect above, which will see no diff and not push again
   };
 
   const handleSetChange = (newSetId: string) => {
     setSelectedSet(newSetId);
     // When a new set is selected, reset type and rarity to "All"
+    // This state change will be picked up by the debounced useEffect
     setSelectedType("All Types");
     setSelectedRarity("All Rarities");
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mb-6 p-4 border rounded-lg bg-card shadow">
+    <div className="mb-6 p-4 border rounded-lg bg-card shadow">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
         <div>
           <label htmlFor="search-filter" className="block text-sm font-medium text-muted-foreground mb-1">Search by Name</label>
@@ -142,16 +124,12 @@ export default function CardFiltersForm({
             </SelectContent>
           </Select>
         </div>
-        <div className="lg:col-start-4 flex gap-2">
-          <Button type="submit" className="w-full md:w-auto">
-            <Search className="mr-2 h-4 w-4" /> Apply Filters
-          </Button>
+        <div className="lg:col-start-4 flex justify-end">
           <Button type="button" variant="outline" className="w-full md:w-auto" onClick={handleClear}>
-            Clear
+            <XIcon className="mr-2 h-4 w-4" /> Clear Filters
           </Button>
         </div>
       </div>
-    </form>
+    </div>
   );
 }
-
