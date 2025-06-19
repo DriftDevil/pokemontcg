@@ -7,6 +7,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import CardFiltersForm from '@/components/cards/card-filters-form';
+import { cookies } from "next/headers";
+import type { AppUser } from "@/app/page";
+import CardListItemCollectionControls from "@/components/cards/card-list-item-collection-controls";
 
 // Interface for the raw API response from external sources.
 // Fields are optional to accommodate differences between primary (sparse) and backup (rich) APIs.
@@ -59,6 +62,7 @@ export interface PokemonCard {
   id: string;
   name: string;
   setName: string;
+  setId: string;
   rarity: string;
   type: string; // Primary type
   imageUrl: string; // Image for list view, prioritizing large image
@@ -319,6 +323,7 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     id: apiCard.id,
     name: apiCard.name,
     setName: apiCard.set?.name || "Unknown Set",
+    setId: apiCard.set?.id || "unknown-set-id",
     rarity: apiCard.rarity || "Unknown",
     type: apiCard.types?.[0] || "Colorless",
     imageUrl: apiCard.images?.large || apiCard.images?.small || `https://placehold.co/245x342.png`,
@@ -392,6 +397,28 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
   }
 }
 
+async function getUserSession(): Promise<AppUser | null> {
+  const cookieStore = cookies();
+  const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 9002}`;
+  
+  try {
+    const response = await fetch(`${appUrl}/api/auth/user`, {
+      headers: {
+        'Cookie': cookieStore.toString(),
+      },
+      cache: 'no-store',
+    });
+    if (response.ok) {
+      const user = await response.json();
+      return user && user.id ? user : null;
+    }
+  } catch (error) {
+    console.error("[CardsPage - getUserSession] Error fetching user session:", error);
+  }
+  return null;
+}
+
+
 export default async function CardsPage({
   searchParams = {}
 }: {
@@ -427,13 +454,15 @@ export default async function CardsPage({
     setOptionsData,
     typeOptionsData,
     rarityOptionsData,
-    selectedSetDetails
+    selectedSetDetails,
+    user
   ] = await Promise.all([
     getCards({ ...currentFilters, page: currentPage }),
     getSetOptions(),
     isSpecificSetSelected ? getSetSpecificTypeOptions(currentSetId) : getTypeOptions(),
     isSpecificSetSelected ? getSetSpecificRarityOptions(currentSetId) : getRarityOptions(),
-    isSpecificSetSelected ? getSelectedSetDetails(currentSetId) : Promise.resolve(null)
+    isSpecificSetSelected ? getSelectedSetDetails(currentSetId) : Promise.resolve(null),
+    getUserSession()
   ]);
 
   const allSetOptions: SetOption[] = Array.from(new Map([{ id: "All Sets", name: "All Sets" }, ...setOptionsData].map(item => [item.id, item])).values());
@@ -536,7 +565,7 @@ export default async function CardsPage({
                       data-ai-hint={card.imageUrl.includes('placehold.co') ? "pokemon card" : undefined}
                     />
                 </CardHeader>
-                <CardContent className="p-3 flex-grow">
+                <CardContent className="p-3 flex-grow flex flex-col">
                   <CardTitle className="font-headline text-md leading-tight mb-1 truncate" title={card.name}>{card.name}</CardTitle>
                   <CardDescription className="text-xs text-muted-foreground mb-1">Set: {card.setName}</CardDescription>
                   <div className="flex flex-wrap gap-1 text-xs mt-1">
@@ -544,6 +573,15 @@ export default async function CardsPage({
                       <Badge variant="outline">{card.rarity}</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">No. {card.number}</p>
+                  {user && card.setId && card.setId !== "unknown-set-id" && (
+                    <div className="mt-auto pt-2"> {/* mt-auto pushes to bottom, pt-2 adds space */}
+                      <CardListItemCollectionControls
+                        cardId={card.id}
+                        setId={card.setId}
+                        user={user}
+                      />
+                    </div>
+                  )}
                 </CardContent>
                 <CardFooter className="p-3 bg-muted/50 border-t">
                   <Button asChild variant="outline" size="sm" className="w-full">
@@ -583,3 +621,4 @@ export default async function CardsPage({
     </>
   );
 }
+
