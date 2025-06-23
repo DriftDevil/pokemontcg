@@ -2,8 +2,10 @@
 'use server';
 import {NextResponse, type NextRequest} from 'next/server';
 import { cookies } from 'next/headers';
+import logger from '@/lib/logger';
 
 const EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
+const CONTEXT = "API /api/admin/users/all-test";
 
 function getTokenFromRequest(request: NextRequest): string | undefined {
   const authHeader = request.headers.get('Authorization');
@@ -17,7 +19,7 @@ function getTokenFromRequest(request: NextRequest): string | undefined {
 export async function GET(request: NextRequest) {
   // --- Development Mock Test Users ---
   if (process.env.NODE_ENV === 'development' && process.env.MOCK_ADMIN_USER === 'true') {
-    console.warn("[API /api/admin/users/all-test] MOCK ADMIN USER ENABLED. Returning mock test user list.");
+    logger.warn(CONTEXT, "MOCK ADMIN USER ENABLED. Returning mock test user list.");
     const mockTestUsers = [
       { id: 'mock-test-user-1', email: 'testuser1@example.com', name: 'Test User Alpha' },
       { id: 'mock-test-user-2', email: 'testuser2@example.com', name: 'Test User Beta' },
@@ -28,19 +30,19 @@ export async function GET(request: NextRequest) {
   // --- End Development Mock Test Users ---
 
   if (!EXTERNAL_API_BASE_URL) {
-    console.error(`[API ${request.nextUrl.pathname}] External API base URL not configured.`);
+    logger.error(CONTEXT, 'External API base URL not configured.');
     return NextResponse.json({ error: 'External API URL not configured' }, { status: 500 });
   }
 
   const tokenToForward = getTokenFromRequest(request);
 
   if (!tokenToForward) {
-    console.warn(`[API ${request.nextUrl.pathname}] No token found to forward. Responding with 401.`);
+    logger.warn(CONTEXT, 'No token found to forward. Responding with 401.');
     return NextResponse.json({ error: 'Unauthorized. No token provided.' }, { status: 401 });
   }
 
   const externalUrl = `${EXTERNAL_API_BASE_URL}/user/admin/all-test`;
-  console.log(`[API ${request.nextUrl.pathname}] Forwarding request to external API: ${externalUrl}`);
+  logger.info(CONTEXT, `Forwarding request to external API: ${externalUrl}`);
 
   try {
     const response = await fetch(externalUrl, {
@@ -53,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error(`[API ${request.nextUrl.pathname}] External API (${externalUrl}) failed: ${response.status}`, errorData);
+      logger.error(CONTEXT, `External API (${externalUrl}) failed: ${response.status}`, errorData);
       return NextResponse.json({ error: `External API error: ${response.status}`, details: errorData }, { status: response.status });
     }
 
@@ -61,8 +63,7 @@ export async function GET(request: NextRequest) {
     // Assuming the backend returns { data: TestUser[], total: number } or similar
     return NextResponse.json(data);
   } catch (error: any) {
-    console.error(`[API ${request.nextUrl.pathname}] Failed to fetch from External API (${externalUrl}):`, error);
+    logger.error(CONTEXT, `Failed to fetch from External API (${externalUrl}):`, error);
     return NextResponse.json({ error: 'Failed to fetch data from external API', details: error.message }, { status: 500 });
   }
 }
-    

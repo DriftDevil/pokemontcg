@@ -3,8 +3,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { subDays, format } from 'date-fns';
+import logger from '@/lib/logger';
 
 const EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
+const CONTEXT = "API /api/admin/stats/overview";
 
 function getTokenFromRequest(request: NextRequest): string | undefined {
   const authHeader = request.headers.get('Authorization');
@@ -25,7 +27,7 @@ interface AdminStatsOverviewResponse {
 export async function GET(request: NextRequest) {
   // --- Development Mock ---
   if (process.env.NODE_ENV === 'development' && process.env.MOCK_ADMIN_USER === 'true') {
-    console.warn("[API /api/admin/stats/overview] MOCK ADMIN USER ENABLED. Returning mock overview data.");
+    logger.warn(CONTEXT, "MOCK ADMIN USER ENABLED. Returning mock overview data.");
     const mockCardsAddedPerDay = [];
     for (let i = 29; i >= 0; i--) {
       mockCardsAddedPerDay.push({
@@ -50,7 +52,7 @@ export async function GET(request: NextRequest) {
   // --- End Development Mock ---
 
   if (!EXTERNAL_API_BASE_URL) {
-    console.error('[API /admin/stats/overview] External API base URL not configured.');
+    logger.error(CONTEXT, 'External API base URL not configured.');
     return NextResponse.json({ message: 'External API URL not configured' }, { status: 500 });
   }
 
@@ -68,7 +70,7 @@ export async function GET(request: NextRequest) {
     });
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[API /admin/stats/overview] External API error: ${response.status} ${errorText}`);
+      logger.error(CONTEXT, `External API error: ${response.status} ${errorText}`);
       // Return a structure that matches AdminStatsOverviewResponse with empty arrays on error
       return NextResponse.json(
         { cardsAddedPerDay: [], cardsBySupertype: [], cardsByType: [] },
@@ -81,7 +83,7 @@ export async function GET(request: NextRequest) {
     // This API proxy should return the data as is from the backend.
     return NextResponse.json(data);
   } catch (error: any) {
-    console.error(`[API /admin/stats/overview] Fetch error: ${error.message}`);
+    logger.error(CONTEXT, `Fetch error: ${error.message}`);
     return NextResponse.json(
       { cardsAddedPerDay: [], cardsBySupertype: [], cardsByType: [] }, 
       { status: 500 }

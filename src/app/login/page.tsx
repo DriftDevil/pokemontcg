@@ -21,6 +21,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
+import logger from "@/lib/logger";
 
 const passwordLoginSchema = z.object({
   identifier: z.string().min(1, { message: "Email or Username is required" }),
@@ -86,10 +87,10 @@ function LoginContent() {
         setIsSubmittingPassword(false);
       }
     } catch (error: any) {
-      console.error("Password login submit - raw error object:", error);
-      if (error.name) console.error(`Error name: ${error.name}`);
-      if (error.message) console.error(`Error message: ${error.message}`);
-      if (error.stack) console.error(`Error stack: ${error.stack}`);
+      logger.error("LoginPage", "Password login submit - raw error object:", error);
+      if (error.name) logger.error("LoginPage",`Error name: ${error.name}`);
+      if (error.message) logger.error("LoginPage",`Error message: ${error.message}`);
+      if (error.stack) logger.error("LoginPage",`Error stack: ${error.stack}`);
 
       let title = "Login Error";
       let description = "An unexpected error occurred. Please try again.";
@@ -227,4 +228,3 @@ export default function LoginPage() {
     </Suspense>
   );
 }
-

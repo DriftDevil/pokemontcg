@@ -1,15 +1,17 @@
 
 import {NextResponse, type NextRequest} from 'next/server';
+import logger from '@/lib/logger';
 
 const PRIMARY_EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
 const BACKUP_EXTERNAL_API_BASE_URL = 'https://api.pokemontcg.io/v2';
+const CONTEXT = "API /api/sets";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
 
   // --- Development Mock Sets ---
   if (process.env.NODE_ENV === 'development' && process.env.MOCK_ADMIN_USER === 'true') {
-    console.warn("[API /api/sets] MOCK ADMIN USER ENABLED. Returning mock sets data.");
+    logger.warn(CONTEXT, "MOCK ADMIN USER ENABLED. Returning mock sets data.");
     
     // Mock for total count used by AdminDashboardPage fetchTotalCountFromPaginated
     if (searchParams.get('limit') === '1' && !searchParams.has('all')) {
@@ -51,7 +53,7 @@ export async function GET(request: NextRequest) {
   // --- End Development Mock Sets ---
 
   if (!PRIMARY_EXTERNAL_API_BASE_URL) {
-    console.error('Primary External API base URL not configured');
+    logger.error(CONTEXT, 'Primary External API base URL not configured');
     // Try backup if primary is not configured
   }
 
@@ -75,14 +77,14 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(data);
       }
       errorData = await response.text();
-      console.warn(`Primary API (${primaryExternalUrl}) failed: ${response.status}`, errorData);
+      logger.warn(CONTEXT, `Primary API (${primaryExternalUrl}) failed: ${response.status}`, errorData);
     } catch (error) {
-      console.warn(`Failed to fetch from Primary API (${primaryExternalUrl}):`, error);
+      logger.warn(CONTEXT, `Failed to fetch from Primary API (${primaryExternalUrl}):`, error);
     }
   }
 
   // Try Backup API if Primary failed or was not configured
-  console.log(`Attempting fetch from Backup API: ${backupExternalUrl}`);
+  logger.info(CONTEXT, `Attempting fetch from Backup API: ${backupExternalUrl}`);
   try {
     response = await fetch(backupExternalUrl, {
       headers: {
@@ -91,13 +93,13 @@ export async function GET(request: NextRequest) {
     });
     if (!response.ok) {
       errorData = await response.text();
-      console.error(`Backup API (${backupExternalUrl}) also failed: ${response.status}`, errorData);
+      logger.error(CONTEXT, `Backup API (${backupExternalUrl}) also failed: ${response.status}`, errorData);
       return NextResponse.json({ error: `Backup API error: ${response.status}`, details: errorData }, { status: response.status });
     }
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error(`Failed to fetch from Backup API (${backupExternalUrl}):`, error);
+    logger.error(CONTEXT, `Failed to fetch from Backup API (${backupExternalUrl}):`, error);
     return NextResponse.json({ error: 'Failed to fetch data from all external APIs' }, { status: 500 });
   }
 }

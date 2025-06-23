@@ -1,11 +1,13 @@
 
 import {NextResponse, type NextRequest} from 'next/server';
+import logger from '@/lib/logger';
 
 const EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
+const CONTEXT = "API /api/metrics";
 
 export async function GET(request: NextRequest) {
   if (!EXTERNAL_API_BASE_URL) {
-    console.error('External API base URL not configured for /api/metrics');
+    logger.error(CONTEXT, 'External API base URL not configured');
     return NextResponse.json({ error: 'External API URL not configured' }, { status: 500 });
   }
 
@@ -25,7 +27,7 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error(`External API (${externalUrl}) failed: ${response.status}`, errorData);
+      logger.error(CONTEXT, `External API (${externalUrl}) failed: ${response.status}`, errorData);
       return NextResponse.json({ error: `External API error: ${response.status}`, details: errorData }, { status: response.status });
     }
 
@@ -33,11 +35,9 @@ export async function GET(request: NextRequest) {
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error(`Failed to fetch or parse from External API (${externalUrl}):`, error);
+    logger.error(CONTEXT, `Failed to fetch or parse from External API (${externalUrl}):`, error);
     // If parsing fails, it might be Prometheus format. For now, return generic error.
     // A more robust solution would check Content-Type or try-catch Prometheus parsing.
     return NextResponse.json({ error: 'Failed to fetch or parse data from external metrics API' }, { status: 500 });
   }
 }
-
-    

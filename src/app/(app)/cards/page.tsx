@@ -10,6 +10,7 @@ import CardFiltersForm from '@/components/cards/card-filters-form';
 import { cookies } from "next/headers";
 import type { AppUser } from "@/app/page";
 import CardListItemCollectionControls from "@/components/cards/card-list-item-collection-controls";
+import logger from "@/lib/logger";
 
 // Interface for the raw API response from external sources.
 // Fields are optional to accommodate differences between primary (sparse) and backup (rich) APIs.
@@ -105,15 +106,15 @@ function getBaseUrlForApi(): string {
       const parsedAppUrl = new URL(appUrlEnv);
       return parsedAppUrl.origin;
     } catch (error) {
-      console.error(`[CardsPage - getBaseUrlForApi] Invalid APP_URL: ${appUrlEnv}. Error: ${error}. Falling back to localhost defaults for internal API calls.`);
+      logger.error('CardsPage:getBaseUrlForApi', `Invalid APP_URL: ${appUrlEnv}. Error: ${error}. Falling back to localhost defaults for internal API calls.`);
     }
   }
   const port = process.env.PORT || "9002";
   const defaultUrl = `http://localhost:${port}`;
   if (process.env.NODE_ENV === 'production' && !appUrlEnv) {
-    console.error(`[CardsPage - getBaseUrlForApi] CRITICAL: APP_URL is not set in production. Internal API calls will use ${defaultUrl} and likely fail.`);
+    logger.error('CardsPage:getBaseUrlForApi', `CRITICAL: APP_URL is not set in production. Internal API calls will use ${defaultUrl} and likely fail.`);
   } else if (!appUrlEnv) {
-    console.warn(`[CardsPage - getBaseUrlForApi] APP_URL not set. Defaulting to ${defaultUrl} for internal API calls (dev mode or misconfiguration).`);
+    logger.warn('CardsPage:getBaseUrlForApi', `APP_URL not set. Defaulting to ${defaultUrl} for internal API calls (dev mode or misconfiguration).`);
   }
   return defaultUrl;
 }
@@ -122,7 +123,7 @@ function getBaseUrlForApi(): string {
 async function getSetOptions(): Promise<SetOption[]> {
   const baseUrl = getBaseUrlForApi();
   if (!baseUrl) {
-    console.error("[CardsPage - getSetOptions] Base URL for API is not available. Cannot fetch set options.");
+    logger.error('CardsPage:getSetOptions', "Base URL for API is not available. Cannot fetch set options.");
     return [];
   }
   try {
@@ -131,7 +132,7 @@ async function getSetOptions(): Promise<SetOption[]> {
     const data = await response.json();
     return (data.data || []).map((set: any) => ({ id: set.id, name: set.name }));
   } catch (error) {
-    console.error("[CardsPage - getSetOptions] Error fetching set options from internal API:", error);
+    logger.error('CardsPage:getSetOptions', "Error fetching set options from internal API:", error);
     return [];
   }
 }
@@ -139,7 +140,7 @@ async function getSetOptions(): Promise<SetOption[]> {
 async function getTypeOptions(): Promise<string[]> {
   const baseUrl = getBaseUrlForApi();
    if (!baseUrl) {
-    console.error("[CardsPage - getTypeOptions] Base URL for API is not available. Cannot fetch type options.");
+    logger.error('CardsPage:getTypeOptions', "Base URL for API is not available. Cannot fetch type options.");
     return ["All Types"];
   }
   try {
@@ -149,7 +150,7 @@ async function getTypeOptions(): Promise<string[]> {
     const types = data.data || [];
     return ["All Types", ...types.sort()];
   } catch (error) {
-    console.error("[CardsPage - getTypeOptions] Error fetching type options from internal API:", error);
+    logger.error('CardsPage:getTypeOptions', "Error fetching type options from internal API:", error);
     return ["All Types"];
   }
 }
@@ -157,7 +158,7 @@ async function getTypeOptions(): Promise<string[]> {
 async function getRarityOptions(): Promise<string[]> {
   const baseUrl = getBaseUrlForApi();
   if (!baseUrl) {
-    console.error("[CardsPage - getRarityOptions] Base URL for API is not available. Cannot fetch rarity options.");
+    logger.error('CardsPage:getRarityOptions', "Base URL for API is not available. Cannot fetch rarity options.");
     return ["All Rarities"];
   }
   try {
@@ -167,7 +168,7 @@ async function getRarityOptions(): Promise<string[]> {
     const rarities = (data.data || []).filter((r: string | null) => r && r.trim() !== "");
     return ["All Rarities", ...rarities.sort()];
   } catch (error) {
-    console.error("[CardsPage - getRarityOptions] Error fetching rarity options from internal API:", error);
+    logger.error('CardsPage:getRarityOptions', "Error fetching rarity options from internal API:", error);
     return ["All Rarities"];
   }
 }
@@ -177,7 +178,7 @@ async function getSetSpecificTypeOptions(setId: string): Promise<string[]> {
   try {
     const response = await fetch(`${BACKUP_API_FOR_FILTERS_URL}/cards?q=set.id:${setId}&select=types&pageSize=250`);
     if (!response.ok) {
-      console.error(`[CardsPage - getSetSpecificTypeOptions] Failed to fetch types for set ${setId}: ${response.status}`);
+      logger.error('CardsPage:getSetSpecificTypeOptions', `Failed to fetch types for set ${setId}: ${response.status}`);
       return ["All Types"];
     }
     const data = await response.json();
@@ -187,7 +188,7 @@ async function getSetSpecificTypeOptions(setId: string): Promise<string[]> {
     const uniqueTypes = Array.from(new Set(allTypesInSet)).sort();
     return ["All Types", ...uniqueTypes];
   } catch (error) {
-    console.error(`[CardsPage - getSetSpecificTypeOptions] Error fetching types for set ${setId}:`, error);
+    logger.error('CardsPage:getSetSpecificTypeOptions', `Error fetching types for set ${setId}:`, error);
     return ["All Types"];
   }
 }
@@ -197,7 +198,7 @@ async function getSetSpecificRarityOptions(setId: string): Promise<string[]> {
   try {
     const response = await fetch(`${BACKUP_API_FOR_FILTERS_URL}/cards?q=set.id:${setId}&select=rarity&pageSize=250`);
     if (!response.ok) {
-      console.error(`[CardsPage - getSetSpecificRarityOptions] Failed to fetch rarities for set ${setId}: ${response.status}`);
+      logger.error('CardsPage:getSetSpecificRarityOptions', `Failed to fetch rarities for set ${setId}: ${response.status}`);
       return ["All Rarities"];
     }
     const data = await response.json();
@@ -207,7 +208,7 @@ async function getSetSpecificRarityOptions(setId: string): Promise<string[]> {
     const uniqueRarities = Array.from(new Set(allRaritiesInSet)).sort();
     return ["All Rarities", ...uniqueRarities];
   } catch (error) {
-    console.error(`[CardsPage - getSetSpecificRarityOptions] Error fetching rarities for set ${setId}:`, error);
+    logger.error('CardsPage:getSetSpecificRarityOptions', `Error fetching rarities for set ${setId}:`, error);
     return ["All Rarities"];
   }
 }
@@ -219,27 +220,27 @@ async function getSelectedSetDetails(setId: string): Promise<SelectedSetDetails 
   }
   try {
     const fetchUrl = `${baseUrl}/api/sets/${setId}`;
-    console.log(`[CardsPage - getSelectedSetDetails] Fetching set details from: ${fetchUrl}`);
+    logger.debug('CardsPage:getSelectedSetDetails', `Fetching set details from: ${fetchUrl}`);
     const response = await fetch(fetchUrl);
 
     if (!response.ok) {
-      console.error(`[CardsPage - getSelectedSetDetails] FAILED to fetch details for set ${setId} (Status: ${response.status}) from internal API ${fetchUrl}. Body: ${await response.text()}`);
+      logger.error('CardsPage:getSelectedSetDetails', `FAILED to fetch details for set ${setId} (Status: ${response.status}) from internal API ${fetchUrl}. Body: ${await response.text()}`);
       return null;
     }
     const apiResponseData = await response.json();
-    console.log(`[CardsPage - getSelectedSetDetails] RAW API RESPONSE for set ${setId}:`, JSON.stringify(apiResponseData, null, 2));
+    logger.debug('CardsPage:getSelectedSetDetails', `RAW API RESPONSE for set ${setId}:`, apiResponseData);
 
     const setData = apiResponseData.data;
 
     if (!setData || !setData.id) {
-      console.error(`[CardsPage - getSelectedSetDetails] No valid data.id found for set ${setId} in response from ${fetchUrl}. 'setData' was:`, setData);
+      logger.error('CardsPage:getSelectedSetDetails', `No valid data.id found for set ${setId} in response from ${fetchUrl}. 'setData' was:`, setData);
       return null;
     }
     
     const pTotal: number | undefined = Number(setData.printedTotal);
     const oTotal: number | undefined = Number(setData.total);
 
-    console.log(`[CardsPage - getSelectedSetDetails] Successfully fetched details for set ${setId}. Name: ${setData.name}, Parsed PrintedTotal: ${pTotal}, Parsed OfficialTotal (from 'total'): ${oTotal}`);
+    logger.debug('CardsPage:getSelectedSetDetails', `Successfully fetched details for set ${setId}. Name: ${setData.name}, Parsed PrintedTotal: ${pTotal}, Parsed OfficialTotal (from 'total'): ${oTotal}`);
     return {
       id: setData.id,
       name: setData.name,
@@ -247,7 +248,7 @@ async function getSelectedSetDetails(setId: string): Promise<SelectedSetDetails 
       officialTotal: oTotal,
     };
   } catch (error) {
-    console.error(`[CardsPage - getSelectedSetDetails] Error fetching/processing details for set ${setId} from internal API:`, error);
+    logger.error('CardsPage:getSelectedSetDetails', `Error fetching/processing details for set ${setId} from internal API:`, error);
     return null;
   }
 }
@@ -336,7 +337,7 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
   const processResponse = async (response: Response, source: 'Primary' | 'Backup'): Promise<PokemonCardListResult> => {
     if (!response.ok) {
       const errorData = await response.text();
-      console.warn(`${source} API (${fetchUrl}) failed: ${response.status}`, errorData);
+      logger.warn('CardsPage:getCards:processResponse', `${source} API (${fetchUrl}) failed: ${response.status}`, errorData);
       if (source === 'Primary' && PRIMARY_EXTERNAL_API_BASE_URL) return defaultReturn;
       throw new Error(`${source} API error: ${response.status}`);
     }
@@ -344,7 +345,7 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     let cards = (responseData.data || []).map(mapApiCardToPokemonCard);
 
     if (filters.set && filters.set !== "All Sets" && cards.length > 0) {
-      console.log(`[CardsPage - getCards - processResponse] Client-side sorting cards for set ${filters.set} by collector number.`);
+      logger.debug('CardsPage:getCards:processResponse', `Client-side sorting cards for set ${filters.set} by collector number.`);
       cards.sort((a, b) => naturalSortCompare(a.number, b.number));
     }
 
@@ -374,25 +375,25 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
 
   if (PRIMARY_EXTERNAL_API_BASE_URL) {
     fetchUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/v2/cards${queryString ? `?${queryString}` : ''}`;
-    console.log('[CardsPage - getCards] Fetching cards with URL (Primary Attempt):', fetchUrl);
+    logger.debug('CardsPage:getCards', 'Fetching cards with URL (Primary Attempt):', fetchUrl);
     try {
       apiResponse = await fetch(fetchUrl);
       const result = await processResponse(apiResponse, 'Primary');
       if (apiResponse.ok) return result;
     } catch (error) {
-      console.warn(`[CardsPage - getCards] Failed to fetch or process from Primary API (${fetchUrl}):`, error);
+      logger.warn('CardsPage:getCards', `Failed to fetch or process from Primary API (${fetchUrl}):`, error);
     }
   } else {
-     console.warn("[CardsPage - getCards] Primary External API base URL not configured. Proceeding to backup.");
+     logger.warn('CardsPage:getCards', "Primary External API base URL not configured. Proceeding to backup.");
   }
 
   fetchUrl = `${BACKUP_EXTERNAL_API_BASE_URL}/cards${queryString ? `?${queryString}` : ''}`;
-  console.log('[CardsPage - getCards] Attempting to fetch cards from Backup API:', fetchUrl);
+  logger.info('CardsPage:getCards', 'Attempting to fetch cards from Backup API:', fetchUrl);
   try {
     apiResponse = await fetch(fetchUrl);
     return await processResponse(apiResponse, 'Backup');
   } catch (error) {
-    console.error(`[CardsPage - getCards] Failed to fetch or process from Backup API (${fetchUrl}):`, error);
+    logger.error('CardsPage:getCards', `Failed to fetch or process from Backup API (${fetchUrl}):`, error);
     return defaultReturn;
   }
 }
@@ -413,7 +414,7 @@ async function getUserSession(): Promise<AppUser | null> {
       return user && user.id ? user : null;
     }
   } catch (error) {
-    console.error("[CardsPage - getUserSession] Error fetching user session:", error);
+    logger.error('CardsPage:getUserSession', "Error fetching user session:", error);
   }
   return null;
 }
@@ -493,7 +494,7 @@ export default async function CardsPage({
   let pageTitle = "Pokémon Cards";
   let pageDescription = "Browse and search for individual Pokémon cards.";
 
-  console.log("[CardsPage - Render] Final selectedSetDetails object:", JSON.stringify(selectedSetDetails, null, 2));
+  logger.debug('CardsPage:Render', "Final selectedSetDetails object:", selectedSetDetails);
 
   if (selectedSetDetails && selectedSetDetails.id && selectedSetDetails.name) {
     pageTitle = selectedSetDetails.name;
@@ -503,7 +504,7 @@ export default async function CardsPage({
     const hasPrinted = typeof printed === 'number' && !isNaN(printed);
     const hasOfficial = typeof official === 'number' && !isNaN(official);
 
-    console.log(`[CardsPage - Render] Formatting description for ${selectedSetDetails.name}: Printed=${printed} (isNumber: ${hasPrinted}), Official=${official} (isNumber: ${hasOfficial})`);
+    logger.debug('CardsPage:Render', `Formatting description for ${selectedSetDetails.name}: Printed=${printed} (isNumber: ${hasPrinted}), Official=${official} (isNumber: ${hasOfficial})`);
     
     if (hasPrinted) {
       if (hasOfficial && official > printed) {
@@ -517,7 +518,7 @@ export default async function CardsPage({
     } else {
       pageDescription = `Set: ${selectedSetDetails.name}. Card counts unavailable.`;
     }
-    console.log(`[CardsPage - Render] Resulting pageDescription for ${selectedSetDetails.name}: "${pageDescription}"`);
+    logger.debug('CardsPage:Render', `Resulting pageDescription for ${selectedSetDetails.name}: "${pageDescription}"`);
   }
 
 
@@ -621,4 +622,3 @@ export default async function CardsPage({
     </>
   );
 }
-

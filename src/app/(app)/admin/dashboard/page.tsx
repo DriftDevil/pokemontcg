@@ -15,6 +15,7 @@ import LocalizedTimeDisplay from "@/components/localized-time-display";
 import DynamicCardsBySupertypeChartWrapper from "@/components/admin/dashboard/dynamic-cards-by-supertype-chart-wrapper";
 import DynamicCardsAddedChartWrapper from "@/components/admin/dashboard/dynamic-cards-added-chart-wrapper";
 import { format as formatDateFns } from 'date-fns';
+import logger from "@/lib/logger";
 
 
 // User structure based on openapi.yaml User schema
@@ -76,15 +77,15 @@ function getBaseUrl(): string {
     try {
       const parsedAppUrl = new URL(appUrlEnv);
       const origin = parsedAppUrl.origin;
-      console.log(`[AdminDashboardPage - getBaseUrl] Using APP_URL from environment: ${appUrlEnv}. Derived origin for API calls: ${origin}`);
+      logger.debug('AdminDashboardPage:getBaseUrl', `Using APP_URL from environment: ${appUrlEnv}. Derived origin for API calls: ${origin}`);
       return origin;
     } catch (error) {
-      console.error(`[AdminDashboardPage - getBaseUrl] Invalid APP_URL: ${appUrlEnv}. Error: ${error}. Falling back to localhost.`);
+      logger.error('AdminDashboardPage:getBaseUrl', `Invalid APP_URL: ${appUrlEnv}. Error: ${error}. Falling back to localhost.`);
     }
   }
   const port = process.env.PORT || "9002";
   const defaultUrl = `http://localhost:${port}`;
-  console.log(`[AdminDashboardPage - getBaseUrl] APP_URL not set or invalid. Defaulting to: ${defaultUrl} (PORT env: ${process.env.PORT})`);
+  logger.info('AdminDashboardPage:getBaseUrl', `APP_URL not set or invalid. Defaulting to: ${defaultUrl} (PORT env: ${process.env.PORT})`);
   return defaultUrl;
 }
 
@@ -98,13 +99,13 @@ async function fetchTotalCountFromPaginated(endpoint: string, sessionToken: stri
     }
     const response = await fetch(fetchUrl, { headers: fetchHeaders, cache: 'no-store' });
     if (!response.ok) {
-      console.error(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Failed to fetch count from ${fetchUrl}: ${response.status}`);
+      logger.error('AdminDashboardPage:fetchTotalCountFromPaginated', `Failed to fetch count from ${fetchUrl} for endpoint ${endpoint}: ${response.status}`);
       return 0;
     }
     const data = await response.json();
     return data.totalCount || data.total || 0;
   } catch (error) {
-    console.error(`[AdminDashboardPage - fetchTotalCountFromPaginated for ${endpoint}] Error fetching count from ${fetchUrl}:`, error);
+    logger.error('AdminDashboardPage:fetchTotalCountFromPaginated', `Error fetching count from ${fetchUrl} for endpoint ${endpoint}:`, error);
     return 0;
   }
 }
@@ -127,7 +128,7 @@ async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]>
   try {
     const response = await fetch(fetchUrl, { cache: 'no-store' });
     if (!response.ok) {
-      console.error(`[AdminDashboardPage - fetchSetReleaseData] Failed to fetch from ${fetchUrl}: ${response.status}`);
+      logger.error('AdminDashboardPage:fetchSetReleaseData', `Failed to fetch from ${fetchUrl}: ${response.status}`);
       return [];
     }
     const responseData: PaginatedApiResponse<ApiSet> = await response.json();
@@ -146,7 +147,7 @@ async function fetchSetReleaseData(): Promise<{ year: string; count: number }[]>
       .map(([year, count]) => ({ year, count }))
       .sort((a, b) => parseInt(a.year) - parseInt(b.year));
   } catch (error) {
-    console.error(`[AdminDashboardPage - fetchSetReleaseData] Error fetching or processing from ${fetchUrl}:`, error);
+    logger.error('AdminDashboardPage:fetchSetReleaseData', `Error fetching or processing from ${fetchUrl}:`, error);
     return [];
   }
 }
@@ -159,13 +160,13 @@ async function fetchTotalUsersCount(sessionToken: string | undefined): Promise<n
     if (sessionToken) fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
     const response = await fetch(fetchUrl, { method: 'GET', headers: fetchHeaders, cache: 'no-store' });
     if (!response.ok) {
-      console.error(`[AdminDashboardPage - fetchTotalUsersCount] Failed to fetch from internal ${fetchUrl}: ${response.status}`);
+      logger.error('AdminDashboardPage:fetchTotalUsersCount', `Failed to fetch from internal ${fetchUrl}: ${response.status}`);
       return 0;
     }
     const data: ApiUserListResponse = await response.json();
     return data.total || data.data?.length || 0;
   } catch (error) {
-    console.error(`[AdminDashboardPage - fetchTotalUsersCount] Error fetching from internal ${fetchUrl}:`, error);
+    logger.error('AdminDashboardPage:fetchTotalUsersCount', `Error fetching from internal ${fetchUrl}:`, error);
     return 0;
   }
 }
@@ -179,7 +180,7 @@ async function fetchRecentLiveUsers(sessionToken: string | undefined, count: num
     else return [];
     const response = await fetch(fetchUrl, { method: 'GET', headers: fetchHeaders, cache: 'no-store' });
     if (!response.ok) {
-      console.error(`[AdminDashboardPage - fetchRecentLiveUsers] Failed to fetch users from ${fetchUrl}: ${response.status}`);
+      logger.error('AdminDashboardPage:fetchRecentLiveUsers', `Failed to fetch users from ${fetchUrl}: ${response.status}`);
       return [];
     }
     const data: ApiUserListResponse = await response.json();
@@ -190,7 +191,7 @@ async function fetchRecentLiveUsers(sessionToken: string | undefined, count: num
       return dateB - dateA; 
     }).slice(0, count);
   } catch (error) {
-    console.error(`[AdminDashboardPage - fetchRecentLiveUsers] Error fetching users from ${fetchUrl}:`, error);
+    logger.error('AdminDashboardPage:fetchRecentLiveUsers', `Error fetching users from ${fetchUrl}:`, error);
     return [];
   }
 }
@@ -203,13 +204,13 @@ async function fetchApiRequests24h(sessionToken: string | undefined): Promise<nu
     if (sessionToken) fetchHeaders.append('Authorization', `Bearer ${sessionToken}`);
     const response = await fetch(fetchUrl, { method: 'GET', headers: fetchHeaders, cache: 'no-store' });
     if (!response.ok) {
-      console.error(`[AdminDashboardPage - fetchApiRequests24h] Failed to fetch API requests count from internal ${fetchUrl}: ${response.status}`);
+      logger.error('AdminDashboardPage:fetchApiRequests24h', `Failed to fetch API requests count from internal ${fetchUrl}: ${response.status}`);
       return 0;
     }
     const data = await response.json();
     return data.requestCountLast24h || 0;
   } catch (error: any) {
-    console.error(`[AdminDashboardPage - fetchApiRequests24h] Error fetching API requests count from internal ${fetchUrl}:`, error);
+    logger.error('AdminDashboardPage:fetchApiRequests24h', `Error fetching API requests count from internal ${fetchUrl}:`, error);
     return 0;
   }
 }
@@ -223,12 +224,12 @@ async function fetchDbStatus(sessionToken: string | undefined): Promise<DbStatus
     else return null;
     const response = await fetch(fetchUrl, { method: 'GET', headers: fetchHeaders, cache: 'no-store' });
     if (!response.ok) {
-      console.error(`[AdminDashboardPage - fetchDbStatus] Failed to fetch DB status from ${fetchUrl}: ${response.status}`);
+      logger.error('AdminDashboardPage:fetchDbStatus', `Failed to fetch DB status from ${fetchUrl}: ${response.status}`);
       return null;
     }
     return await response.json();
   } catch (error: any) {
-    console.error(`[AdminDashboardPage - fetchDbStatus] Error fetching DB status from ${fetchUrl}:`, error);
+    logger.error('AdminDashboardPage:fetchDbStatus', `Error fetching DB status from ${fetchUrl}:`, error);
     return null;
   }
 }
@@ -248,7 +249,7 @@ async function fetchAdminStatsOverview(sessionToken: string | undefined): Promis
     
     const response = await fetch(fetchUrl, { headers: fetchHeaders, cache: 'no-store' });
     if (!response.ok) {
-      console.error(`[AdminDashboardPage - fetchAdminStatsOverview] API error ${response.status} when fetching from ${fetchUrl}`);
+      logger.error('AdminDashboardPage:fetchAdminStatsOverview', `API error ${response.status} when fetching from ${fetchUrl}`);
       return defaultResponse;
     }
     const data: AdminStatsOverviewResponse = await response.json();
@@ -268,7 +269,7 @@ async function fetchAdminStatsOverview(sessionToken: string | undefined): Promis
 
     return data;
   } catch (error) {
-    console.error(`[AdminDashboardPage - fetchAdminStatsOverview] Fetch error from ${fetchUrl}:`, error);
+    logger.error('AdminDashboardPage:fetchAdminStatsOverview', `Fetch error from ${fetchUrl}:`, error);
     return defaultResponse;
   }
 }
@@ -501,4 +502,3 @@ export default async function AdminDashboardPage() {
     </>
   );
 }
-

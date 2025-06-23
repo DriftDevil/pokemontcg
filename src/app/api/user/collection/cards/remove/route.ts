@@ -2,8 +2,10 @@
 'use server';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import logger from '@/lib/logger';
 
 const EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
+const CONTEXT = "API /user/me/collection/cards/remove";
 
 function getTokenFromCookies(): string | undefined {
   const cookieStore = cookies();
@@ -12,13 +14,13 @@ function getTokenFromCookies(): string | undefined {
 
 export async function POST(request: NextRequest) {
   if (!EXTERNAL_API_BASE_URL) {
-    console.error('[API /user/me/collection/cards/remove] External API base URL not configured.');
+    logger.error(CONTEXT, 'External API base URL not configured.');
     return NextResponse.json({ message: 'External API URL not configured' }, { status: 500 });
   }
 
   const token = getTokenFromCookies();
   if (!token) {
-    console.warn(`[API ${request.nextUrl.pathname}] No session token found. Responding with 401.`);
+    logger.warn(CONTEXT, 'No session token found. Responding with 401.');
     return NextResponse.json({ message: 'Unauthorized. No session token found.' }, { status: 401 });
   }
 
@@ -34,7 +36,7 @@ export async function POST(request: NextRequest) {
   }
 
   const externalUrl = `${EXTERNAL_API_BASE_URL}/user/me/collection/cards/remove`;
-  console.log(`[API ${request.nextUrl.pathname}] Forwarding remove from collection request to external API: ${externalUrl}`);
+  logger.info(CONTEXT, `Forwarding remove from collection request to external API: ${externalUrl}`);
 
   try {
     const response = await fetch(externalUrl, {
@@ -55,7 +57,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!response.ok) {
-      console.error(`[API ${request.nextUrl.pathname}] External API (${externalUrl}) failed: ${response.status}`, responseData);
+      logger.error(CONTEXT, `External API (${externalUrl}) failed: ${response.status}`, responseData);
       return NextResponse.json(
         { message: typeof responseData === 'string' ? `External API Error: ${responseData}` : (responseData?.message || `Failed to remove cards from collection. Status: ${response.status}`), details: responseData?.details },
         { status: response.status }
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(responseData, { status: response.status });
 
   } catch (error: any) {
-    console.error(`[API ${request.nextUrl.pathname}] Failed to call External API (${externalUrl}):`, error);
+    logger.error(CONTEXT, `Failed to call External API (${externalUrl}):`, error);
     return NextResponse.json({ message: 'Failed to remove cards from collection due to a server error', details: error.message }, { status: 500 });
   }
 }

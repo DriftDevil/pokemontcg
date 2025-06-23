@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from "@/hooks/use-toast";
 import Link from 'next/link';
 import { Separator } from '../ui/separator';
+import logger from '@/lib/logger';
 
 interface UsersTableClientProps {
   initialUsers: User[];
@@ -183,7 +184,7 @@ export default function UsersTableClient({ initialUsers, onUserDeleted }: UsersT
         });
       }
     } catch (error) {
-      console.error("Failed to delete user:", error);
+      logger.error("UsersTableClient", "Failed to delete user:", error);
       toast({
         title: "Network Error",
         description: "Could not connect to the server to delete user.",
@@ -401,4 +402,3 @@ export default function UsersTableClient({ initialUsers, onUserDeleted }: UsersT
     </>
   );
 }
-    

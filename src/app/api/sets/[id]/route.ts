@@ -1,11 +1,14 @@
 
 import {NextResponse, type NextRequest} from 'next/server';
+import logger from '@/lib/logger';
 
 const PRIMARY_EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
 const BACKUP_EXTERNAL_API_BASE_URL = 'https://api.pokemontcg.io/v2';
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   const { id } = params;
+  const CONTEXT = `API /api/sets/${id}`;
+
   if (!id) {
     return NextResponse.json({ error: 'Set ID is required' }, { status: 400 });
   }
@@ -21,7 +24,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   // Try Primary API
   if (PRIMARY_EXTERNAL_API_BASE_URL) {
     try {
-      console.log(`[API /api/sets/${id}] Attempting fetch from Primary API: ${primaryExternalUrl}`);
+      logger.info(CONTEXT, `Attempting fetch from Primary API: ${primaryExternalUrl}`);
       response = await fetch(primaryExternalUrl);
       if (response.ok) {
         responseData = await response.json();
@@ -38,25 +41,25 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       // If primary returns 404, it's definitive for a specific ID.
       if (response.status === 404) {
         errorData = await response.text();
-        console.log(`[API /api/sets/${id}] Set not found at Primary API (${primaryExternalUrl}): 404`);
+        logger.info(CONTEXT, `Set not found at Primary API (${primaryExternalUrl}): 404`);
         return NextResponse.json({ error: 'Set not found from primary external API' , details: errorData }, { status: 404 });
       }
       errorData = await response.text();
-      console.warn(`[API /api/sets/${id}] Primary API (${primaryExternalUrl}) failed: ${response.status}`, errorData);
+      logger.warn(CONTEXT, `Primary API (${primaryExternalUrl}) failed: ${response.status}`, errorData);
     } catch (error) {
-      console.warn(`[API /api/sets/${id}] Failed to fetch from Primary API (${primaryExternalUrl}):`, error);
+      logger.warn(CONTEXT, `Failed to fetch from Primary API (${primaryExternalUrl}):`, error);
     }
   } else {
-    console.log(`[API /api/sets/${id}] Primary External API base URL not configured. Proceeding to backup.`);
+    logger.info(CONTEXT, `Primary External API base URL not configured. Proceeding to backup.`);
   }
 
   // Try Backup API if Primary failed (for non-404 reasons) or was not configured
-  console.log(`[API /api/sets/${id}] Attempting fetch from Backup API: ${backupExternalUrl}`);
+  logger.info(CONTEXT, `Attempting fetch from Backup API: ${backupExternalUrl}`);
   try {
     response = await fetch(backupExternalUrl);
     if (!response.ok) {
       errorData = await response.text();
-      console.error(`[API /api/sets/${id}] Backup API (${backupExternalUrl}) also failed: ${response.status}`, errorData);
+      logger.error(CONTEXT, `Backup API (${backupExternalUrl}) also failed: ${response.status}`, errorData);
       if (response.status === 404) {
         return NextResponse.json({ error: 'Set not found from backup external API', details: errorData }, { status: 404 });
       }
@@ -68,7 +71,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     // We return this directly as our internal API also uses the 'data' wrapper.
     return NextResponse.json(responseData); 
   } catch (error) {
-    console.error(`[API /api/sets/${id}] Failed to fetch from Backup API (${backupExternalUrl}):`, error);
+    logger.error(CONTEXT, `Failed to fetch from Backup API (${backupExternalUrl}):`, error);
     return NextResponse.json({ error: 'Failed to fetch data from all external APIs' }, { status: 500 });
   }
 }

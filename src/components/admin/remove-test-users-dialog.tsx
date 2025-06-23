@@ -30,6 +30,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { UserX, AlertTriangle, Loader2 } from "lucide-react";
+import logger from '@/lib/logger';
 
 interface TestApiUser {
   id: string;
@@ -112,7 +113,7 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
       }
 
     } catch (error) {
-      console.error("Error fetching matching test users count:", error);
+      logger.error('RemoveTestUsersDialog', "Error fetching matching test users count:", error);
       setMatchingUsersCount(null);
       setValue('count', 1, { shouldValidate: true }); // Reset to 1 on error
       if (!(error instanceof Error && error.message.includes("Failed to fetch test users"))) {
@@ -254,7 +255,7 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
         setConfirmDialogOpen(false); 
       }
     } catch (error) {
-      console.error("Failed to remove test users:", error);
+      logger.error("RemoveTestUsersDialog", "Failed to remove test users:", error);
       toast({
         title: "Network Error",
         description: "Could not connect to the server to remove test users.",
@@ -382,4 +383,3 @@ export default function RemoveTestUsersDialog({ onUsersChanged, children }: Remo
     </>
   );
 }
-    

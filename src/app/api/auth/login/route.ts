@@ -5,8 +5,10 @@ import { getOidcClient } from '@/lib/oidcClient';
 import { generators } from 'openid-client';
 import { cookies } from 'next/headers';
 import type { ResponseCookie } from 'next/dist/compiled/@edge-runtime/cookies';
+import logger from '@/lib/logger';
 
 export async function GET() {
+  const CONTEXT = "API OIDC Login";
   try {
     const client = await getOidcClient();
     const code_verifier = generators.codeVerifier();
@@ -23,9 +25,9 @@ export async function GET() {
       if (process.env.NODE_ENV === 'development') {
         const port = process.env.PORT || '9002';
         effectiveAppUrl = `http://localhost:${port}`;
-        console.log(`[API OIDC Login] APP_URL not set, NODE_ENV is development. Defaulting effectiveAppUrl for OIDC state cookies to ${effectiveAppUrl}`);
+        logger.info(CONTEXT, `APP_URL not set, NODE_ENV is development. Defaulting effectiveAppUrl for OIDC state cookies to ${effectiveAppUrl}`);
       } else {
-        console.error(`[API OIDC Login] CRITICAL: APP_URL is not set in a non-development environment (${process.env.NODE_ENV}). OIDC state cookie settings will likely be incorrect, expecting an HTTPS URL. Defaulting to http://localhost:9002 for context, but this requires correction by setting APP_URL.`);
+        logger.error(CONTEXT, `CRITICAL: APP_URL is not set in a non-development environment (${process.env.NODE_ENV}). OIDC state cookie settings will likely be incorrect, expecting an HTTPS URL. Defaulting to http://localhost:9002 for context, but this requires correction by setting APP_URL.`);
         effectiveAppUrl = 'http://localhost:9002'; // Fallback that will likely lead to Secure=false
       }
     }
@@ -35,12 +37,12 @@ export async function GET() {
     const cookieSecure = effectiveAppUrl.startsWith('https://');
     const cookieSameSite = 'lax'; 
 
-    console.log(`[API OIDC Login] Effective APP_URL for OIDC state cookies: ${effectiveAppUrl}. Setting cookies: Secure=${cookieSecure}, SameSite=${cookieSameSite}. Redirect URI: ${redirect_uri}`);
+    logger.info(CONTEXT, `Effective APP_URL for OIDC state cookies: ${effectiveAppUrl}. Setting cookies: Secure=${cookieSecure}, SameSite=${cookieSameSite}. Redirect URI: ${redirect_uri}`);
     if (process.env.NODE_ENV !== 'development' && !cookieSecure && appUrlFromEnv && appUrlFromEnv.startsWith('http://')) {
-      console.warn(`[API OIDC Login - Non-Dev] WARNING: APP_URL (${appUrlFromEnv}) is HTTP. OIDC state cookies will be insecure.`);
+      logger.warn(CONTEXT, `Non-Dev WARNING: APP_URL (${appUrlFromEnv}) is HTTP. OIDC state cookies will be insecure.`);
     }
      if (process.env.NODE_ENV !== 'development' && !appUrlFromEnv) {
-      console.warn(`[API OIDC Login - Non-Dev] WARNING: APP_URL is NOT SET. OIDC state cookies will be based on a default ${effectiveAppUrl} and likely insecure if an HTTPS URL is expected.`);
+      logger.warn(CONTEXT, `Non-Dev WARNING: APP_URL is NOT SET. OIDC state cookies will be based on a default ${effectiveAppUrl} and likely insecure if an HTTPS URL is expected.`);
     }
 
 
@@ -68,7 +70,7 @@ export async function GET() {
 
     return NextResponse.redirect(authorizationUrl);
   } catch (error) {
-    console.error('Login route error:', error);
+    logger.error(CONTEXT, 'Login route error:', error);
     let errorMessage = 'OIDC login initiation failed.';
     if (error instanceof Error) {
       errorMessage = error.message;
@@ -89,4 +91,3 @@ export async function GET() {
     return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMessage)}`, errorRedirectBaseUrl));
   }
 }
-    

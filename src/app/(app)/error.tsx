@@ -1,9 +1,11 @@
+
 "use client"; 
 
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle } from 'lucide-react';
 import PageHeader from '@/components/page-header';
+import logger from '@/lib/logger';
 
 export default function Error({
   error,
@@ -13,7 +15,7 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error(error);
+    logger.error("ErrorBoundary", error);
   }, [error]);
 
   return (

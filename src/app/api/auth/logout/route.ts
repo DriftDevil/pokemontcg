@@ -3,8 +3,10 @@
 import { NextResponse } from 'next/server';
 import { getOidcClient } from '@/lib/oidcClient';
 import { cookies } from 'next/headers';
+import logger from '@/lib/logger';
 
 export async function GET() {
+  const CONTEXT = "API Logout";
   const appUrl = process.env.APP_URL || 'http://localhost:9002';
   const logoutRedirectUrl = process.env.LOGOUT_REDIRECT_URL || appUrl; 
 
@@ -32,7 +34,7 @@ export async function GET() {
           return NextResponse.redirect(endSessionUrl);
         }
       } catch (oidcError) {
-        console.error('OIDC client error during logout, proceeding with local logout and redirect:', oidcError);
+        logger.error(CONTEXT, 'OIDC client error during logout, proceeding with local logout and redirect:', oidcError);
       }
     }
     
@@ -40,7 +42,7 @@ export async function GET() {
     return NextResponse.redirect(logoutRedirectUrl);
 
   } catch (error) {
-    console.error('General logout route error:', error);
+    logger.error(CONTEXT, 'General logout route error:', error);
     // Ensure cookies are cleared even on general error
     (await
       // Ensure cookies are cleared even on general error

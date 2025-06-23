@@ -1,12 +1,14 @@
 
 import {NextResponse, type NextRequest} from 'next/server';
+import logger from '@/lib/logger';
 
 const PRIMARY_EXTERNAL_API_BASE_URL = process.env.EXTERNAL_API_BASE_URL;
 const BACKUP_EXTERNAL_API_BASE_URL = 'https://api.pokemontcg.io/v2';
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+  const CONTEXT = `API /api/cards/${params.id}`;
   if (!PRIMARY_EXTERNAL_API_BASE_URL) {
-    console.error('Primary External API base URL not configured');
+    logger.error(CONTEXT, 'Primary External API base URL not configured');
     // Try backup if primary is not configured
   }
   
@@ -32,23 +34,23 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       // If primary returns 404, it's definitive, don't try backup for specific ID
       if (response.status === 404) {
         errorData = await response.text();
-        console.log(`Card not found at Primary API (${primaryExternalUrl}): 404`);
+        logger.info(CONTEXT, `Card not found at Primary API (${primaryExternalUrl}): 404`);
         return NextResponse.json({ error: 'Card not found from primary external API' , details: errorData }, { status: 404 });
       }
       errorData = await response.text();
-      console.warn(`Primary API (${primaryExternalUrl}) failed: ${response.status}`, errorData);
+      logger.warn(CONTEXT, `Primary API (${primaryExternalUrl}) failed: ${response.status}`, errorData);
     } catch (error) {
-      console.warn(`Failed to fetch from Primary API (${primaryExternalUrl}):`, error);
+      logger.warn(CONTEXT, `Failed to fetch from Primary API (${primaryExternalUrl}):`, error);
     }
   }
 
   // Try Backup API if Primary failed (for non-404 reasons) or was not configured
-  console.log(`Attempting fetch from Backup API: ${backupExternalUrl}`);
+  logger.info(CONTEXT, `Attempting fetch from Backup API: ${backupExternalUrl}`);
   try {
     response = await fetch(backupExternalUrl);
     if (!response.ok) {
       errorData = await response.text();
-      console.error(`Backup API (${backupExternalUrl}) also failed: ${response.status}`, errorData);
+      logger.error(CONTEXT, `Backup API (${backupExternalUrl}) also failed: ${response.status}`, errorData);
       // Pass through 404s from the backup API as well
       if (response.status === 404) {
         return NextResponse.json({ error: 'Card not found from backup external API', details: errorData }, { status: 404 });
@@ -58,8 +60,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error(`Failed to fetch from Backup API (${backupExternalUrl}):`, error);
+    logger.error(CONTEXT, `Failed to fetch from Backup API (${backupExternalUrl}):`, error);
     return NextResponse.json({ error: 'Failed to fetch data from all external APIs' }, { status: 500 });
   }
 }
-

@@ -11,6 +11,7 @@ import AddUserDialog from '@/components/admin/add-user-dialog';
 import AddTestUsersDialog from '@/components/admin/add-test-users-dialog';
 import RemoveTestUsersDialog from '@/components/admin/remove-test-users-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import logger from '@/lib/logger';
 
 interface ApiUser {
   id: string;
@@ -48,10 +49,10 @@ function getBaseUrl(): string {
       const parsedAppUrl = new URL(appUrlEnv);
       return parsedAppUrl.origin;
     } catch (error) {
-      console.error(`[AdminUsersPage - getBaseUrl] Invalid NEXT_PUBLIC_APP_URL: ${appUrlEnv}. Error: ${error}.`);
+      logger.error('AdminUsersPage:getBaseUrl', `Invalid NEXT_PUBLIC_APP_URL: ${appUrlEnv}. Error: ${error}.`);
     }
   }
-  console.warn("[AdminUsersPage - getBaseUrl] Falling back to relative paths as origin could not be determined.");
+  logger.warn('AdminUsersPage:getBaseUrl', "Falling back to relative paths as origin could not be determined.");
   return ''; 
 }
 
@@ -99,7 +100,7 @@ export default function AdminUsersPage() {
             }
         }
         
-        console.error(`[AdminUsersPage - fetchUsers] Failed to fetch users from ${fetchUrl}: ${response.status}`, errorBody);
+        logger.error('AdminUsersPage:fetchUsers', `Failed to fetch users from ${fetchUrl}: ${response.status}`, errorBody);
         toast({ title: "Failed to load users", description, variant: "destructive" });
         setUsers([]); 
         setTestUserCount(0);
@@ -112,7 +113,7 @@ export default function AdminUsersPage() {
       const apiUsersData = result && result.data;
 
       if (!Array.isArray(apiUsersData)) {
-        console.error('[AdminUsersPage - fetchUsers] Fetched user data (result.data) is not an array:', apiUsersData);
+        logger.error('AdminUsersPage:fetchUsers', 'Fetched user data (result.data) is not an array:', apiUsersData);
         toast({ title: "Data Error", description: "Received invalid user data format from API.", variant: "destructive" });
         setUsers([]);
         setTestUserCount(0);
@@ -144,11 +145,11 @@ export default function AdminUsersPage() {
 
     } catch (error) {
       if (error instanceof TypeError && error.message.includes('fetch failed')) {
-        console.error(`[AdminUsersPage - fetchUsers] NETWORK ERROR: Fetch failed for ${fetchUrl}.`, error);
+        logger.error('AdminUsersPage:fetchUsers', `NETWORK ERROR: Fetch failed for ${fetchUrl}.`, error);
         toast({ title: "Network Error", description: "Could not connect to the server to fetch users.", variant: "destructive" });
       } else {
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-        console.error(`[AdminUsersPage - fetchUsers] Error fetching or processing users from ${fetchUrl}:`, errorMessage, error);
+        logger.error('AdminUsersPage:fetchUsers', `Error fetching or processing users from ${fetchUrl}:`, errorMessage, error);
         toast({ title: "Error", description: `An unexpected error occurred while fetching users: ${errorMessage.substring(0,100)}`, variant: "destructive" });
       }
       setUsers([]);
@@ -231,4 +232,3 @@ export default function AdminUsersPage() {
     </>
   );
 }
-

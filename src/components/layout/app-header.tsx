@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import React, { useEffect } from "react";
 import AppSidebarContent, { type NavItem } from "./app-sidebar-content";
 import ThemeSwitcher from "@/components/theme-switcher"; // Import the new ThemeSwitcher
+import logger from "@/lib/logger";
 
 interface AppUser {
   id: string;
@@ -40,7 +41,7 @@ export default function AppHeader({
   const router = useRouter();
 
   useEffect(() => {
-    console.log("[AppHeader RENDERED] isLoadingUser:", isLoadingUser, "User state (from props) is now:", user);
+    logger.debug("AppHeader RENDERED", "isLoadingUser:", isLoadingUser, "User state (from props) is now:", user);
   }, [user, isLoadingUser]);
 
 

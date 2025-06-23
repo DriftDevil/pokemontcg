@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import ChangePasswordDialog from '@/components/profile/change-password-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import logger from '@/lib/logger';
 
 interface AppUser {
   id: string;
@@ -42,7 +43,7 @@ export default function ProfilePage() {
         if (!response.ok) {
           const errorStatus = response.status;
           const errorText = await response.text().catch(() => "Could not read error response body.");
-          console.error(`[ProfilePage] Failed to fetch user profile. Status: ${errorStatus}. Response: ${errorText.substring(0, 500)}...`);
+          logger.error('ProfilePage', `Failed to fetch user profile. Status: ${errorStatus}. Response: ${errorText.substring(0, 500)}...`);
           setUser(null);
           return;
         }
@@ -50,11 +51,11 @@ export default function ProfilePage() {
         if (data && data.id) { // Ensure data is a valid user object
           setUser(data as AppUser);
         } else {
-          console.warn("[ProfilePage] Fetched user data is null or invalid, treating as not logged in. Data received:", data);
+          logger.warn('ProfilePage', "Fetched user data is null or invalid, treating as not logged in. Data received:", data);
           setUser(null);
         }
       } catch (error) {
-        console.error("[ProfilePage] Error fetching user profile (catch block):", error);
+        logger.error('ProfilePage', "Error fetching user profile (catch block):", error);
         setUser(null);
       } finally {
         setIsLoading(false);

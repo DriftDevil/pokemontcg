@@ -7,6 +7,7 @@ import AppSidebarContent, { type NavItem } from "@/components/layout/app-sidebar
 import { SidebarProvider, Sidebar, SidebarInset } from "@/components/ui/sidebar";
 import { LayoutDashboard, Users, FileText, CreditCard, Layers, ShoppingBag, LibraryBig, Loader2 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
+import logger from "@/lib/logger";
 
 interface AppUser {
   id: string;
@@ -34,7 +35,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   const fetchUserLayout = useCallback(async () => {
-    // console.log("[AppLayout] Attempting to fetch user session.");
+    // logger.debug("AppLayout", "Attempting to fetch user session.");
     setIsLoadingUser(true);
     let newUserData: AppUser | null = null;
     try {
@@ -42,7 +43,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         cache: 'no-store',
         credentials: 'include', 
       });
-      // console.log(`[AppLayout] /api/auth/user responded with status: ${res.status}`);
+      // logger.debug("AppLayout", `/api/auth/user responded with status: ${res.status}`);
       
       if (res.ok) {
         const data = await res.json();
@@ -56,11 +57,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       newUserData = null;
-      console.error("[AppLayout] Error fetching user session:", error);
+      logger.error("AppLayout", "Error fetching user session:", error);
     } finally {
       setUser(newUserData);
       setIsLoadingUser(false);
-      // console.log(`[AppLayout] fetchUserLayout: Processing complete. isLoadingUser is now false. User state will update to:`, newUserData);
+      // logger.debug("AppLayout", "fetchUserLayout: Processing complete. isLoadingUser is now false. User state will update to:", newUserData);
     }
   }, []);
 
@@ -77,14 +78,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // Effect for redirecting if not authenticated and on a protected route
   useEffect(() => {
     if (!isLoadingUser && !user && !isPublicAccessRoute) {
-      // console.log(`[AppLayout] User not loaded, not logged in, and not on a public route (${pathname}). Redirecting to /login.`);
+      logger.info("AppLayout", `User not loaded, not logged in, and not on a public route (${pathname}). Redirecting to /login.`);
       router.push('/login');
     }
   }, [isLoadingUser, user, router, pathname, isPublicAccessRoute]);
 
   // If still loading user data, AND it's NOT a public access route, show full-page loader.
   if (isLoadingUser && !isPublicAccessRoute) {
-    // console.log(`[AppLayout] isLoadingUser is true and not a public route (${pathname}). Showing loader.`);
+    logger.debug("AppLayout", `isLoadingUser is true and not a public route (${pathname}). Showing loader.`);
     return (
       <div className="flex flex-1 items-center justify-center min-h-screen bg-background">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -96,7 +97,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // If done loading, no user, AND it's NOT a public access route, show redirecting loader.
   // This loader is shown while the useEffect for redirecting prepares to fire.
   if (!isLoadingUser && !user && !isPublicAccessRoute) {
-    // console.log(`[AppLayout] User not loaded, not logged in, and not on a public route (${pathname}). Showing redirecting loader.`);
+    logger.debug("AppLayout", `User not loaded, not logged in, and not on a public route (${pathname}). Showing redirecting loader.`);
      return (
       <div className="flex flex-1 items-center justify-center min-h-screen bg-background">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />

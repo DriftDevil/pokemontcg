@@ -15,6 +15,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import type { DisplayUser as TableUser } from '@/app/(app)/admin/users/page'; // For user details
+import logger from '@/lib/logger';
 
 
 // Interface aligned with the backend UserCardDetail struct's JSON output
@@ -95,7 +96,7 @@ export default function UserCollectionAdminPage() {
         const userDetailsResponse = await fetch('/api/users/all', { cache: 'no-store', credentials: 'include' });
         if (!userDetailsResponse.ok) {
           const errText = await userDetailsResponse.text();
-          console.error(`[UserCollectionAdminPage] Failed to fetch user details for ${userID}. Status: ${userDetailsResponse.status}. Error: ${errText.substring(0, 100)}`);
+          logger.error('UserCollectionAdminPage', `Failed to fetch user details for ${userID}. Status: ${userDetailsResponse.status}. Error: ${errText.substring(0, 100)}`);
           // Continue, but header might be generic
         } else {
           const userListResult: UserListApiResponse = await userDetailsResponse.json();
@@ -104,7 +105,7 @@ export default function UserCollectionAdminPage() {
             setViewedUser(targetUser);
             fetchedUserName = targetUser.name || targetUser.email || "User";
           } else {
-             console.warn(`[UserCollectionAdminPage] User with ID ${userID} not found in /api/users/all list.`);
+             logger.warn('UserCollectionAdminPage', `User with ID ${userID} not found in /api/users/all list.`);
           }
         }
 
@@ -117,7 +118,7 @@ export default function UserCollectionAdminPage() {
 
         if (!collectionResponse.ok) {
           const errorMsg = collectionResult.message || `Failed to fetch collection for user ${userID} (HTTP ${collectionResponse.status})`;
-          console.error(`[UserCollectionAdminPage] HTTP Error fetching collection: ${errorMsg}`, collectionResult);
+          logger.error('UserCollectionAdminPage', `HTTP Error fetching collection: ${errorMsg}`, collectionResult);
           setError(errorMsg);
           toast({ title: `Error Fetching ${fetchedUserName}'s Collection`, description: errorMsg, variant: "destructive" });
           setCollectedSets([]);
@@ -125,7 +126,7 @@ export default function UserCollectionAdminPage() {
         }
 
         if (!collectionResult.data || !Array.isArray(collectionResult.data) || collectionResult.data.length === 0) {
-          console.log(`[UserCollectionAdminPage] ${fetchedUserName}'s collection is empty or data field is null/empty. API response:`, collectionResult);
+          logger.info('UserCollectionAdminPage', `${fetchedUserName}'s collection is empty or data field is null/empty. API response:`, collectionResult);
           setCollectedSets([]);
           return;
         }
@@ -186,7 +187,7 @@ export default function UserCollectionAdminPage() {
 
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : `An unknown error occurred while fetching data for user ${userID}.`;
-        console.error("[UserCollectionAdminPage] Catch block error:", err);
+        logger.error('UserCollectionAdminPage', "Catch block error:", err);
         setError(errorMsg);
         toast({ title: "Failed to Load User Collection", description: errorMsg, variant: "destructive" });
         setCollectedSets([]);
@@ -366,4 +367,3 @@ export default function UserCollectionAdminPage() {
     </>
   );
 }
-

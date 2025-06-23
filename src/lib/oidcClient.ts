@@ -2,6 +2,7 @@
 'use server';
 import { Issuer, custom } from 'openid-client';
 import type { Client } from 'openid-client';
+import logger from '@/lib/logger';
 
 let oidcClientInstance: Client | null = null;
 let oidcClientPromise: Promise<Client> | null = null;
@@ -11,6 +12,7 @@ custom.setHttpOptionsDefaults({
 });
 
 async function initializeClient(): Promise<Client> {
+  const CONTEXT = "OIDC Client Initialization";
   if (!process.env.AUTHENTIK_ISSUER) {
     throw new Error('AUTHENTIK_ISSUER environment variable is not set');
   }
@@ -23,7 +25,7 @@ async function initializeClient(): Promise<Client> {
   
   const appUrl = process.env.APP_URL || (() => {
     if (process.env.NODE_ENV === 'development') {
-      console.warn('APP_URL environment variable is not set, defaulting to http://localhost:9002 for OIDC client in development.');
+      logger.warn(CONTEXT, 'APP_URL environment variable is not set, defaulting to http://localhost:9002 for OIDC client in development.');
       return 'http://localhost:9002';
     }
     // In production or other environments, APP_URL must be set.
@@ -47,7 +49,7 @@ async function initializeClient(): Promise<Client> {
     oidcClientInstance = client;
     return client;
   } catch (error) {
-    console.error('Failed to discover OIDC issuer or configure client:', error);
+    logger.error(CONTEXT, 'Failed to discover OIDC issuer or configure client:', error);
     oidcClientPromise = null; // Reset promise on failure to allow retry
     if (error instanceof Error) {
         throw new Error(`OIDC client initialization failed: ${error.message}`);
@@ -65,4 +67,3 @@ export async function getOidcClient(): Promise<Client> {
   }
   return oidcClientPromise;
 }
-

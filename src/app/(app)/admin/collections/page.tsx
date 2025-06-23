@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { DisplayUser as AdminDisplayUser } from '@/app/(app)/admin/users/page'; // Re-using this type
+import logger from '@/lib/logger';
 
 // For this page, the user data is the primary focus. Collection summary per user can be an enhancement.
 interface UserForCollectionOverview extends AdminDisplayUser {
@@ -46,7 +47,7 @@ export default function AdminAllCollectionsPage() {
       const apiUsers = result.data || [];
 
       if (!Array.isArray(apiUsers)) {
-        console.error('[AdminAllCollectionsPage] Fetched user data is not an array:', apiUsers);
+        logger.error('AdminAllCollectionsPage', 'Fetched user data is not an array:', apiUsers);
         toast({ title: "Data Error", description: "Received invalid user data format.", variant: "destructive" });
         setUsers([]);
         return;
@@ -61,7 +62,7 @@ export default function AdminAllCollectionsPage() {
       })));
 
     } catch (error: any) {
-      console.error("[AdminAllCollectionsPage] Error fetching users:", error);
+      logger.error("AdminAllCollectionsPage", "Error fetching users:", error);
       toast({ title: "Error Fetching Users", description: error.message, variant: "destructive" });
       setUsers([]);
     } finally {
@@ -225,4 +226,3 @@ export default function AdminAllCollectionsPage() {
     </>
   );
 }
-

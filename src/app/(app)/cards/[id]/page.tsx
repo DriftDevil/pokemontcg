@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import CollectionActionsClient from "@/components/cards/collection-actions-client";
 import { cookies } from "next/headers"; // To fetch user session server-side
 import type { AppUser } from "@/app/page"; // Assuming AppUser is defined here
+import logger from "@/lib/logger";
 
 
 // Self-contained definition for card summary aspects for clarity on this page
@@ -183,7 +184,7 @@ function naturalSortCompare(aStr: string, bStr: string): number {
 
 async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithContext | null> {
   if (!APP_URL) {
-    console.error("APP_URL is not defined. Cannot fetch card details.");
+    logger.error('CardDetailPage:getCardDetailsWithSetContext', "APP_URL is not defined. Cannot fetch card details.");
     return null;
   }
 
@@ -192,13 +193,13 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
     const response = await fetch(`${APP_URL}/api/cards/${id}`);
     if (!response.ok) {
       if (response.status === 404) return null;
-      console.error("Failed to fetch card details from internal API:", response.status, await response.text());
+      logger.error('CardDetailPage:getCardDetailsWithSetContext', "Failed to fetch card details from internal API:", response.status, await response.text());
       return null;
     }
     const data = await response.json();
     apiCardSource = data.data;
   } catch (error) {
-    console.error("Error fetching card details from internal API:", error);
+    logger.error('CardDetailPage:getCardDetailsWithSetContext', "Error fetching card details from internal API:", error);
     return null;
   }
 
@@ -207,7 +208,7 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
   const cardDetail = mapApiToPokemonCardDetail(apiCardSource);
 
   if (!apiCardSource.set || !apiCardSource.set.id) {
-    console.warn(`Card ${id} has no set information. Cannot provide next/previous navigation or full set totals.`);
+    logger.warn('CardDetailPage:getCardDetailsWithSetContext', `Card ${id} has no set information. Cannot provide next/previous navigation or full set totals.`);
     return cardDetail; 
   }
 
@@ -227,17 +228,17 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
     const fieldsParamName = 'fields'; 
     // Use 'limit' for primary API as indicated by user's API structure
     finalSetCardsUrl = `${basePath}?${fieldsParamName}=${fieldsToFetch}&limit=${itemsToRequestForSet}&orderBy=${orderByParamValue}`;
-    console.log(`[CardDetailPage - getCardDetailsWithSetContext] Primary API URL for set cards: ${finalSetCardsUrl}`);
+    logger.debug('CardDetailPage:getCardDetailsWithSetContext', `Primary API URL for set cards: ${finalSetCardsUrl}`);
   } else {
     const basePath = `${backupExternalApiBaseUrl}/cards`;
     const orderByParamValue = 'number'; 
     const fieldsParamName = 'select'; 
     // pokemontcg.io uses 'pageSize'
     finalSetCardsUrl = `${basePath}?q=set.id:${setId}&${fieldsParamName}=${fieldsToFetch}&pageSize=${itemsToRequestForSet}&orderBy=${orderByParamValue}`;
-    console.log(`[CardDetailPage - getCardDetailsWithSetContext] Backup API URL for set cards: ${finalSetCardsUrl}`);
+    logger.debug('CardDetailPage:getCardDetailsWithSetContext', `Backup API URL for set cards: ${finalSetCardsUrl}`);
   }
   
-  console.log(`[CardDetailPage - getCardDetailsWithSetContext] Fetching cards in set URL: ${finalSetCardsUrl}`);
+  logger.debug('CardDetailPage:getCardDetailsWithSetContext', `Fetching cards in set URL: ${finalSetCardsUrl}`);
 
   try {
     const res = await fetch(finalSetCardsUrl);
@@ -246,7 +247,7 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
 
       // Log if primary API pagination is occurring
       if (primaryExternalApiBaseUrl && finalSetCardsUrl.startsWith(primaryExternalApiBaseUrl) && setData.totalPages && setData.page && setData.totalPages > setData.page) {
-        console.warn(`[CardDetailPage - getCardDetailsWithSetContext] WARNING: The primary API for set '${setId}' returned paginated data (page ${setData.page} of ${setData.totalPages}, total items ${setData.total}). Current fetch strategy gets only the first page (limit=${itemsToRequestForSet}). 'Next'/'Previous' navigation might be incomplete if total items for the set exceed ${itemsToRequestForSet}. Consider implementing full pagination for this API call if issues persist.`);
+        logger.warn('CardDetailPage:getCardDetailsWithSetContext', `WARNING: The primary API for set '${setId}' returned paginated data (page ${setData.page} of ${setData.totalPages}, total items ${setData.total}). Current fetch strategy gets only the first page (limit=${itemsToRequestForSet}). 'Next'/'Previous' navigation might be incomplete if total items for the set exceed ${itemsToRequestForSet}. Consider implementing full pagination for this API call if issues persist.`);
       }
       
       cardsInSet = Array.isArray(setData.data) ? setData.data.map((c: any) => ({ 
@@ -261,10 +262,10 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
       }
 
     } else {
-      console.warn(`Failed to fetch cards for set ${setId} from ${finalSetCardsUrl}: ${res.status}`);
+      logger.warn('CardDetailPage:getCardDetailsWithSetContext', `Failed to fetch cards for set ${setId} from ${finalSetCardsUrl}: ${res.status}`);
     }
   } catch (e) {
-    console.warn(`Error fetching or sorting cards for set ${setId} from ${finalSetCardsUrl}:`, e);
+    logger.warn('CardDetailPage:getCardDetailsWithSetContext', `Error fetching or sorting cards for set ${setId} from ${finalSetCardsUrl}:`, e);
   }
   
   let previousCardId: string | null = null;
@@ -280,7 +281,7 @@ async function getCardDetailsWithSetContext(id: string): Promise<CardDetailWithC
         nextCardId = cardsInSet[currentIndex + 1].id;
       }
     } else {
-        console.warn(`Card ${id} not found in its own set ${setId} list after API sort and client sort. This could be due to data inconsistency or if the fetch did not retrieve all cards in the set.`);
+        logger.warn('CardDetailPage:getCardDetailsWithSetContext', `Card ${id} not found in its own set ${setId} list after API sort and client sort. This could be due to data inconsistency or if the fetch did not retrieve all cards in the set.`);
     }
   }
 
@@ -310,7 +311,7 @@ async function getUserSession(): Promise<AppUser | null> {
       return user && user.id ? user : null;
     }
   } catch (error) {
-    console.error("[CardDetailPage - getUserSession] Error fetching user session:", error);
+    logger.error('CardDetailPage:getUserSession', "Error fetching user session:", error);
   }
   return null;
 }

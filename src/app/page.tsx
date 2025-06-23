@@ -9,6 +9,7 @@ import { Rocket, BookOpen, LayoutDashboard, UserCircle, Layers, CreditCard, LogO
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import ThemeSwitcher from "@/components/theme-switcher"; // Import the new ThemeSwitcher
+import logger from "@/lib/logger";
 
 export interface AppUser { // Exporting AppUser
   id: string;
@@ -42,7 +43,7 @@ export default function HomePage() {
           setLoggedInUser(null);
         }
       } catch (error) {
-        console.error("[HomePage] Error fetching user session:", error);
+        logger.error('HomePage', "Error fetching user session:", error);
         setLoggedInUser(null);
       } finally {
         setIsLoadingUser(false);
@@ -292,4 +293,3 @@ export default function HomePage() {
     </div>
   );
 }
-
