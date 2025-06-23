@@ -928,6 +928,8 @@ paths:
         summary: Set a user's password (admin only)
         tags: [Auth]
         security:
+          - oauth2:
+            - openid
           - localAuth: []
         requestBody:
           required: true
@@ -944,7 +946,7 @@ paths:
                   identifier:
                     type: string
                     description: Optional email or preferredUsername
-                  password:
+                  newPassword:
                     type: string
                     format: password
                     description: New password to set
