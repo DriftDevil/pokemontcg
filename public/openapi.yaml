@@ -224,42 +224,19 @@ paths:
           description: Invalid request body
         "401":
           description: Invalid credentials
-  /auth/local/set-password:
-    post:
-      summary: Set a user's password (admin only)
-      tags: [Auth]
+  /auth/local/me:
+    get:
+      summary: Get current user (local)
+      tags: [Users]
       security:
         - localAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [password]
-              properties:
-                id:
-                  type: string
-                  format: uuid
-                  description: Optional direct user ID
-                identifier:
-                  type: string
-                  description: Optional email or preferredUsername
-                password:
-                  type: string
-                  format: password
-                  description: New password to set
       responses:
-        "204":
-          description: Password set successfully (no content)
-        "400":
-          description: Invalid request body
-        "403":
-          description: Forbidden – requires admin
-        "404":
-          description: User not found
-        "500":
-          description: Internal server error
+        "200":
+          description: Current local user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserWithAuthSource'
   /auth/local/me/change-password:
     post:
       summary: Change password (local auth only)
@@ -296,19 +273,6 @@ paths:
           description: Forbidden – user does not use local auth
         "500":
           description: Internal server error
-  /auth/local/me:
-    get:
-      summary: Get current user (local)
-      tags: [Users]
-      security:
-        - localAuth: []
-      responses:
-        "200":
-          description: Current local user
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserWithAuthSource'
   /user/me:
     get:
       summary: Get current user (OIDC)
@@ -959,6 +923,42 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/User'
+  /admin/set-password:
+      post:
+        summary: Set a user's password (admin only)
+        tags: [Auth]
+        security:
+          - localAuth: []
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [password]
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    description: Optional direct user ID
+                  identifier:
+                    type: string
+                    description: Optional email or preferredUsername
+                  password:
+                    type: string
+                    format: password
+                    description: New password to set
+        responses:
+          "204":
+            description: Password set successfully (no content)
+          "400":
+            description: Invalid request body
+          "403":
+            description: Forbidden – requires admin
+          "404":
+            description: User not found
+          "500":
+            description: Internal server error
   /admin/db/status:
     get:
       summary: Get database status and metadata
