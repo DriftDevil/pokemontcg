@@ -20,9 +20,6 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   title: 'PokemonTCG',
   description: 'Manage and explore Pokémon TCG data.',
-  icons: {
-    icon: '/icon.svg',
-  },
 };
 
 export default function RootLayout({
