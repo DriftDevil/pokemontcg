@@ -20,6 +20,9 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   title: 'PokemonTCG',
   description: 'Manage and explore Pokémon TCG data.',
+  icons: {
+    icon: '/icon.svg',
+  },
 };
 
 export default function RootLayout({
@@ -30,7 +33,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${spaceGrotesk.variable}`}>
       <head />
-      <body className="font-body antialiased">
+      <body>
         <ThemeInitializer /> {/* Add ThemeInitializer here */}
         {children}
         <Toaster />
