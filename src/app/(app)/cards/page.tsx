@@ -169,7 +169,7 @@ async function getRarityOptions(): Promise<string[]> {
     if (!response.ok) throw new Error(`Failed to fetch rarities from internal API: ${response.status}`);
     const data = await response.json();
     const rarities = (data.data || []).filter((r: string | null) => r && r.trim() !== "");
-    return ["All Rarities", ...rarities.sort()];
+    return ["All Rararities", ...rarities.sort()];
   } catch (error) {
     logger.error('CardsPage:getRarityOptions', "Error fetching rarity options from internal API:", error);
     return ["All Rarities"];
@@ -256,34 +256,17 @@ async function getSelectedSetDetails(setId: string): Promise<SelectedSetDetails 
   }
 }
 
-// Natural sort comparison function for strings containing numbers
-function naturalSortCompare(aStr: string, bStr: string): number {
-  const re = /(\D+)|(\d+)/g; // Match non-digits or digits
-  const aParts = String(aStr).match(re) || [];
-  const bParts = String(bStr).match(re) || [];
-
-  for (let i = 0; i < Math.min(aParts.length, bParts.length); i++) {
-    const aPart = aParts[i];
-    const bPart = bParts[i];
-
-    if (/\d/.test(aPart) && /\d/.test(bPart)) {
-      const aNum = parseInt(aPart, 10);
-      const bNum = parseInt(bPart, 10);
-      if (aNum !== bNum) {
-        return aNum - bNum;
-      }
-    } else {
-      // Otherwise, compare them as strings (case-insensitive for stability)
-      const aPartLower = aPart.toLowerCase();
-      const bPartLower = bPart.toLowerCase();
-      if (aPartLower !== bPartLower) {
-        return aPartLower.localeCompare(bPartLower);
-      }
-    }
-  }
-  return aParts.length - bParts.length;
-}
-
+const mapApiCardToPokemonCard = (apiCard: ApiPokemonCardSource): PokemonCard => ({
+  id: apiCard.id,
+  name: apiCard.name,
+  setName: apiCard.set?.name || "Unknown Set",
+  setId: apiCard.set?.id || "unknown-set-id",
+  rarity: apiCard.rarity || "Unknown",
+  type: apiCard.types?.[0] || "Colorless",
+  imageUrl: apiCard.image_large || apiCard.images?.large || apiCard.image_small || apiCard.images?.small || `https://placehold.co/245x342.png`,
+  number: apiCard.number || "??",
+  artist: apiCard.artist || "N/A",
+});
 
 async function getCards(filters: { search?: string; set?: string; type?: string; rarity?: string; page?: number }): Promise<PokemonCardListResult> {
   const queryParams = new URLSearchParams();
@@ -320,23 +303,8 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
       queryParams.set('orderBy', 'name');
   }
 
-
   const queryString = queryParams.toString();
   let fetchUrl = "";
-  const isSetSpecificSearch = usePrimaryApi && filters.set && filters.set !== "All Sets";
-
-  const mapApiCardToPokemonCard = (apiCard: ApiPokemonCardSource): PokemonCard => ({
-    id: apiCard.id,
-    name: apiCard.name,
-    setName: apiCard.set?.name || "Unknown Set",
-    setId: apiCard.set?.id || "unknown-set-id",
-    rarity: apiCard.rarity || "Unknown",
-    type: apiCard.types?.[0] || "Colorless",
-    // Correctly handle both nested `images` and flat `image_` keys
-    imageUrl: apiCard.image_large || apiCard.images?.large || apiCard.image_small || apiCard.images?.small || `https://placehold.co/245x342.png`,
-    number: apiCard.number || "??",
-    artist: apiCard.artist || "N/A",
-  });
 
   const defaultReturn: PokemonCardListResult = { cards: [], currentPage: 1, totalPages: 1, totalCount: 0, pageSize: REQUESTED_PAGE_SIZE };
 
@@ -349,22 +317,9 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     }
     const responseData = await response.json();
     
-    // The main bug fix: handle both response structures
     let cardsData = responseData.data;
-    if (isSetSpecificSearch && !Array.isArray(cardsData) && cardsData?.cards) {
-        // Handle nested structure from /v2/sets/{id}/cards (which seems to no longer be the case)
-        cardsData = cardsData.cards; 
-    }
     
     let cards = (cardsData || []).map(mapApiCardToPokemonCard);
-
-    // No need to client-sort if orderBy=numberInt is respected by the API
-    // if (filters.set && filters.set !== "All Sets" && cards.length > 0) {
-    //   if (!usePrimaryApi) { // Only client-sort if using backup API which might not respect order
-    //     logger.info('CardsPage:getCards:processResponse', `Applying guaranteed client-side sorting for set ${filters.set} by collector number as a fallback for backup API.`);
-    //     cards.sort((a, b) => naturalSortCompare(a.number, b.number));
-    //   }
-    // }
 
     const apiCurrentPage = responseData.page || 1;
     const apiPageSize = responseData.limit || responseData.pageSize || REQUESTED_PAGE_SIZE;
@@ -389,12 +344,11 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     return { cards, currentPage: apiCurrentPage, totalPages: apiTotalPages, totalCount: apiTotalCount, pageSize: apiPageSize };
   };
 
-  if (isSetSpecificSearch) {
-    // This endpoint should have the flat image properties, and it supports orderBy=numberInt
-    fetchUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/v2/sets/${filters.set}/cards?${queryParams.toString()}`;
+  if (usePrimaryApi) {
+    fetchUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/v2/cards?${queryParams.toString()}`;
   } else {
-    // This endpoint has the nested images property
-    fetchUrl = `${usePrimaryApi ? PRIMARY_EXTERNAL_API_BASE_URL : BACKUP_EXTERNAL_API_BASE_URL}/v2/cards?${queryString}`;
+    // If no primary API, use backup
+    fetchUrl = `${BACKUP_EXTERNAL_API_BASE_URL}/v2/cards?${queryString}`;
   }
 
   logger.debug('CardsPage:getCards', 'Fetching cards with URL:', fetchUrl);
@@ -406,7 +360,7 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
      logger.warn('CardsPage:getCards', `Initial fetch from ${fetchUrl} failed. Error:`, error);
      // If primary fails, try backup
      if(usePrimaryApi) {
-        // Backup API needs pageSize, not limit. It also uses `images` nested property.
+        // Backup API needs pageSize, not limit.
         const backupParams = new URLSearchParams(queryParams);
         backupParams.delete('limit');
         backupParams.set('pageSize', REQUESTED_PAGE_SIZE.toString());
