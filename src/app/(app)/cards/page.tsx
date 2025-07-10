@@ -311,7 +311,6 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
   const pageSizeParamName = usePrimaryApi ? 'limit' : 'pageSize';
   queryParams.set(pageSizeParamName, REQUESTED_PAGE_SIZE.toString());
 
-  // Use 'numberInt' for orderBy when a specific set is selected for correct sorting
   if (filters.set && filters.set !== "All Sets") {
       queryParams.set('orderBy', 'numberInt');
   } else {
@@ -320,9 +319,8 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
 
 
   const queryString = queryParams.toString();
-
-  let apiResponse;
   let fetchUrl = "";
+  const isSetSpecificSearch = usePrimaryApi && filters.set && filters.set !== "All Sets";
 
   const mapApiCardToPokemonCard = (apiCard: ApiPokemonCardSource): PokemonCard => ({
     id: apiCard.id,
@@ -346,12 +344,21 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
       throw new Error(`${source} API error: ${response.status}`);
     }
     const responseData = await response.json();
-    let cards = (responseData.data || []).map(mapApiCardToPokemonCard);
+    
+    // The main bug fix: handle both response structures
+    let cardsData = responseData.data;
+    if (isSetSpecificSearch && !Array.isArray(cardsData) && cardsData?.cards) {
+        // Handle nested structure from /v2/sets/{id}/cards
+        cardsData = cardsData.cards; 
+    }
+    
+    let cards = (cardsData || []).map(mapApiCardToPokemonCard);
 
-    // Keep client-side sort as a safeguard, especially for the backup API if it doesn't respect orderBy.
     if (filters.set && filters.set !== "All Sets" && cards.length > 0) {
-      logger.info('CardsPage:getCards:processResponse', `Applying guaranteed client-side sorting for set ${filters.set} by collector number as a fallback.`);
-      cards.sort((a, b) => naturalSortCompare(a.number, b.number));
+      if (!usePrimaryApi) { // Only client-sort if using backup API which might not respect order
+        logger.info('CardsPage:getCards:processResponse', `Applying guaranteed client-side sorting for set ${filters.set} by collector number as a fallback for backup API.`);
+        cards.sort((a, b) => naturalSortCompare(a.number, b.number));
+      }
     }
 
     const apiCurrentPage = responseData.page || 1;
@@ -377,42 +384,36 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     return { cards, currentPage: apiCurrentPage, totalPages: apiTotalPages, totalCount: apiTotalCount, pageSize: apiPageSize };
   };
 
-  // Determine which API endpoint to use. If a specific set is selected, use the /sets/{id}/cards endpoint.
-  let apiEndpointPath: string;
-  const setApiParams = new URLSearchParams();
-  setApiParams.set('page', currentPage.toString());
-  setApiParams.set('limit', REQUESTED_PAGE_SIZE.toString());
-  setApiParams.set('orderBy', 'numberInt');
-  
-  if (usePrimaryApi && filters.set && filters.set !== "All Sets") {
-      apiEndpointPath = `/v2/sets/${filters.set}/cards?${setApiParams.toString()}`;
+  if (isSetSpecificSearch) {
+    const setApiParams = new URLSearchParams();
+    setApiParams.set('page', currentPage.toString());
+    setApiParams.set('limit', REQUESTED_PAGE_SIZE.toString());
+    setApiParams.set('orderBy', 'numberInt');
+    fetchUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/v2/sets/${filters.set}/cards?${setApiParams.toString()}`;
   } else {
-      apiEndpointPath = `/v2/cards${queryString ? `?${queryString}` : ''}`;
+    fetchUrl = `${usePrimaryApi ? PRIMARY_EXTERNAL_API_BASE_URL : BACKUP_EXTERNAL_API_BASE_URL}/v2/cards?${queryString}`;
   }
 
-
-  if (PRIMARY_EXTERNAL_API_BASE_URL) {
-    fetchUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}${apiEndpointPath}`;
-    logger.debug('CardsPage:getCards', 'Fetching cards with URL (Primary Attempt):', fetchUrl);
-    try {
-      apiResponse = await fetch(fetchUrl);
-      const result = await processResponse(apiResponse, 'Primary');
-      if (apiResponse.ok) return result;
-    } catch (error) {
-      logger.warn('CardsPage:getCards', `Failed to fetch or process from Primary API (${fetchUrl}):`, error);
-    }
-  } else {
-     logger.warn('CardsPage:getCards', "Primary External API base URL not configured. Proceeding to backup.");
-  }
+  logger.debug('CardsPage:getCards', 'Fetching cards with URL:', fetchUrl);
   
-  fetchUrl = `${BACKUP_EXTERNAL_API_BASE_URL}/cards${queryString ? `?${queryString}` : ''}`;
-  logger.info('CardsPage:getCards', 'Attempting to fetch cards from Backup API:', fetchUrl);
   try {
-    apiResponse = await fetch(fetchUrl);
-    return await processResponse(apiResponse, 'Backup');
-  } catch (error) {
-    logger.error('CardsPage:getCards', `Failed to fetch or process from Backup API (${fetchUrl}):`, error);
-    return defaultReturn;
+    const apiResponse = await fetch(fetchUrl);
+    return await processResponse(apiResponse, usePrimaryApi ? 'Primary' : 'Backup');
+  } catch(error) {
+     logger.warn('CardsPage:getCards', `Initial fetch from ${fetchUrl} failed. Error:`, error);
+     // If primary fails, try backup
+     if(usePrimaryApi) {
+        fetchUrl = `${BACKUP_EXTERNAL_API_BASE_URL}/v2/cards?${queryString}`;
+        logger.info('CardsPage:getCards', 'Falling back to Backup API:', fetchUrl);
+        try {
+            const backupResponse = await fetch(fetchUrl);
+            return await processResponse(backupResponse, 'Backup');
+        } catch (backupError) {
+            logger.error('CardsPage:getCards', `Backup fetch from ${fetchUrl} also failed. Error:`, backupError);
+            return defaultReturn;
+        }
+     }
+     return defaultReturn; // If no primary or backup fails
   }
 }
 
@@ -548,10 +549,6 @@ export default async function CardsPage({
         icon={CreditCard}
       />
       <CardFiltersForm
-        initialSearch={currentSearch}
-        initialSet={currentSetId}
-        initialType={currentType}
-        initialRarity={currentRarity}
         setOptions={allSetOptions}
         typeOptions={allTypeOptions}
         rarityOptions={allRarityOptions}

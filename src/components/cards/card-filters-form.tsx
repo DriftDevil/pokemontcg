@@ -39,24 +39,36 @@ export default function CardFiltersForm({
 
   // Effect to update URL search parameters when local filter state changes (debounced)
   useEffect(() => {
-    const params = new URLSearchParams();
-    if (searchTerm) params.set('search', searchTerm);
-    if (selectedSet && selectedSet !== "All Sets") params.set('set', selectedSet);
-    if (selectedType && selectedType !== "All Types") params.set('type', selectedType);
-    if (selectedRarity && selectedRarity !== "All Rarities") params.set('rarity', selectedRarity);
-    const newQueryString = params.toString();
+    const handler = setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      // Update search term
+      if (searchTerm) params.set('search', searchTerm);
+      else params.delete('search');
 
-    // Get current query string from URL for comparison to avoid unnecessary pushes
-    const currentQueryStringFromHook = currentSearchParams.toString();
+      // Update set
+      if (selectedSet && selectedSet !== "All Sets") params.set('set', selectedSet);
+      else params.delete('set');
 
-    // Only push if the new query string is different from the current one
-    if (newQueryString !== currentQueryStringFromHook) {
-      const handler = setTimeout(() => {
-        router.push(`/cards?${newQueryString}`);
-      }, 700); // Debounce time
+      // Update type
+      if (selectedType && selectedType !== "All Types") params.set('type', selectedType);
+      else params.delete('type');
 
-      return () => clearTimeout(handler);
-    }
+      // Update rarity
+      if (selectedRarity && selectedRarity !== "All Rarities") params.set('rarity', selectedRarity);
+      else params.delete('rarity');
+      
+      // Reset page to 1 whenever filters change
+      params.set('page', '1');
+
+      const newQueryString = params.toString();
+      const currentQueryString = currentSearchParams.toString();
+      
+      if (newQueryString !== currentQueryString) {
+          router.push(`/cards?${newQueryString}`);
+      }
+    }, 700); // Debounce time
+
+    return () => clearTimeout(handler);
   }, [searchTerm, selectedSet, selectedType, selectedRarity, router, currentSearchParams]);
 
 
@@ -66,7 +78,7 @@ export default function CardFiltersForm({
     setSelectedSet("All Sets");
     setSelectedType("All Types");
     setSelectedRarity("All Rarities");
-    router.push('/cards'); // This will trigger the useEffect above, which will see no diff and not push again
+    router.push('/cards'); 
   };
 
   const handleSetChange = (newSetId: string) => {
