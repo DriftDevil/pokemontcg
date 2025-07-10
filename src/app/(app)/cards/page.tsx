@@ -483,10 +483,10 @@ export default async function CardsPage({
 
   const createPageLink = (newPage: number) => {
     const params = new URLSearchParams();
-    if (currentFilters.search) params.set('search', currentFilters.search);
-    if (currentFilters.set && currentFilters.set !== "All Sets") params.set('set', currentFilters.set);
-    if (currentFilters.type && currentFilters.type !== "All Types") params.set('type', currentFilters.type);
-    if (currentFilters.rarity && currentFilters.rarity !== "All Rarities") params.set('rarity', currentFilters.rarity);
+    if (currentSearch) params.set('search', currentSearch);
+    if (currentSetId && currentSetId !== "All Sets") params.set('set', currentSetId);
+    if (currentType && currentType !== "All Types") params.set('type', currentType);
+    if (currentRarity && currentRarity !== "All Rarities") params.set('rarity', currentRarity);
     params.set('page', newPage.toString());
     return `/cards?${params.toString()}`;
   };
