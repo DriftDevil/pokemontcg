@@ -54,6 +54,9 @@ interface ApiPokemonCardSource {
   nationalPokedexNumbers?: number[];
   legalities?: { [key: string]: string };
   images?: { small?: string; large?: string };
+  // Add flat image keys to handle the other API format
+  image_small?: string;
+  image_large?: string;
   tcgplayer?: any;
   cardmarket?: any;
 }
@@ -329,7 +332,8 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     setId: apiCard.set?.id || "unknown-set-id",
     rarity: apiCard.rarity || "Unknown",
     type: apiCard.types?.[0] || "Colorless",
-    imageUrl: apiCard.images?.large || apiCard.images?.small || `https://placehold.co/245x342.png`,
+    // Correctly handle both nested `images` and flat `image_` keys
+    imageUrl: apiCard.image_large || apiCard.images?.large || apiCard.image_small || apiCard.images?.small || `https://placehold.co/245x342.png`,
     number: apiCard.number || "??",
     artist: apiCard.artist || "N/A",
   });
@@ -348,18 +352,19 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     // The main bug fix: handle both response structures
     let cardsData = responseData.data;
     if (isSetSpecificSearch && !Array.isArray(cardsData) && cardsData?.cards) {
-        // Handle nested structure from /v2/sets/{id}/cards
+        // Handle nested structure from /v2/sets/{id}/cards (which seems to no longer be the case)
         cardsData = cardsData.cards; 
     }
     
     let cards = (cardsData || []).map(mapApiCardToPokemonCard);
 
-    if (filters.set && filters.set !== "All Sets" && cards.length > 0) {
-      if (!usePrimaryApi) { // Only client-sort if using backup API which might not respect order
-        logger.info('CardsPage:getCards:processResponse', `Applying guaranteed client-side sorting for set ${filters.set} by collector number as a fallback for backup API.`);
-        cards.sort((a, b) => naturalSortCompare(a.number, b.number));
-      }
-    }
+    // No need to client-sort if orderBy=numberInt is respected by the API
+    // if (filters.set && filters.set !== "All Sets" && cards.length > 0) {
+    //   if (!usePrimaryApi) { // Only client-sort if using backup API which might not respect order
+    //     logger.info('CardsPage:getCards:processResponse', `Applying guaranteed client-side sorting for set ${filters.set} by collector number as a fallback for backup API.`);
+    //     cards.sort((a, b) => naturalSortCompare(a.number, b.number));
+    //   }
+    // }
 
     const apiCurrentPage = responseData.page || 1;
     const apiPageSize = responseData.limit || responseData.pageSize || REQUESTED_PAGE_SIZE;
@@ -385,12 +390,10 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
   };
 
   if (isSetSpecificSearch) {
-    const setApiParams = new URLSearchParams();
-    setApiParams.set('page', currentPage.toString());
-    setApiParams.set('limit', REQUESTED_PAGE_SIZE.toString());
-    setApiParams.set('orderBy', 'numberInt');
-    fetchUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/v2/sets/${filters.set}/cards?${setApiParams.toString()}`;
+    // This endpoint should have the flat image properties, and it supports orderBy=numberInt
+    fetchUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/v2/sets/${filters.set}/cards?${queryParams.toString()}`;
   } else {
+    // This endpoint has the nested images property
     fetchUrl = `${usePrimaryApi ? PRIMARY_EXTERNAL_API_BASE_URL : BACKUP_EXTERNAL_API_BASE_URL}/v2/cards?${queryString}`;
   }
 
@@ -403,7 +406,12 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
      logger.warn('CardsPage:getCards', `Initial fetch from ${fetchUrl} failed. Error:`, error);
      // If primary fails, try backup
      if(usePrimaryApi) {
-        fetchUrl = `${BACKUP_EXTERNAL_API_BASE_URL}/v2/cards?${queryString}`;
+        // Backup API needs pageSize, not limit. It also uses `images` nested property.
+        const backupParams = new URLSearchParams(queryParams);
+        backupParams.delete('limit');
+        backupParams.set('pageSize', REQUESTED_PAGE_SIZE.toString());
+        fetchUrl = `${BACKUP_EXTERNAL_API_BASE_URL}/v2/cards?${backupParams.toString()}`;
+
         logger.info('CardsPage:getCards', 'Falling back to Backup API:', fetchUrl);
         try {
             const backupResponse = await fetch(fetchUrl);
