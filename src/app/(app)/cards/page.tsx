@@ -311,12 +311,13 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
   const pageSizeParamName = usePrimaryApi ? 'limit' : 'pageSize';
   queryParams.set(pageSizeParamName, REQUESTED_PAGE_SIZE.toString());
 
-  // Since orderBy=number_int is not respected by the user's primary API for /sets/{id}/cards,
-  // we will not add it here and will rely on client-side sorting for sets.
-  // For general searches, sorting by name is still a good default.
-  if (!filters.set || filters.set === "All Sets") {
+  // Use 'numberInt' for orderBy when a specific set is selected for correct sorting
+  if (filters.set && filters.set !== "All Sets") {
+      queryParams.set('orderBy', 'numberInt');
+  } else {
       queryParams.set('orderBy', 'name');
   }
+
 
   const queryString = queryParams.toString();
 
@@ -347,9 +348,9 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     const responseData = await response.json();
     let cards = (responseData.data || []).map(mapApiCardToPokemonCard);
 
-    // ALWAYS apply client-side sorting when a specific set is selected, as the API order is unreliable.
+    // Keep client-side sort as a safeguard, especially for the backup API if it doesn't respect orderBy.
     if (filters.set && filters.set !== "All Sets" && cards.length > 0) {
-      logger.info('CardsPage:getCards:processResponse', `Applying guaranteed client-side sorting for set ${filters.set} by collector number.`);
+      logger.info('CardsPage:getCards:processResponse', `Applying guaranteed client-side sorting for set ${filters.set} by collector number as a fallback.`);
       cards.sort((a, b) => naturalSortCompare(a.number, b.number));
     }
 
@@ -378,15 +379,14 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
 
   // Determine which API endpoint to use. If a specific set is selected, use the /sets/{id}/cards endpoint.
   let apiEndpointPath: string;
+  const setApiParams = new URLSearchParams();
+  setApiParams.set('page', currentPage.toString());
+  setApiParams.set('limit', REQUESTED_PAGE_SIZE.toString());
+  setApiParams.set('orderBy', 'numberInt');
+  
   if (usePrimaryApi && filters.set && filters.set !== "All Sets") {
-      // For a specific set, hit the dedicated endpoint.
-      // We'll pass other filters (page, limit) but not 'q' as it's not supported there.
-      const setApiParams = new URLSearchParams();
-      setApiParams.set('page', currentPage.toString());
-      setApiParams.set('limit', REQUESTED_PAGE_SIZE.toString());
       apiEndpointPath = `/v2/sets/${filters.set}/cards?${setApiParams.toString()}`;
   } else {
-      // For general search or backup API, use the /cards endpoint with all filters.
       apiEndpointPath = `/v2/cards${queryString ? `?${queryString}` : ''}`;
   }
 
@@ -405,8 +405,6 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
      logger.warn('CardsPage:getCards', "Primary External API base URL not configured. Proceeding to backup.");
   }
   
-  // Fallback to backup API. Note: Backup API doesn't have a /sets/{id}/cards endpoint,
-  // so we always use the general /cards endpoint with `q=set.id:...` for it.
   fetchUrl = `${BACKUP_EXTERNAL_API_BASE_URL}/cards${queryString ? `?${queryString}` : ''}`;
   logger.info('CardsPage:getCards', 'Attempting to fetch cards from Backup API:', fetchUrl);
   try {
