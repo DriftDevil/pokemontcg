@@ -169,7 +169,7 @@ async function getRarityOptions(): Promise<string[]> {
     if (!response.ok) throw new Error(`Failed to fetch rarities from internal API: ${response.status}`);
     const data = await response.json();
     const rarities = (data.data || []).filter((r: string | null) => r && r.trim() !== "");
-    return ["All Rararities", ...rarities.sort()];
+    return ["All Rarities", ...rarities.sort()];
   } catch (error) {
     logger.error('CardsPage:getRarityOptions', "Error fetching rarity options from internal API:", error);
     return ["All Rarities"];
@@ -297,22 +297,35 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
   const pageSizeParamName = usePrimaryApi ? 'limit' : 'pageSize';
   queryParams.set(pageSizeParamName, REQUESTED_PAGE_SIZE.toString());
 
-  if (filters.set && filters.set !== "All Sets") {
-      queryParams.set('orderBy', 'numberInt');
-  } else {
-      queryParams.set('orderBy', 'name');
-  }
+  const isSetSpecificSearch = filters.set && filters.set !== "All Sets";
 
-  const queryString = queryParams.toString();
+  // New logic to handle set-specific API endpoint
   let fetchUrl = "";
+  if (isSetSpecificSearch && usePrimaryApi) {
+    // This is the special endpoint for cards within a set.
+    const setSpecificParams = new URLSearchParams();
+    setSpecificParams.set('orderBy', 'numberInt'); // Sort numerically
+    setSpecificParams.set('limit', REQUESTED_PAGE_SIZE.toString());
+    setSpecificParams.set('page', currentPage.toString());
+    fetchUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/v2/sets/${filters.set}/cards?${setSpecificParams.toString()}`;
+  } else {
+    // This is the general /cards endpoint for both APIs.
+    if (isSetSpecificSearch) {
+      // Use numeric sort for backup API as well
+      queryParams.set('orderBy', 'number'); 
+    } else {
+      queryParams.set('orderBy', 'name');
+    }
+    const apiBaseUrl = usePrimaryApi ? PRIMARY_EXTERNAL_API_BASE_URL : BACKUP_EXTERNAL_API_BASE_URL;
+    fetchUrl = `${apiBaseUrl}/v2/cards?${queryParams.toString()}`;
+  }
 
   const defaultReturn: PokemonCardListResult = { cards: [], currentPage: 1, totalPages: 1, totalCount: 0, pageSize: REQUESTED_PAGE_SIZE };
 
-  const processResponse = async (response: Response, source: 'Primary' | 'Backup'): Promise<PokemonCardListResult> => {
+  const processResponse = async (response: Response, source: string): Promise<PokemonCardListResult> => {
     if (!response.ok) {
       const errorData = await response.text();
       logger.warn('CardsPage:getCards:processResponse', `${source} API (${fetchUrl}) failed: ${response.status}`, errorData);
-      if (source === 'Primary' && PRIMARY_EXTERNAL_API_BASE_URL) return defaultReturn;
       throw new Error(`${source} API error: ${response.status}`);
     }
     const responseData = await response.json();
@@ -344,13 +357,6 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     return { cards, currentPage: apiCurrentPage, totalPages: apiTotalPages, totalCount: apiTotalCount, pageSize: apiPageSize };
   };
 
-  if (usePrimaryApi) {
-    fetchUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/v2/cards?${queryParams.toString()}`;
-  } else {
-    // If no primary API, use backup
-    fetchUrl = `${BACKUP_EXTERNAL_API_BASE_URL}/v2/cards?${queryString}`;
-  }
-
   logger.debug('CardsPage:getCards', 'Fetching cards with URL:', fetchUrl);
   
   try {
@@ -358,24 +364,24 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     return await processResponse(apiResponse, usePrimaryApi ? 'Primary' : 'Backup');
   } catch(error) {
      logger.warn('CardsPage:getCards', `Initial fetch from ${fetchUrl} failed. Error:`, error);
-     // If primary fails, try backup
-     if(usePrimaryApi) {
-        // Backup API needs pageSize, not limit.
+     // Fallback only makes sense for the general /cards endpoint if primary fails.
+     // If the special set endpoint fails, we don't have a direct backup equivalent.
+     if(usePrimaryApi && !isSetSpecificSearch) {
         const backupParams = new URLSearchParams(queryParams);
         backupParams.delete('limit');
         backupParams.set('pageSize', REQUESTED_PAGE_SIZE.toString());
-        fetchUrl = `${BACKUP_EXTERNAL_API_BASE_URL}/v2/cards?${backupParams.toString()}`;
+        const backupFetchUrl = `${BACKUP_EXTERNAL_API_BASE_URL}/v2/cards?${backupParams.toString()}`;
 
-        logger.info('CardsPage:getCards', 'Falling back to Backup API:', fetchUrl);
+        logger.info('CardsPage:getCards', 'Falling back to Backup API for general search:', backupFetchUrl);
         try {
-            const backupResponse = await fetch(fetchUrl);
+            const backupResponse = await fetch(backupFetchUrl);
             return await processResponse(backupResponse, 'Backup');
         } catch (backupError) {
-            logger.error('CardsPage:getCards', `Backup fetch from ${fetchUrl} also failed. Error:`, backupError);
+            logger.error('CardsPage:getCards', `Backup fetch from ${backupFetchUrl} also failed. Error:`, backupError);
             return defaultReturn;
         }
      }
-     return defaultReturn; // If no primary or backup fails
+     return defaultReturn;
   }
 }
 

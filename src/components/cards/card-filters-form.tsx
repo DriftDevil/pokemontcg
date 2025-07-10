@@ -1,12 +1,13 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { XIcon } from "lucide-react"; // Using XIcon for clear
+import logger from '@/lib/logger';
 
 interface SetOption { id: string; name: string; }
 
@@ -29,6 +30,8 @@ export default function CardFiltersForm({
   const [selectedType, setSelectedType] = useState(currentSearchParams.get('type') || "All Types");
   const [selectedRarity, setSelectedRarity] = useState(currentSearchParams.get('rarity') || "All Rarities");
 
+  const isInitialMount = useRef(true);
+
   // Effect to synchronize local state with URL search parameters when they change externally
   useEffect(() => {
     setSearchTerm(currentSearchParams.get('search') || "");
@@ -39,6 +42,12 @@ export default function CardFiltersForm({
 
   // Effect to update URL search parameters when local filter state changes (debounced)
   useEffect(() => {
+    // Skip the first execution on mount, to avoid resetting page on load.
+    if (isInitialMount.current) {
+        isInitialMount.current = false;
+        return;
+    }
+      
     const handler = setTimeout(() => {
       const params = new URLSearchParams(window.location.search);
       // Update search term
@@ -57,19 +66,21 @@ export default function CardFiltersForm({
       if (selectedRarity && selectedRarity !== "All Rarities") params.set('rarity', selectedRarity);
       else params.delete('rarity');
       
-      // Reset page to 1 whenever filters change
+      // Reset page to 1 whenever filters change, BUT NOT ON INITIAL LOAD.
+      // This is now the key logic. This effect runs when filters change, so resetting page is correct.
       params.set('page', '1');
 
       const newQueryString = params.toString();
-      const currentQueryString = currentSearchParams.toString();
+      logger.debug("CardFiltersForm:useEffect", `Pushing new query string: ${newQueryString}`);
+      router.push(`/cards?${newQueryString}`);
       
-      if (newQueryString !== currentQueryString) {
-          router.push(`/cards?${newQueryString}`);
-      }
     }, 700); // Debounce time
 
     return () => clearTimeout(handler);
-  }, [searchTerm, selectedSet, selectedType, selectedRarity, router, currentSearchParams]);
+  // We should NOT include currentSearchParams here, as that would cause a loop.
+  // We only want this effect to run when the user *manually* changes a filter in this component.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, selectedSet, selectedType, selectedRarity, router]);
 
 
   const handleClear = () => {
