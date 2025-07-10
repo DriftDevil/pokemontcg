@@ -25,14 +25,16 @@ export default function CardFiltersForm({
   const router = useRouter();
   const currentSearchParams = useSearchParams();
 
+  // Initialize state directly from URL search params
   const [searchTerm, setSearchTerm] = useState(currentSearchParams.get('search') || "");
   const [selectedSet, setSelectedSet] = useState(currentSearchParams.get('set') || "All Sets");
   const [selectedType, setSelectedType] = useState(currentSearchParams.get('type') || "All Types");
   const [selectedRarity, setSelectedRarity] = useState(currentSearchParams.get('rarity') || "All Rarities");
 
-  const isInitialMount = useRef(true);
+  // Ref to track if component is mounted to avoid initial effect run
+  const isMounted = useRef(false);
 
-  // Effect to synchronize local state with URL search parameters when they change externally
+  // Synchronize state with URL if it changes (e.g., browser back/forward)
   useEffect(() => {
     setSearchTerm(currentSearchParams.get('search') || "");
     setSelectedSet(currentSearchParams.get('set') || "All Sets");
@@ -40,62 +42,51 @@ export default function CardFiltersForm({
     setSelectedRarity(currentSearchParams.get('rarity') || "All Rarities");
   }, [currentSearchParams]);
 
-  // Effect to update URL search parameters when local filter state changes (debounced)
+
+  // Debounced effect to update URL when filters change
   useEffect(() => {
-    // Skip the first execution on mount, to avoid resetting page on load.
-    if (isInitialMount.current) {
-        isInitialMount.current = false;
-        return;
+    // Prevent this effect from running on the initial render
+    if (!isMounted.current) {
+      isMounted.current = true;
+      return;
     }
       
     const handler = setTimeout(() => {
       const params = new URLSearchParams(window.location.search);
-      // Update search term
-      if (searchTerm) params.set('search', searchTerm);
-      else params.delete('search');
 
-      // Update set
-      if (selectedSet && selectedSet !== "All Sets") params.set('set', selectedSet);
-      else params.delete('set');
+      const updateParam = (key: string, value: string, defaultValue: string) => {
+        if (value && value !== defaultValue) {
+          params.set(key, value);
+        } else {
+          params.delete(key);
+        }
+      };
 
-      // Update type
-      if (selectedType && selectedType !== "All Types") params.set('type', selectedType);
-      else params.delete('type');
-
-      // Update rarity
-      if (selectedRarity && selectedRarity !== "All Rarities") params.set('rarity', selectedRarity);
-      else params.delete('rarity');
+      updateParam('search', searchTerm, "");
+      updateParam('set', selectedSet, "All Sets");
+      updateParam('type', selectedType, "All Types");
+      updateParam('rarity', selectedRarity, "All Rarities");
       
-      // Reset page to 1 whenever filters change, BUT NOT ON INITIAL LOAD.
-      // This is now the key logic. This effect runs when filters change, so resetting page is correct.
+      // Reset page to 1 whenever a filter changes
       params.set('page', '1');
 
       const newQueryString = params.toString();
       logger.debug("CardFiltersForm:useEffect", `Pushing new query string: ${newQueryString}`);
       router.push(`/cards?${newQueryString}`);
       
-    }, 700); // Debounce time
+    }, 700);
 
     return () => clearTimeout(handler);
-  // We should NOT include currentSearchParams here, as that would cause a loop.
-  // We only want this effect to run when the user *manually* changes a filter in this component.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, selectedSet, selectedType, selectedRarity, router]);
+  }, [searchTerm, selectedSet, selectedType, selectedRarity]);
 
 
   const handleClear = () => {
-    // Reset state and navigate to clear filters
-    setSearchTerm("");
-    setSelectedSet("All Sets");
-    setSelectedType("All Types");
-    setSelectedRarity("All Rarities");
     router.push('/cards'); 
   };
 
   const handleSetChange = (newSetId: string) => {
     setSelectedSet(newSetId);
-    // When a new set is selected, reset type and rarity to "All"
-    // This state change will be picked up by the debounced useEffect
     setSelectedType("All Types");
     setSelectedRarity("All Rarities");
   };

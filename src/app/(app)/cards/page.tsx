@@ -294,29 +294,35 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
   queryParams.set('page', currentPage.toString());
 
   const usePrimaryApi = !!PRIMARY_EXTERNAL_API_BASE_URL;
-  const pageSizeParamName = usePrimaryApi ? 'limit' : 'pageSize';
-  queryParams.set(pageSizeParamName, REQUESTED_PAGE_SIZE.toString());
-
   const isSetSpecificSearch = filters.set && filters.set !== "All Sets";
-
-  // New logic to handle set-specific API endpoint
+  
   let fetchUrl = "";
+  let apiSource = "Backup";
+
   if (isSetSpecificSearch && usePrimaryApi) {
-    // This is the special endpoint for cards within a set.
+    apiSource = "Primary (Set-Specific)";
     const setSpecificParams = new URLSearchParams();
-    setSpecificParams.set('orderBy', 'numberInt'); // Sort numerically
+    // The correct parameter for ascending sort is just the field name
+    setSpecificParams.set('orderBy', 'numberInt'); 
     setSpecificParams.set('limit', REQUESTED_PAGE_SIZE.toString());
     setSpecificParams.set('page', currentPage.toString());
+    // Add other filters if applicable for this endpoint
+    if(filters.search) setSpecificParams.append('q', `name:${filters.search}*`);
+
     fetchUrl = `${PRIMARY_EXTERNAL_API_BASE_URL}/v2/sets/${filters.set}/cards?${setSpecificParams.toString()}`;
   } else {
-    // This is the general /cards endpoint for both APIs.
+    // General search endpoint for both APIs
+    const apiBaseUrl = usePrimaryApi ? PRIMARY_EXTERNAL_API_BASE_URL : BACKUP_EXTERNAL_API_BASE_URL;
+    apiSource = usePrimaryApi ? "Primary (General)" : "Backup (General)";
+    const pageSizeParamName = usePrimaryApi ? 'limit' : 'pageSize';
+    queryParams.set(pageSizeParamName, REQUESTED_PAGE_SIZE.toString());
+
     if (isSetSpecificSearch) {
-      // Use numeric sort for backup API as well
-      queryParams.set('orderBy', 'number'); 
+      // For pokemontcg.io, the field is 'number' for numeric sort
+      queryParams.set('orderBy', usePrimaryApi ? 'numberInt' : 'number');
     } else {
       queryParams.set('orderBy', 'name');
     }
-    const apiBaseUrl = usePrimaryApi ? PRIMARY_EXTERNAL_API_BASE_URL : BACKUP_EXTERNAL_API_BASE_URL;
     fetchUrl = `${apiBaseUrl}/v2/cards?${queryParams.toString()}`;
   }
 
@@ -330,9 +336,7 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     }
     const responseData = await response.json();
     
-    let cardsData = responseData.data;
-    
-    let cards = (cardsData || []).map(mapApiCardToPokemonCard);
+    let cards = (responseData.data || []).map(mapApiCardToPokemonCard);
 
     const apiCurrentPage = responseData.page || 1;
     const apiPageSize = responseData.limit || responseData.pageSize || REQUESTED_PAGE_SIZE;
@@ -357,22 +361,23 @@ async function getCards(filters: { search?: string; set?: string; type?: string;
     return { cards, currentPage: apiCurrentPage, totalPages: apiTotalPages, totalCount: apiTotalCount, pageSize: apiPageSize };
   };
 
-  logger.debug('CardsPage:getCards', 'Fetching cards with URL:', fetchUrl);
+  logger.debug('CardsPage:getCards', `Fetching cards with URL (${apiSource}):`, fetchUrl);
   
   try {
     const apiResponse = await fetch(fetchUrl);
-    return await processResponse(apiResponse, usePrimaryApi ? 'Primary' : 'Backup');
+    return await processResponse(apiResponse, apiSource);
   } catch(error) {
      logger.warn('CardsPage:getCards', `Initial fetch from ${fetchUrl} failed. Error:`, error);
-     // Fallback only makes sense for the general /cards endpoint if primary fails.
-     // If the special set endpoint fails, we don't have a direct backup equivalent.
-     if(usePrimaryApi && !isSetSpecificSearch) {
+     if(usePrimaryApi && !fetchUrl.startsWith(BACKUP_EXTERNAL_API_BASE_URL)) {
         const backupParams = new URLSearchParams(queryParams);
         backupParams.delete('limit');
+        backupParams.delete('orderBy'); // Let backup API use its defaults if not set-specific
         backupParams.set('pageSize', REQUESTED_PAGE_SIZE.toString());
+        if(isSetSpecificSearch) backupParams.set('orderBy', 'number'); else backupParams.set('orderBy', 'name');
+
         const backupFetchUrl = `${BACKUP_EXTERNAL_API_BASE_URL}/v2/cards?${backupParams.toString()}`;
 
-        logger.info('CardsPage:getCards', 'Falling back to Backup API for general search:', backupFetchUrl);
+        logger.info('CardsPage:getCards', 'Falling back to Backup API:', backupFetchUrl);
         try {
             const backupResponse = await fetch(backupFetchUrl);
             return await processResponse(backupResponse, 'Backup');
